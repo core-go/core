@@ -1,5 +1,7 @@
 package service
 
+import "context"
+
 type IdGenerator interface {
-	Generate(model interface{}) (int, error)
+	Generate(ctx context.Context, model interface{}) (int, error)
 }

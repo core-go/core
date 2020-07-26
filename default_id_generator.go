@@ -1,26 +1,27 @@
 package service
 
 import (
+	"context"
 	"reflect"
 	"strings"
 )
 
 type DefaultIdGenerator struct {
+	Generator UniqueIdGenerator
 	idTogether bool
-	shortId    bool
+	emptyOnly bool
 }
 
-func NewDefaultIdGenerator() *DefaultIdGenerator {
-	generator := DefaultIdGenerator{true, true}
-	return &generator
+func NewDefaultIdGenerator(generator UniqueIdGenerator) *DefaultIdGenerator {
+	return NewIdGenerator(generator, true, true)
 }
 
-func NewIdGenerator(idTogether bool, emptyOnly bool, shortId bool) *DefaultIdGenerator {
-	generator := DefaultIdGenerator{idTogether, shortId}
-	return &generator
+func NewIdGenerator(generator UniqueIdGenerator, idTogether bool, emptyOnly bool) *DefaultIdGenerator {
+	x := DefaultIdGenerator{Generator: generator, idTogether: idTogether, emptyOnly: emptyOnly}
+	return &x
 }
 
-func (s *DefaultIdGenerator) Generate(model interface{}) (int, error) {
+func (s *DefaultIdGenerator) Generate(ctx context.Context, model interface{}) (int, error) {
 	valueObject := reflect.Indirect(reflect.ValueOf(model))
 	if valueObject.Kind() == reflect.Ptr {
 		valueObject = reflect.Indirect(valueObject)
@@ -46,15 +47,9 @@ func (s *DefaultIdGenerator) Generate(model interface{}) (int, error) {
 				if idTags[0] == "manual" {
 					continue
 				}
-				var id string
-				if s.shortId == true {
-					shortId, err := ShortId()
-					if err != nil {
-						return 0, err
-					}
-					id = shortId
-				} else {
-					id = RandomId()
+				id, err := s.Generator.Generate(ctx)
+				if err != nil {
+					return 0, err
 				}
 
 				fieldName := reflect.Indirect(valueObject).FieldByName(field.Name)

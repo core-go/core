@@ -41,7 +41,7 @@ func NewModelBuilder(generator IdGenerator, modelType reflect.Type, createdByNam
 }
 
 func (c *DefaultModelBuilder) BuildToInsert(ctx context.Context, obj interface{}) interface{} {
-	if _, err := c.IdGenerator.Generate(obj); err != nil {
+	if _, err := c.IdGenerator.Generate(ctx, obj); err != nil {
 		panic("cannot generate Id")
 	}
 	valueModelObject := reflect.Indirect(reflect.ValueOf(obj))
