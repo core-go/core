@@ -7,20 +7,20 @@ import (
 )
 
 type DefaultUniqueValueBuilder struct {
-	Generator Generator
-	Loader    ValuesLoader
-	Name      string
-	Max       int
-	ShortId   bool
+	Generator   Generator
+	Loader      ValuesLoader
+	Name        string
+	Max         int
+	IdGenerator UniqueIdGenerator
 }
 
-func NewUniqueValueBuilder(generator Generator, loader ValuesLoader, name string, max int, shortId bool) *DefaultUniqueValueBuilder {
+func NewUniqueValueBuilder(generator Generator, loader ValuesLoader, name string, max int, idGenerator UniqueIdGenerator) *DefaultUniqueValueBuilder {
 	return &DefaultUniqueValueBuilder{
-		Generator: generator,
-		Loader:    loader,
-		Name:      name,
-		Max:       max,
-		ShortId:   shortId,
+		Generator:   generator,
+		Loader:      loader,
+		Name:        name,
+		Max:         max,
+		IdGenerator: idGenerator,
 	}
 }
 
@@ -68,14 +68,9 @@ func (b *DefaultUniqueValueBuilder) Build(ctx context.Context, model interface{}
 	} else {
 		var urlIdNeed = FindNotIn(urlIds, array20ItemPattern)
 		if urlIdNeed == "" {
-			var randomId = ""
-			if b.ShortId == false {
-				randomId = RandomId()
-			} else {
-				randomId, er3 = ShortId()
-				if er3 != nil {
-					return "", er3
-				}
+			randomId, er4 := b.IdGenerator.Generate(ctx)
+			if er4 != nil {
+				return "", er4
 			}
 			finalUrlId = preUrlId + "-" + randomId
 		} else {
