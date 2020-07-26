@@ -1,10 +1,10 @@
 package service
 
-type StatusCode int
+type Status int
 
 const (
-	StatusDataNotFoundError = StatusCode(0)
-	StatusSuccess           = StatusCode(1)
-	StatusError             = StatusCode(2)
-	StatusDataVersionError  = StatusCode(4)
+	StatusNotFound     = Status(0)
+	StatusSuccess      = Status(1)
+	StatusVersionError = Status(2)
+	StatusError        = Status(4)
 )
