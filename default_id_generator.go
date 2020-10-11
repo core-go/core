@@ -36,41 +36,39 @@ func (s *DefaultIdGenerator) Generate(ctx context.Context, model interface{}) (i
 		ormTag := field.Tag.Get("gorm")
 		tags := strings.Split(ormTag, ";")
 		bool := havePrimaryKeySql(tags)
-		if bool == false {
-			bsonTag := field.Tag.Get("bson")
-			tags := strings.Split(bsonTag, ",")
-			bool := havePrimaryKeyMongo(tags)
-			if bool {
-				startPrimaryKey = i
-				idTag := field.Tag.Get("id")
-				idTags := strings.Split(idTag, ";")
-				if idTags[0] == "manual" {
-					continue
-				}
-				id, err := s.Generator.Generate(ctx)
-				if err != nil {
-					return 0, err
-				}
 
-				fieldName := reflect.Indirect(valueObject).FieldByName(field.Name)
-				if fieldName.Kind() == reflect.Ptr {
-					SetValue(model, i, &id)
-					idFields = append(idFields, id)
-				} else {
-					SetValue(model, i, id)
-					idFields = append(idFields, id)
-				}
+		bsonTag := field.Tag.Get("bson")
+		bsonTags := strings.Split(bsonTag, ",")
+		boolMongo := havePrimaryKeyMongo(bsonTags)
+		if boolMongo || bool {
+			startPrimaryKey = i
+			idTag := field.Tag.Get("id")
+			idTags := strings.Split(idTag, ";")
+			if idTags[0] == "manual" {
+				continue
+			}
+			id, err := s.Generator.Generate(ctx)
+			if err != nil {
+				return 0, err
+			}
+
+			fieldName := reflect.Indirect(valueObject).FieldByName(field.Name)
+			if fieldName.Kind() == reflect.Ptr {
+				SetValue(model, i, &id)
+				idFields = append(idFields, id)
 			} else {
-				if s.idTogether && startPrimaryKey > -1 {
-					break
-				}
+				SetValue(model, i, id)
+				idFields = append(idFields, id)
+			}
+		} else {
+			if s.idTogether && startPrimaryKey > -1 {
+				break
 			}
 		}
 
 	}
 	return len(idFields), nil
 }
-
 func havePrimaryKeySql(tags []string) bool {
 	for _, tag := range tags {
 		if strings.Compare(strings.TrimSpace(tag), "primary_key") == 0 {

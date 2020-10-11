@@ -2,8 +2,6 @@ package service
 
 import (
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/teris-io/shortid"
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
@@ -12,19 +10,6 @@ import (
 	"strings"
 	"unicode"
 )
-
-func ShortId() (string, error) {
-	sid, err := shortid.New(1, shortid.DefaultABC, 2342)
-	if err != nil {
-		return "", err
-	}
-	return sid.Generate()
-}
-
-func RandomId() string {
-	id := uuid.New()
-	return strings.Replace(id.String(), "-", "", -1)
-}
 
 func IsPointer(s interface{}) int {
 	if reflect.ValueOf(s).Kind() == reflect.Ptr {
