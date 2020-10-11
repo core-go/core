@@ -1,12 +1,22 @@
 package service
 
-import "strings"
+import (
+	"sort"
+	"strings"
+)
 
 func Include(vs []string, v string) bool {
 	for _, s := range vs {
 		if v == s {
 			return true
 		}
+	}
+	return false
+}
+func IncludeOfSort(vs []string, v string) bool {
+	i := sort.SearchStrings(vs, v)
+	if i >= 0 && vs[i] == v {
+		return true
 	}
 	return false
 }
