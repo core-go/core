@@ -5,8 +5,12 @@ import (
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
+	"math"
+	"math/rand"
 	"reflect"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -82,4 +86,52 @@ func RemoveAccents(s string) string {
 		panic(e)
 	}
 	return output
+}
+
+// Left left-pads the string with pad up to len runes
+// len may be exceeded if
+func PadLeft(str string, length int, pad string) string {
+	return strings.Repeat(pad, length-len(str)) + str
+}
+func PadRight(str string, length int, pad string) string {
+	return str + strings.Repeat(pad, length-len(str))
+}
+func Generate(length int) string {
+	max := int(math.Pow(float64(10), float64(length))) - 1
+	return PadLeft(strconv.Itoa(rand.Intn(max)), length, "0")
+}
+
+func Include(vs []string, v string) bool {
+	for _, s := range vs {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+func IncludeOfSort(vs []string, v string) bool {
+	i := sort.SearchStrings(vs, v)
+	if i >= 0 && vs[i] == v {
+		return true
+	}
+	return false
+}
+func ValueOf(m interface{}, path string) interface{} {
+	arr := strings.Split(path, ".")
+	i := 0
+	var c interface{}
+	c = m
+	l1 := len(arr) - 1
+	for i < len(arr) {
+		key := arr[i]
+		m2, ok := c.(map[string]interface{})
+		if ok {
+			c = m2[key]
+		}
+		if !ok || i >= l1 {
+			return c
+		}
+		i++
+	}
+	return c
 }
