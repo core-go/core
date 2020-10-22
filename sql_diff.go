@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -95,7 +96,14 @@ func (c SqlDiffListReader) DiffOfList(ctx context.Context, ids interface{}) (*[]
 }
 
 func getColumns(config DiffConfig) []string {
-	return []string{config.Id, config.Origin, config.Value}
+	v := reflect.ValueOf(config)
+	values := make([]string, 0)
+	for i := 0; i < v.NumField(); i++ {
+		if v.Field(i).String() != "" {
+			values = append(values, v.Field(i).String())
+		}
+	}
+	return values
 }
 
 func (r SqlDiffReader) GetEntityById(key interface{}, idNames []string) (interface{}, error) {
@@ -128,8 +136,11 @@ func BuildQueryColumn(config DiffConfig) string {
 	columns := getColumns(config)
 	sqlsel := make([]string, 0)
 	colDiffModel := GetColumnNameDiffModel()
+	n := len(colDiffModel)
 	for i, column := range columns {
-		sqlsel = append(sqlsel, column+" as "+colDiffModel[i])
+		if i < n {
+			sqlsel = append(sqlsel, column+" as "+colDiffModel[i])
+		}
 	}
 	return strings.Join(sqlsel, ",")
 }
@@ -227,14 +238,9 @@ func SqlQueryOne(db *sql.DB, result *DiffModel, sql string, values ...interface{
 	types, _ := rows.ColumnTypes()
 	sizeCol := len(cols)
 	for rows.Next() {
-		vals := createColumnType(types, sizeCol)
+		vals := createValuesByType(types, sizeCol)
 		err := rows.Scan(vals...)
-		if len(vals) != 3 {
-			return errors.New("Error scan get value column not enough colum = 3.")
-		}
-		result.Id = vals[0]
-		result.Origin = vals[1]
-		result.Value = vals[2]
+		mapToModel(vals, result)
 		return err
 	}
 	// If the database is being written to ensure to check for Close
@@ -251,13 +257,35 @@ func SqlQueryOne(db *sql.DB, result *DiffModel, sql string, values ...interface{
 	return nil
 }
 
-func createColumnType(types []*sql.ColumnType, sizeCol int) []interface{} {
+func mapToModel(vals []interface{}, result *DiffModel) {
+	result.Id = vals[0]
+	n := len(vals)
+	origin, _ := convertStringToMap(vals[1].(*string))
+	value, _ := convertStringToMap(vals[2].(*string))
+	result.Origin = origin
+	result.Value = value
+	if n > 3 && vals[3] != nil {
+		result.By = vals[3].(string)
+	}
+}
+
+func createValuesByType(types []*sql.ColumnType, sizeCol int) []interface{} {
 	vals := make([]interface{}, sizeCol)
 	for i := range types {
 		//TODO check add type if any type another
 		vals[i] = new(string)
 	}
 	return vals
+}
+
+func convertStringToMap(str *string) (*map[string]interface{}, error) {
+	reader := strings.NewReader(*str)
+	var p map[string]interface{}
+	err := json.NewDecoder(reader).Decode(&p)
+	if err != nil {
+		return &p, err
+	}
+	return &p, err
 }
 
 func SqlQuery(db *sql.DB, results *[]DiffModel, sql string, values ...interface{}) error {
@@ -274,17 +302,12 @@ func SqlQuery(db *sql.DB, results *[]DiffModel, sql string, values ...interface{
 	sizeCol := len(cols)
 	for rows.Next() {
 		result := DiffModel{}
-		vals := createColumnType(types, sizeCol)
+		vals := createValuesByType(types, sizeCol)
 		err := rows.Scan(vals...)
 		if err != nil {
 			return err
 		}
-		if len(vals) != 3 {
-			return errors.New("Error scan get value column not enough colum = 3.")
-		}
-		result.Id = vals[0]
-		result.Origin = vals[1]
-		result.Value = vals[2]
+		mapToModel(vals, &result)
 		*results = append(*results, result)
 	}
 	// If the database is being written to ensure to check for Close
