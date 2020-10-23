@@ -107,12 +107,14 @@ func getColumns(config DiffConfig) []string {
 }
 
 func (r SqlDiffReader) GetEntityById(key interface{}, idNames []string) (interface{}, error) {
+	var saveValueId interface{}
 	if keyMap, ok := key.(map[string]interface{}); ok {
 		entityId := r.KeyBuilder.BuildKeyFromMap(keyMap, idNames)
 		if entityId == "" {
 			return nil, errors.New("failed to build key")
 		}
 		key = entityId
+		saveValueId = keyMap
 	}
 	result := DiffModel{}
 	columnSelect := BuildQueryColumn(r.Config)
@@ -120,6 +122,9 @@ func (r SqlDiffReader) GetEntityById(key interface{}, idNames []string) (interfa
 	err := SqlQueryOne(r.DB, &result, querySql, key, r.Table)
 	if err != nil {
 		return nil, err
+	}
+	if saveValueId != nil && len(idNames) > 1 {
+		result.Id = saveValueId
 	}
 	return &result, nil
 }
@@ -159,6 +164,7 @@ func GetColumnNameDiffModel() []string {
 func (c SqlDiffListReader) getEntityByIds(keyBuilder KeyBuilder, keys interface{}, idNames []string) (interface{}, error) {
 	arrayKeys := make([]interface{}, 0)
 	args := make([]interface{}, 0)
+	listIds := make(map[string]interface{}, 0)
 	if keys != nil {
 		keysInterface := reflect.Indirect(reflect.ValueOf(keys))
 		n := keysInterface.Len()
@@ -166,6 +172,7 @@ func (c SqlDiffListReader) getEntityByIds(keyBuilder KeyBuilder, keys interface{
 			for i := 0; i < n; i++ {
 				itemStruct := keysInterface.Index(i).Interface()
 				entityId := keyBuilder.BuildKey(itemStruct)
+				listIds[entityId] = itemStruct
 				if entityId == "" {
 					return nil, errors.New("failed to build key")
 				}
@@ -190,6 +197,13 @@ func (c SqlDiffListReader) getEntityByIds(keyBuilder KeyBuilder, keys interface{
 	columnSelect := BuildQueryColumn(c.Config)
 	querySql := fmt.Sprintf("select %s from %s where %s IN (%s) and entitytablename = ?", columnSelect, c.Entity, c.Config.Id, BuildSqlParameters(n))
 	err := SqlQuery(c.DB, &results, querySql, args...)
+	// map object id
+	for i, result := range results {
+		id := result.Id.(*string)
+		if idObject, ok := listIds[*id]; ok {
+			results[i].Id = idObject
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -236,8 +250,8 @@ func SqlQueryOne(db *sql.DB, result *DiffModel, sql string, values ...interface{
 		return err
 	}
 	types, _ := rows.ColumnTypes()
-	sizeCol := len(cols)
 	for rows.Next() {
+		sizeCol := len(cols)
 		vals := createValuesByType(types, sizeCol)
 		err := rows.Scan(vals...)
 		mapToModel(vals, result)
@@ -254,7 +268,7 @@ func SqlQueryOne(db *sql.DB, result *DiffModel, sql string, values ...interface{
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	return nil
+	return errors.New("NotFound Item.")
 }
 
 func mapToModel(vals []interface{}, result *DiffModel) {
@@ -371,4 +385,24 @@ func GetColumnNameByIndex(ModelType reflect.Type, index int) (col string, colExi
 		}
 	}
 	return "", false
+}
+
+func GetListFieldsTagJson(modelType reflect.Type) []string {
+	numField := modelType.NumField()
+	var idFields []string
+	for i := 0; i < numField; i++ {
+		field := modelType.Field(i)
+		ormTag := field.Tag.Get("gorm")
+		tags := strings.Split(ormTag, ";")
+		for _, tag := range tags {
+			if strings.Compare(strings.TrimSpace(tag), "primary_key") == 0 {
+				jsonTag := field.Tag.Get("json")
+				tags1 := strings.Split(jsonTag, ",")
+				if len(tags1) > 0 && tags1[0] != "-" {
+					idFields = append(idFields, tags1[0])
+				}
+			}
+		}
+	}
+	return idFields
 }
