@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
@@ -134,4 +135,15 @@ func ValueOf(m interface{}, path string) interface{} {
 		i++
 	}
 	return c
+}
+func Marshal(v interface{}) ([]byte, error) {
+	b, ok1 := v.([]byte)
+	if ok1 {
+		return b, nil
+	}
+	s, ok2 := v.(string)
+	if ok2 {
+		return []byte(s), nil
+	}
+	return json.Marshal(v)
 }
