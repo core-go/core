@@ -130,7 +130,7 @@ func StructScan(s interface{}, indexColumns []int) (r []interface{}) {
 
 func getColumnIndexes(modelType reflect.Type, columnsName []string) (indexes []int, err error) {
 	if modelType.Kind() != reflect.Struct {
-		return nil, errors.New("Bad Type")
+		return nil, errors.New("bad type")
 	}
 	for i := 0; i < modelType.NumField(); i++ {
 		field := modelType.Field(i)
