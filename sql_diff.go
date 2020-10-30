@@ -8,10 +8,15 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
+)
+
+const (
+	FormatDate = "2006-01-02 15:04:05"
 )
 
 type HistoryWriter interface {
-	Write(ctx context.Context, id interface{}, diff DiffModel, approvedBy string)
+	Write(ctx context.Context, id interface{}, diff DiffModel, approvedBy string) error
 }
 type KeyBuilder interface {
 	BuildKey(object interface{}) string
@@ -50,6 +55,7 @@ type SqlHistoryWriter struct {
 	IdNames    []string
 	Config     DiffConfig
 	KeyBuilder KeyBuilder
+	Generator  UniqueIdGenerator
 }
 
 func NewSqlDiffReader(DB *sql.DB, table string, entity string, idNames []string, config DiffConfig, keyBuilder KeyBuilder) *SqlDiffReader {
@@ -58,6 +64,10 @@ func NewSqlDiffReader(DB *sql.DB, table string, entity string, idNames []string,
 
 func NewSqlDiffListReader(DB *sql.DB, table string, tableEntity string, idNames []string, config DiffConfig, keyBuilder KeyBuilder) *SqlDiffListReader {
 	return &SqlDiffListReader{DB, table, tableEntity, idNames, getDefaultConfig(config), keyBuilder}
+}
+
+func NewSqlHistoryWriter(DB *sql.DB, table string, entity string, idNames []string, config DiffConfig, keyBuilder KeyBuilder, generator UniqueIdGenerator) *SqlHistoryWriter {
+	return &SqlHistoryWriter{DB, table, entity, idNames, getDefaultConfig(config), keyBuilder, generator}
 }
 
 func getDefaultConfig(config DiffConfig) DiffConfig {
@@ -71,6 +81,84 @@ func getDefaultConfig(config DiffConfig) DiffConfig {
 		config.Value = "value"
 	}
 	return config
+}
+
+func (r SqlHistoryWriter) Write(ctx context.Context, id interface{}, diff DiffModel, approvedBy string) error {
+	entityID := ""
+	dt := time.Now()
+	updateTime := dt.Format(FormatDate)
+
+	if len(r.IdNames) == 1 {
+		entityID = r.IdNames[0]
+	} else {
+		if v, ok := id.(string); ok {
+			entityID = r.KeyBuilder.BuildKey(v)
+		}
+		if v, ok := id.(int); ok {
+			entityID = r.KeyBuilder.BuildKey(v)
+		}
+		if v, ok := id.(map[string]interface{}); ok {
+			entityID = r.KeyBuilder.BuildKeyFromMap(v, r.IdNames)
+		}
+	}
+	sqlVar := []interface{}{}
+	strSQL := ""
+	sqlParam := ""
+	strSQL += "entitytablename, "
+	sqlParam += "?,"
+	sqlVar = append(sqlVar, r.Entity)
+	if len(r.Config.ApprovedBy) > 1 {
+		strSQL += r.Config.ApprovedBy + `, `
+		sqlVar = append(sqlVar, approvedBy)
+		sqlParam += "?,"
+	}
+	if len(r.Config.HistoryId) > 1 {
+		if r.Generator != nil {
+			historyID, err := r.Generator.Generate(ctx)
+			if err != nil {
+				return err
+			}
+			strSQL += r.Config.HistoryId + `, `
+			sqlVar = append(sqlVar, historyID)
+			sqlParam += "?,"
+		}
+	}
+	if len(r.Config.Timestamp) > 1 {
+		strSQL += r.Config.Timestamp + `, `
+		sqlVar = append(sqlVar, updateTime)
+		sqlParam += "?,"
+	}
+	if len(r.Config.Value) > 1 {
+		strSQL += r.Config.Value + `, `
+		str := fmt.Sprintf("%v", diff.Value)
+		sqlVar = append(sqlVar, str)
+		sqlParam += "?,"
+	}
+	if len(r.Config.Origin) > 1 {
+		strSQL += r.Config.Origin + `, `
+		str := fmt.Sprintf("%v", diff.Origin)
+		sqlVar = append(sqlVar, str)
+		sqlParam += "?,"
+	}
+	if len(r.Config.Id) > 1 {
+		strSQL += r.Config.Id + `, `
+		sqlVar = append(sqlVar, entityID)
+		sqlParam += "?,"
+	}
+	if len(r.Config.ChangedBy) > 1 {
+		strSQL += r.Config.ChangedBy + `, `
+		sqlVar = append(sqlVar, diff.By)
+		sqlParam += "?,"
+	}
+	strSQL = strings.TrimRight(strSQL, ", ")
+	sqlParam = strings.TrimRight(sqlParam, ", ")
+	query := `INSERT INTO ` + r.Table + `(` + strSQL + `) 
+		VALUES (` + sqlParam + `)`
+	_, err := r.DB.Exec(query, sqlVar...)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r SqlDiffReader) Diff(ctx context.Context, id interface{}) (*DiffModel, error) {
