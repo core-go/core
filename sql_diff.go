@@ -172,7 +172,7 @@ func (r SqlDiffReader) Diff(ctx context.Context, id interface{}) (*DiffModel, er
 	return nil, nil
 }
 
-func (c SqlDiffListReader) DiffOfList(ctx context.Context, ids interface{}) (*[]DiffModel, error) {
+func (c SqlDiffListReader) Diff(ctx context.Context, ids interface{}) (*[]DiffModel, error) {
 	i, err := c.getEntityByIds(c.KeyBuilder, ids, c.IdNames)
 	if err != nil {
 		return nil, err

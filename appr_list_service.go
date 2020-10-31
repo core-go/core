@@ -3,6 +3,6 @@ package service
 import "context"
 
 type ApprListService interface {
-	ApproveList(ctx context.Context, ids interface{}) (Status, error)
-	RejectList(ctx context.Context, ids interface{}) (Status, error)
+	Approve(ctx context.Context, ids interface{}) (Status, error)
+	Reject(ctx context.Context, ids interface{}) (Status, error)
 }
