@@ -49,7 +49,7 @@ type SqlDiffListReader struct {
 	KeyBuilder KeyBuilder
 }
 type SqlHistoryWriter struct {
-	DB         *sql.DB
+	// DB         *sql.DB
 	Table      string
 	Entity     string
 	IdNames    []string
@@ -66,8 +66,8 @@ func NewSqlDiffListReader(DB *sql.DB, table string, tableEntity string, idNames 
 	return &SqlDiffListReader{DB, table, tableEntity, idNames, getDefaultConfig(config), keyBuilder}
 }
 
-func NewSqlHistoryWriter(DB *sql.DB, table string, entity string, idNames []string, config DiffConfig, keyBuilder KeyBuilder, generator UniqueIdGenerator) *SqlHistoryWriter {
-	return &SqlHistoryWriter{DB, table, entity, idNames, getDefaultConfig(config), keyBuilder, generator}
+func NewSqlHistoryWriter(table string, entity string, idNames []string, config DiffConfig, keyBuilder KeyBuilder, generator UniqueIdGenerator) *SqlHistoryWriter {
+	return &SqlHistoryWriter{table, entity, idNames, getDefaultConfig(config), keyBuilder, generator}
 }
 
 func getDefaultConfig(config DiffConfig) DiffConfig {
@@ -83,7 +83,7 @@ func getDefaultConfig(config DiffConfig) DiffConfig {
 	return config
 }
 
-func (r SqlHistoryWriter) Write(ctx context.Context, id interface{}, diff DiffModel, approvedBy string) error {
+func (r SqlHistoryWriter) Write(ctx context.Context, db *sql.DB, id interface{}, diff DiffModel, approvedBy string) error {
 	entityID := ""
 	dt := time.Now()
 	updateTime := dt.Format(FormatDate)
@@ -101,7 +101,7 @@ func (r SqlHistoryWriter) Write(ctx context.Context, id interface{}, diff DiffMo
 			entityID = r.KeyBuilder.BuildKeyFromMap(v, r.IdNames)
 		}
 	}
-	sqlVar := []interface{}{}
+	var sqlVar []interface{}
 	strSQL := ""
 	sqlParam := ""
 	strSQL += "entitytablename, "
@@ -154,7 +154,7 @@ func (r SqlHistoryWriter) Write(ctx context.Context, id interface{}, diff DiffMo
 	sqlParam = strings.TrimRight(sqlParam, ", ")
 	query := `INSERT INTO ` + r.Table + `(` + strSQL + `) 
 		VALUES (` + sqlParam + `)`
-	_, err := r.DB.Exec(query, sqlVar...)
+	_, err := db.Exec(query, sqlVar...)
 	if err != nil {
 		return err
 	}

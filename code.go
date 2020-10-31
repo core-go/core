@@ -11,19 +11,20 @@ import (
 
 type CodeModel struct {
 	Code     string `mapstructure:"code" json:"code,omitempty" gorm:"column:code" bson:"code,omitempty" dynamodbav:"code,omitempty" firestore:"code,omitempty"`
-	Text     string `mapstructure:"text" json:"text,omitempty" gorm:"column:text" bson:"text,omitempty" dynamodbav:"text,omitempty" firestore:"text,omitempty"`
-	Name     string `mapstructure:"name" json:"name,omitempty" gorm:"column:name" bson:"name,omitempty" dynamodbav:"name,omitempty" firestore:"name,omitempty"`
 	Value    string `mapstructure:"value" json:"value,omitempty" gorm:"column:value" bson:"value,omitempty" dynamodbav:"value,omitempty" firestore:"value,omitempty"`
+	Name     string `mapstructure:"name" json:"name,omitempty" gorm:"column:name" bson:"name,omitempty" dynamodbav:"name,omitempty" firestore:"name,omitempty"`
+	Text     string `mapstructure:"text" json:"text,omitempty" gorm:"column:text" bson:"text,omitempty" dynamodbav:"text,omitempty" firestore:"text,omitempty"`
 	Sequence int32  `mapstructure:"sequence" json:"sequence,omitempty" gorm:"column:sequence" bson:"sequence,omitempty" dynamodbav:"sequence,omitempty" firestore:"sequence,omitempty"`
 }
 type CodeConfig struct {
-	Master   string `mapstructure:"master" json:"master,omitempty" gorm:"column:master" bson:"master,omitempty" dynamodbav:"master,omitempty" firestore:"master,omitempty"`
-	Code     string `mapstructure:"code" json:"code,omitempty" gorm:"column:code" bson:"code,omitempty" dynamodbav:"code,omitempty" firestore:"code,omitempty"`
-	Text     string `mapstructure:"text" json:"text,omitempty" gorm:"column:text" bson:"text,omitempty" dynamodbav:"text,omitempty" firestore:"text,omitempty"`
-	Name     string `mapstructure:"name" json:"name,omitempty" gorm:"column:name" bson:"name,omitempty" dynamodbav:"name,omitempty" firestore:"name,omitempty"`
-	Value    string `mapstructure:"value" json:"value,omitempty" gorm:"column:value" bson:"value,omitempty" dynamodbav:"value,omitempty" firestore:"value,omitempty"`
-	Sequence string `mapstructure:"sequence" json:"sequence,omitempty" gorm:"column:sequence" bson:"sequence,omitempty" dynamodbav:"sequence,omitempty" firestore:"sequence,omitempty"`
-	Active   string `mapstructure:"active" json:"active,omitempty" gorm:"column:active" bson:"active,omitempty" dynamodbav:"active,omitempty" firestore:"active,omitempty"`
+	Master   string      `mapstructure:"master" json:"master,omitempty" gorm:"column:master" bson:"master,omitempty" dynamodbav:"master,omitempty" firestore:"master,omitempty"`
+	Code     string      `mapstructure:"code" json:"code,omitempty" gorm:"column:code" bson:"code,omitempty" dynamodbav:"code,omitempty" firestore:"code,omitempty"`
+	Text     string      `mapstructure:"text" json:"text,omitempty" gorm:"column:text" bson:"text,omitempty" dynamodbav:"text,omitempty" firestore:"text,omitempty"`
+	Name     string      `mapstructure:"name" json:"name,omitempty" gorm:"column:name" bson:"name,omitempty" dynamodbav:"name,omitempty" firestore:"name,omitempty"`
+	Value    string      `mapstructure:"value" json:"value,omitempty" gorm:"column:value" bson:"value,omitempty" dynamodbav:"value,omitempty" firestore:"value,omitempty"`
+	Sequence string      `mapstructure:"sequence" json:"sequence,omitempty" gorm:"column:sequence" bson:"sequence,omitempty" dynamodbav:"sequence,omitempty" firestore:"sequence,omitempty"`
+	Status   string      `mapstructure:"status" json:"status,omitempty" gorm:"column:status" bson:"status,omitempty" dynamodbav:"status,omitempty" firestore:"status,omitempty"`
+	Active   interface{} `mapstructure:"active" json:"active,omitempty" gorm:"column:active" bson:"active,omitempty" dynamodbav:"active,omitempty" firestore:"active,omitempty"`
 }
 type CodeLoader interface {
 	Load(ctx context.Context, master string) ([]CodeModel, error)
@@ -45,26 +46,24 @@ func (l SqlCodeLoader) Load(ctx context.Context, master string) ([]CodeModel, er
 	sql2 := ""
 
 	c := l.Config
-	if len(c.Code) > 0 {
-		sf := fmt.Sprintf("%s as code", c.Code)
+	if len(c.Value) > 0 {
+		sf := fmt.Sprintf("%s as value", c.Value)
 		s = append(s, sf)
 	}
-	if len(c.Text) > 0 {
-		sf := fmt.Sprintf("%s as text", c.Text)
+	if len(c.Code) > 0 {
+		sf := fmt.Sprintf("%s as code", c.Code)
 		s = append(s, sf)
 	}
 	if len(c.Name) > 0 {
 		sf := fmt.Sprintf("%s as name", c.Name)
 		s = append(s, sf)
 	}
-	if len(c.Value) > 0 {
-		sf := fmt.Sprintf("%s as value", c.Value)
+	if len(c.Text) > 0 {
+		sf := fmt.Sprintf("%s as text", c.Text)
 		s = append(s, sf)
 	}
 	osequence := ""
 	if len(c.Sequence) > 0 {
-		sf := fmt.Sprintf("%s as sequence", c.Sequence)
-		s = append(s, sf)
 		osequence = fmt.Sprintf("order by %s", c.Sequence)
 	}
 	p1 := ""
@@ -75,14 +74,14 @@ func (l SqlCodeLoader) Load(ctx context.Context, master string) ([]CodeModel, er
 	}
 	values = append(values, master)
 	cols := strings.Join(s, ",")
-	if len(c.Active) > 0 {
+	if len(c.Status) > 0 && c.Active != nil {
 		p2 := ""
 		if !l.QuestionParam {
-			p2 = fmt.Sprintf("and %s = $2", c.Active)
+			p2 = fmt.Sprintf("and %s = $2", c.Status)
 		} else {
-			p2 = fmt.Sprintf("and %s = ?", c.Active)
+			p2 = fmt.Sprintf("and %s = ?", c.Status)
 		}
-		values = append(values, true)
+		values = append(values, c.Active)
 		if cols == "" {
 			cols = "*"
 		}
