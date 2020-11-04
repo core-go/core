@@ -7,36 +7,41 @@ import (
 )
 
 type CodeHandler struct {
-	Loader    CodeLoader
-	Resource  string
-	Action    string
-	LogWriter LogWriter
+	Loader         CodeLoader
+	Resource       string
+	Action         string
+	RequiredMaster bool
+	LogWriter      LogWriter
 }
-
-func NewCodeHandler(loader CodeLoader, resource string, action string, logWriter LogWriter) *CodeHandler {
+func NewDefaultCodeHandler(loader CodeLoader, resource string, action string, logWriter LogWriter) *CodeHandler {
+	return NewCodeHandler(loader, resource, action, true, logWriter)
+}
+func NewCodeHandler(loader CodeLoader, resource string, action string, requiredMaster bool, logWriter LogWriter) *CodeHandler {
 	if len(resource) == 0 {
 		resource = "code"
 	}
 	if len(action) == 0 {
 		action = "load"
 	}
-	h := CodeHandler{Loader: loader, Resource: resource, Action: action, LogWriter: logWriter}
+	h := CodeHandler{Loader: loader, Resource: resource, Action: action, RequiredMaster: requiredMaster, LogWriter: logWriter}
 	return &h
 }
 func (c *CodeHandler) Load(w http.ResponseWriter, r *http.Request) {
 	code := ""
-	if r.Method == "GET" {
-		i := strings.LastIndex(r.RequestURI, "/")
-		if i >= 0 {
-			code = r.RequestURI[i+1:]
+	if c.RequiredMaster {
+		if r.Method == "GET" {
+			i := strings.LastIndex(r.RequestURI, "/")
+			if i >= 0 {
+				code = r.RequestURI[i+1:]
+			}
+		} else {
+			b, er1 := ioutil.ReadAll(r.Body)
+			if er1 != nil {
+				RespondString(w, r, http.StatusBadRequest, "Body cannot is empty")
+				return
+			}
+			code = strings.Trim(string(b), " ")
 		}
-	} else {
-		b, er1 := ioutil.ReadAll(r.Body)
-		if er1 != nil {
-			RespondString(w, r, http.StatusBadRequest, "Cannot get the body of 'Forgot Password'")
-			return
-		}
-		code = strings.Trim(string(b), " ")
 	}
 	result, er4 := c.Loader.Load(r.Context(), code)
 	if er4 != nil {
