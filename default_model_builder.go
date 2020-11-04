@@ -53,17 +53,20 @@ func (c *DefaultModelBuilder) BuildToInsert(ctx context.Context, obj interface{}
 		if c.createdByIndex >= 0 {
 			createdByField := reflect.Indirect(valueModelObject).Field(c.createdByIndex)
 			if createdByField.Kind() == reflect.Ptr {
-				createdByField = reflect.Indirect(createdByField)
+				createdByField.Set(reflect.ValueOf(&userId))
+			} else {
+				createdByField.Set(reflect.ValueOf(userId))
 			}
-			createdByField.Set(reflect.ValueOf(userId))
 		}
 
 		if c.createdAtIndex >= 0 {
 			createdAtField := reflect.Indirect(valueModelObject).Field(c.createdAtIndex)
+			t := time.Now()
 			if createdAtField.Kind() == reflect.Ptr {
-				createdAtField = reflect.Indirect(createdAtField)
+				createdAtField.Set(reflect.ValueOf(&t))
+			} else {
+				createdAtField.Set(reflect.ValueOf(t))
 			}
-			createdAtField.Set(reflect.ValueOf(time.Now()))
 		}
 	} else if valueModelObject.Kind() == reflect.Map {
 		var createdByTag, createdAtTag string
@@ -99,17 +102,21 @@ func (c *DefaultModelBuilder) BuildToUpdate(ctx context.Context, obj interface{}
 		if c.updatedByIndex >= 0 {
 			updatedByField := reflect.Indirect(valueModelObject).Field(c.updatedByIndex)
 			if updatedByField.Kind() == reflect.Ptr {
-				updatedByField = reflect.Indirect(updatedByField)
+				updatedByField.Set(reflect.ValueOf(&userId))
+			} else {
+				updatedByField.Set(reflect.ValueOf(userId))
 			}
-			updatedByField.Set(reflect.ValueOf(userId))
 		}
 
 		if c.updatedAtIndex >= 0 {
-			updatedAtField := reflect.Indirect(valueModelObject).Field(c.updatedAtIndex)
+			updatedAtField := valueModelObject.Field(c.updatedAtIndex)
+			t := time.Now()
 			if updatedAtField.Kind() == reflect.Ptr {
-				updatedAtField = reflect.Indirect(updatedAtField)
+				updatedAtField.Set(reflect.ValueOf(&t))
+				//updatedAtField = reflect.Indirect(updatedAtField)
+			} else {
+				updatedAtField.Set(reflect.ValueOf(t))
 			}
-			updatedAtField.Set(reflect.ValueOf(time.Now()))
 		}
 	} else if valueModelObject.Kind() == reflect.Map {
 		var updatedByTag, updatedAtTag string
