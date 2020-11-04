@@ -10,6 +10,7 @@ import (
 )
 
 type CodeModel struct {
+	Id       string `mapstructure:"id" json:"id,omitempty" gorm:"column:id" bson:"id,omitempty" dynamodbav:"id,omitempty" firestore:"id,omitempty"`
 	Code     string `mapstructure:"code" json:"code,omitempty" gorm:"column:code" bson:"code,omitempty" dynamodbav:"code,omitempty" firestore:"code,omitempty"`
 	Value    string `mapstructure:"value" json:"value,omitempty" gorm:"column:value" bson:"value,omitempty" dynamodbav:"value,omitempty" firestore:"value,omitempty"`
 	Name     string `mapstructure:"name" json:"name,omitempty" gorm:"column:name" bson:"name,omitempty" dynamodbav:"name,omitempty" firestore:"name,omitempty"`
@@ -18,6 +19,7 @@ type CodeModel struct {
 }
 type CodeConfig struct {
 	Master   string      `mapstructure:"master" json:"master,omitempty" gorm:"column:master" bson:"master,omitempty" dynamodbav:"master,omitempty" firestore:"master,omitempty"`
+	Id       string      `mapstructure:"id" json:"id,omitempty" gorm:"column:id" bson:"id,omitempty" dynamodbav:"id,omitempty" firestore:"id,omitempty"`
 	Code     string      `mapstructure:"code" json:"code,omitempty" gorm:"column:code" bson:"code,omitempty" dynamodbav:"code,omitempty" firestore:"code,omitempty"`
 	Text     string      `mapstructure:"text" json:"text,omitempty" gorm:"column:text" bson:"text,omitempty" dynamodbav:"text,omitempty" firestore:"text,omitempty"`
 	Name     string      `mapstructure:"name" json:"name,omitempty" gorm:"column:name" bson:"name,omitempty" dynamodbav:"name,omitempty" firestore:"name,omitempty"`
@@ -46,8 +48,8 @@ func (l SqlCodeLoader) Load(ctx context.Context, master string) ([]CodeModel, er
 	sql2 := ""
 
 	c := l.Config
-	if len(c.Value) > 0 {
-		sf := fmt.Sprintf("%s as value", c.Value)
+	if len(c.Id) > 0 {
+		sf := fmt.Sprintf("%s as id", c.Id)
 		s = append(s, sf)
 	}
 	if len(c.Code) > 0 {
@@ -56,6 +58,10 @@ func (l SqlCodeLoader) Load(ctx context.Context, master string) ([]CodeModel, er
 	}
 	if len(c.Name) > 0 {
 		sf := fmt.Sprintf("%s as name", c.Name)
+		s = append(s, sf)
+	}
+	if len(c.Value) > 0 {
+		sf := fmt.Sprintf("%s as value", c.Value)
 		s = append(s, sf)
 	}
 	if len(c.Text) > 0 {
@@ -67,30 +73,42 @@ func (l SqlCodeLoader) Load(ctx context.Context, master string) ([]CodeModel, er
 		osequence = fmt.Sprintf("order by %s", c.Sequence)
 	}
 	p1 := ""
-	if l.QuestionParam {
-		p1 = fmt.Sprintf("%s = ?", c.Master)
-	} else {
-		p1 = fmt.Sprintf("%s = $1", c.Master)
+	i := 1
+	if len(c.Master) > 0 {
+		i = i + 1
+		if l.QuestionParam {
+			p1 = fmt.Sprintf("%s = ?", c.Master)
+		} else {
+			p1 = fmt.Sprintf("%s = $1", c.Master)
+		}
+		values = append(values, master)
 	}
-	values = append(values, master)
 	cols := strings.Join(s, ",")
 	if len(c.Status) > 0 && c.Active != nil {
 		p2 := ""
 		if !l.QuestionParam {
-			p2 = fmt.Sprintf("and %s = $2", c.Status)
+			p2 = fmt.Sprintf("%s = $%d", c.Status, i)
 		} else {
-			p2 = fmt.Sprintf("and %s = ?", c.Status)
+			p2 = fmt.Sprintf("%s = ?", c.Status)
 		}
 		values = append(values, c.Active)
 		if cols == "" {
 			cols = "*"
 		}
-		sql2 = fmt.Sprintf("select %s from %s where %s %s %s", cols, l.Table, p1, p2, osequence)
+		if len(p1) > 0 {
+			sql2 = fmt.Sprintf("select %s from %s where %s and %s %s", cols, l.Table, p1, p2, osequence)
+		} else {
+			sql2 = fmt.Sprintf("select %s from %s where %s %s", cols, l.Table, p2, osequence)
+		}
 	} else {
 		if cols == "" {
 			cols = "*"
 		}
-		sql2 = fmt.Sprintf("select %s from %s where %s %s", cols, l.Table, p1, osequence)
+		if len(p1) > 0 {
+			sql2 = fmt.Sprintf("select %s from %s where %s %s", cols, l.Table, p1, osequence)
+		} else {
+			sql2 = fmt.Sprintf("select %s from %s %s", cols, l.Table, osequence)
+		}
 	}
 	if len(sql2) > 0 {
 		rows, err1 := l.DB.Query(sql2, values...)
@@ -98,14 +116,20 @@ func (l SqlCodeLoader) Load(ctx context.Context, master string) ([]CodeModel, er
 			return nil, err1
 		}
 		defer rows.Close()
-		columns, _ := rows.Columns()
+		columns, er1 := rows.Columns()
+		if er1 != nil {
+			return nil, er1
+		}
 		// get list indexes column
 		modelTypes := reflect.TypeOf(models).Elem()
 		modelType := reflect.TypeOf(CodeModel{})
-		indexes, _ := getColumnIndexes(modelType, columns)
-		tb, err2 := ScanType(rows, modelTypes, indexes)
-		if err2 != nil {
-			return nil, err2
+		indexes, er2 := getColumnIndexes(modelType, columns)
+		if er2 != nil {
+			return nil, er2
+		}
+		tb, er3 := ScanType(rows, modelTypes, indexes)
+		if er3 != nil {
+			return nil, er3
 		}
 		for _, v := range tb {
 			if c, ok := v.(*CodeModel); ok {
