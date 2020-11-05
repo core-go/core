@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -13,11 +14,12 @@ type ApprHandler struct {
 	ModelType   reflect.Type
 	IdNames     []string
 	Indexs      map[string]int
+	LogError    func(context.Context, string)
 	Offset      int
 	Resource    string
 }
 
-func NewApprHandler(apprService ApprService, modelType reflect.Type, logWriter LogWriter, idNames []string, resource string, option ...int) *ApprHandler {
+func NewApprHandler(apprService ApprService, modelType reflect.Type, logWriter LogWriter, idNames []string, resource string, logError func(context.Context, string), option ...int) *ApprHandler {
 	offset := 1
 	if len(option) == 1 {
 		offset = option[0]
@@ -26,7 +28,7 @@ func NewApprHandler(apprService ApprService, modelType reflect.Type, logWriter L
 		idNames = GetListFieldsTagJson(modelType)
 	}
 	indexs := GetIndexes(modelType)
-	return &ApprHandler{LogWriter: logWriter, ApprService: apprService, ModelType: modelType, IdNames: idNames, Indexs: indexs, Offset: offset, Resource: resource}
+	return &ApprHandler{LogWriter: logWriter, ApprService: apprService, ModelType: modelType, IdNames: idNames, Indexs: indexs, Offset: offset, Resource: resource, LogError: logError}
 }
 
 func (c *ApprHandler) newModel(body interface{}) (out interface{}) {
@@ -51,9 +53,9 @@ func (c *ApprHandler) Approve(w http.ResponseWriter, r *http.Request) {
 	} else {
 		result, err := c.ApprService.Approve(r.Context(), id)
 		if err != nil {
-			Respond(w, r, http.StatusInternalServerError, InternalServerError, c.LogWriter, c.Resource,  "Approve", false, err.Error())
+			Error(w, r, http.StatusInternalServerError, InternalServerError, c.LogError, c.Resource, "approve", err, c.LogWriter)
 		} else {
-			Succeed(w, r, http.StatusOK, result, c.LogWriter, c.Resource, "Approve")
+			Succeed(w, r, http.StatusOK, result, c.LogWriter, c.Resource, "approve")
 		}
 	}
 }
@@ -65,9 +67,9 @@ func (c *ApprHandler) Reject(w http.ResponseWriter, r *http.Request) {
 	} else {
 		result, err := c.ApprService.Reject(r.Context(), id)
 		if err != nil {
-			Respond(w, r, http.StatusInternalServerError, InternalServerError, c.LogWriter, c.Resource,  "Reject", false, err.Error())
+			Error(w, r, http.StatusInternalServerError, InternalServerError, c.LogError, c.Resource, "reject", err, c.LogWriter)
 		} else {
-			Succeed(w, r, http.StatusOK, result, c.LogWriter, c.Resource, "Reject")
+			Succeed(w, r, http.StatusOK, result, c.LogWriter, c.Resource, "reject")
 		}
 	}
 }

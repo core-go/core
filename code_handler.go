@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -11,19 +12,21 @@ type CodeHandler struct {
 	Resource       string
 	Action         string
 	RequiredMaster bool
+	LogError       func(context.Context, string)
 	LogWriter      LogWriter
 }
-func NewDefaultCodeHandler(loader CodeLoader, resource string, action string, logWriter LogWriter) *CodeHandler {
-	return NewCodeHandler(loader, resource, action, true, logWriter)
+
+func NewDefaultCodeHandler(loader CodeLoader, resource string, action string, logError func(context.Context, string), logWriter LogWriter) *CodeHandler {
+	return NewCodeHandler(loader, resource, action, true, logError, logWriter)
 }
-func NewCodeHandler(loader CodeLoader, resource string, action string, requiredMaster bool, logWriter LogWriter) *CodeHandler {
+func NewCodeHandler(loader CodeLoader, resource string, action string, requiredMaster bool, logError func(context.Context, string), logWriter LogWriter) *CodeHandler {
 	if len(resource) == 0 {
 		resource = "code"
 	}
 	if len(action) == 0 {
 		action = "load"
 	}
-	h := CodeHandler{Loader: loader, Resource: resource, Action: action, RequiredMaster: requiredMaster, LogWriter: logWriter}
+	h := CodeHandler{Loader: loader, Resource: resource, Action: action, RequiredMaster: requiredMaster, LogWriter: logWriter, LogError: logError}
 	return &h
 }
 func (c *CodeHandler) Load(w http.ResponseWriter, r *http.Request) {
@@ -45,8 +48,8 @@ func (c *CodeHandler) Load(w http.ResponseWriter, r *http.Request) {
 	}
 	result, er4 := c.Loader.Load(r.Context(), code)
 	if er4 != nil {
-		Respond(w, r, http.StatusInternalServerError, InternalServerError, c.LogWriter, c.Resource, c.Action, false, er4.Error())
+		Error(w, r, http.StatusInternalServerError, InternalServerError, c.LogError, c.Resource, c.Action, er4, c.LogWriter)
 	} else {
-		Respond(w, r, http.StatusOK, result, c.LogWriter, c.Resource, c.Action, true, "")
+		Succeed(w, r, http.StatusOK, result, c.LogWriter, c.Resource, c.Action)
 	}
 }

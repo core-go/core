@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"net/http"
 	"reflect"
 	"strings"
@@ -13,14 +14,16 @@ type DiffListHandler struct {
 	modelTypeId     reflect.Type
 	IdNames         []string
 	Resource        string
+	LogError        func(context.Context, string)
+	Config          *DiffModelConfig
 }
 
-func NewDiffListHandler(diffListService DiffListService, modelType reflect.Type, idNames []string, resource string, logWriter LogWriter) *DiffListHandler {
+func NewDiffListHandler(diffListService DiffListService, modelType reflect.Type, idNames []string, resource string, logWriter LogWriter, logError func(context.Context, string), config *DiffModelConfig) *DiffListHandler {
 	if len(idNames) == 0 {
 		idNames = GetListFieldsTagJson(modelType)
 	}
 	modelTypeId := newModelTypeID(modelType, idNames)
-	return &DiffListHandler{LogWriter: logWriter, DiffListService: diffListService, ModelType: modelType, modelTypeId: modelTypeId, IdNames: idNames, Resource: resource}
+	return &DiffListHandler{LogWriter: logWriter, DiffListService: diffListService, ModelType: modelType, modelTypeId: modelTypeId, IdNames: idNames, Resource: resource, Config: config, LogError: logError}
 }
 
 func (c *DiffListHandler) DiffList(w http.ResponseWriter, r *http.Request) {
@@ -28,11 +31,32 @@ func (c *DiffListHandler) DiffList(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	} else {
-		result, err := c.DiffListService.Diff(r.Context(), ids)
+		list, err := c.DiffListService.Diff(r.Context(), ids)
 		if err != nil {
-			Respond(w, r, http.StatusInternalServerError, InternalServerError, c.LogWriter, c.Resource, "Diff", false, err.Error())
+			Error(w, r, http.StatusInternalServerError, InternalServerError, c.LogError, c.Resource, "diff", err, c.LogWriter)
 		} else {
-			Succeed(w, r, http.StatusOK, result, c.LogWriter, c.Resource, "Diff")
+			if c.Config == nil || list == nil || len(*list) == 0 {
+				Succeed(w, r, http.StatusOK, list, c.LogWriter, c.Resource, "diff")
+			} else {
+				l := make([]map[string]interface{}, 0)
+				for _, result := range *list {
+					m := make(map[string]interface{})
+					if result.Id != nil {
+						m[c.Config.Id] = result.Id
+					}
+					if result.Origin != nil {
+						m[c.Config.Origin] = result.Origin
+					}
+					if result.Value != nil {
+						m[c.Config.Value] = result.Value
+					}
+					if len(result.By) > 0 {
+						m[c.Config.By] = result.By
+					}
+					l = append(l, m)
+				}
+				Succeed(w, r, http.StatusOK, l, c.LogWriter, c.Resource, "diff")
+			}
 		}
 	}
 }

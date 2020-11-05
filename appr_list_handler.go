@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"net/http"
 	"reflect"
 )
@@ -10,14 +11,15 @@ type ApprListHandler struct {
 	ApprListService ApprListService
 	ModelType       reflect.Type
 	IdNames         []string
+	LogError        func(context.Context, string)
 	Resource        string
 }
 
-func NewApprListHandler(apprListService ApprListService, modelType reflect.Type, logWriter LogWriter, idNames []string, resource string) *ApprListHandler {
+func NewApprListHandler(apprListService ApprListService, modelType reflect.Type, logWriter LogWriter, idNames []string, resource string, logError func(context.Context, string)) *ApprListHandler {
 	if len(idNames) == 0 {
 		idNames = GetListFieldsTagJson(modelType)
 	}
-	return &ApprListHandler{LogWriter: logWriter, ApprListService: apprListService, ModelType: modelType, IdNames: idNames, Resource: resource}
+	return &ApprListHandler{LogWriter: logWriter, ApprListService: apprListService, ModelType: modelType, IdNames: idNames, Resource: resource, LogError: logError}
 }
 
 func (c *ApprListHandler) Approve(w http.ResponseWriter, r *http.Request) {
@@ -27,9 +29,9 @@ func (c *ApprListHandler) Approve(w http.ResponseWriter, r *http.Request) {
 	} else {
 		result, err := c.ApprListService.Approve(r.Context(), ids)
 		if err != nil {
-			Respond(w, r, http.StatusInternalServerError, InternalServerError, c.LogWriter, c.Resource, "Approve", false, err.Error())
+			Error(w, r, http.StatusInternalServerError, InternalServerError, c.LogError, c.Resource, "approve", err, c.LogWriter)
 		} else {
-			Succeed(w, r, http.StatusOK, result, c.LogWriter, c.Resource, "Approve")
+			Succeed(w, r, http.StatusOK, result, c.LogWriter, c.Resource, "approve")
 		}
 	}
 }
@@ -41,9 +43,9 @@ func (c *ApprListHandler) Reject(w http.ResponseWriter, r *http.Request) {
 	} else {
 		result, err := c.ApprListService.Reject(r.Context(), ids)
 		if err != nil {
-			Respond(w, r, http.StatusInternalServerError, InternalServerError, c.LogWriter, c.Resource, "Reject", false, err.Error())
+			Error(w, r, http.StatusInternalServerError, InternalServerError, c.LogError, c.Resource, "reject", err, c.LogWriter)
 		} else {
-			Succeed(w, r, http.StatusOK, result, c.LogWriter, c.Resource, "Reject")
+			Succeed(w, r, http.StatusOK, result, c.LogWriter, c.Resource, "reject")
 		}
 	}
 }
