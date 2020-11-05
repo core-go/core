@@ -9,6 +9,8 @@ import (
 
 type DefaultModelBuilder struct {
 	IdGenerator    IdGenerator
+	Authorization  string
+	Key            string
 	modelType      reflect.Type
 	createdByName  string
 	createdAtName  string
@@ -20,7 +22,7 @@ type DefaultModelBuilder struct {
 	updatedAtIndex int
 }
 
-func NewModelBuilder(generator IdGenerator, modelType reflect.Type, createdByName, createdAtName, updatedByName, updatedAtName string) *DefaultModelBuilder {
+func NewModelBuilder(generator IdGenerator, modelType reflect.Type, authorization string, key string, createdByName, createdAtName, updatedByName, updatedAtName string) *DefaultModelBuilder {
 	createdByIndex := FindFieldIndex(modelType, createdByName)
 	createdAtIndex := FindFieldIndex(modelType, createdAtName)
 	updatedByIndex := FindFieldIndex(modelType, updatedByName)
@@ -28,6 +30,8 @@ func NewModelBuilder(generator IdGenerator, modelType reflect.Type, createdByNam
 
 	return &DefaultModelBuilder{
 		IdGenerator:    generator,
+		Authorization:  authorization,
+		Key:            key,
 		modelType:      modelType,
 		createdByName:  createdByName,
 		createdAtName:  createdAtName,
@@ -48,22 +52,25 @@ func (c *DefaultModelBuilder) BuildToInsert(ctx context.Context, obj interface{}
 	if valueModelObject.Kind() == reflect.Ptr {
 		valueModelObject = reflect.Indirect(valueModelObject)
 	}
-	userId := GetUserIdFromContext(ctx)
+	userId := FromContext(ctx, c.Authorization, c.Key)
 	if valueModelObject.Kind() == reflect.Struct {
 		if c.createdByIndex >= 0 {
 			createdByField := reflect.Indirect(valueModelObject).Field(c.createdByIndex)
 			if createdByField.Kind() == reflect.Ptr {
-				createdByField = reflect.Indirect(createdByField)
+				createdByField.Set(reflect.ValueOf(&userId))
+			} else {
+				createdByField.Set(reflect.ValueOf(userId))
 			}
-			createdByField.Set(reflect.ValueOf(userId))
 		}
 
 		if c.createdAtIndex >= 0 {
 			createdAtField := reflect.Indirect(valueModelObject).Field(c.createdAtIndex)
+			t := time.Now()
 			if createdAtField.Kind() == reflect.Ptr {
-				createdAtField = reflect.Indirect(createdAtField)
+				createdAtField.Set(reflect.ValueOf(&t))
+			} else {
+				createdAtField.Set(reflect.ValueOf(t))
 			}
-			createdAtField.Set(reflect.ValueOf(time.Now()))
 		}
 	} else if valueModelObject.Kind() == reflect.Map {
 		var createdByTag, createdAtTag string
@@ -94,22 +101,26 @@ func (c *DefaultModelBuilder) BuildToUpdate(ctx context.Context, obj interface{}
 	if valueModelObject.Kind() == reflect.Ptr {
 		valueModelObject = reflect.Indirect(valueModelObject)
 	}
-	userId := GetUserIdFromContext(ctx)
+	userId := FromContext(ctx, c.Authorization, c.Key)
 	if valueModelObject.Kind() == reflect.Struct {
 		if c.updatedByIndex >= 0 {
 			updatedByField := reflect.Indirect(valueModelObject).Field(c.updatedByIndex)
 			if updatedByField.Kind() == reflect.Ptr {
-				updatedByField = reflect.Indirect(updatedByField)
+				updatedByField.Set(reflect.ValueOf(&userId))
+			} else {
+				updatedByField.Set(reflect.ValueOf(userId))
 			}
-			updatedByField.Set(reflect.ValueOf(userId))
 		}
 
 		if c.updatedAtIndex >= 0 {
-			updatedAtField := reflect.Indirect(valueModelObject).Field(c.updatedAtIndex)
+			updatedAtField := valueModelObject.Field(c.updatedAtIndex)
+			t := time.Now()
 			if updatedAtField.Kind() == reflect.Ptr {
-				updatedAtField = reflect.Indirect(updatedAtField)
+				updatedAtField.Set(reflect.ValueOf(&t))
+				//updatedAtField = reflect.Indirect(updatedAtField)
+			} else {
+				updatedAtField.Set(reflect.ValueOf(t))
 			}
-			updatedAtField.Set(reflect.ValueOf(time.Now()))
 		}
 	} else if valueModelObject.Kind() == reflect.Map {
 		var updatedByTag, updatedAtTag string
@@ -142,43 +153,36 @@ func (c *DefaultModelBuilder) BuildToPatch(ctx context.Context, obj interface{})
 func (c *DefaultModelBuilder) BuildToSave(ctx context.Context, obj interface{}) interface{} {
 	return c.BuildToUpdate(ctx, obj)
 }
-
-func GetUserIdFromContext(ctx context.Context) string {
-	token := ctx.Value("authorization")
-	if authorizationToken, ok := token.(map[string]interface{}); ok {
-		u := authorizationToken["userId"]
-		if u != nil {
-			userId, _ := u.(string)
-			return userId
-		} else {
-			u = authorizationToken["userid"]
-			if u != nil {
-				userId, _ := u.(string)
-				return userId
-			} else {
-				u = authorizationToken["uid"]
-				userId, _ := u.(string)
-				return userId
+func FromContext(ctx context.Context, authorization string, key string) string {
+	if len(authorization) > 0 {
+		token := ctx.Value(authorization)
+		if token != nil {
+			if authorizationToken, exist := token.(map[string]interface{}); exist {
+				return FromMap(key, authorizationToken)
 			}
 		}
-		return GetUserNameFromToken(authorizationToken)
-	}
-	return ""
-}
-
-func GetUserNameFromToken(token map[string]interface{}) string {
-	u := token["username"]
-	if u != nil {
-		userName, _ := u.(string)
-		return userName
+		return ""
 	} else {
-		u = token["userName"]
-		userName, _ := u.(string)
-		return userName
+		u := ctx.Value(key)
+		if u != nil {
+			v, ok := u.(string)
+			if ok {
+				return v
+			}
+		}
+		return ""
+	}
+}
+func FromMap(key string, data map[string]interface{}) string {
+	u := data[key]
+	if u != nil {
+		v, ok := u.(string)
+		if ok {
+			return v
+		}
 	}
 	return ""
 }
-
 func GetBsonName(modelType reflect.Type, index int) string {
 	field := modelType.Field(index)
 	if tag, ok := field.Tag.Lookup("bson"); ok {
