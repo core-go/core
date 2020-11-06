@@ -9,6 +9,14 @@ import (
 	"strings"
 )
 
+const (
+	DRIVER_POSTGRES 	= "postgres"
+	DRIVER_MYSQL    	= "mysql"
+	DRIVER_MSSQL    	= "mssql"
+	DRIVER_ORACLE    	= "oracle"
+	DRIVER_NOT_SUPPORT  = "no support"
+)
+
 type CodeModel struct {
 	Id       string `mapstructure:"id" json:"id,omitempty" gorm:"column:id" bson:"id,omitempty" dynamodbav:"id,omitempty" firestore:"id,omitempty"`
 	Code     string `mapstructure:"code" json:"code,omitempty" gorm:"column:code" bson:"code,omitempty" dynamodbav:"code,omitempty" firestore:"code,omitempty"`
@@ -111,6 +119,12 @@ func (l SqlCodeLoader) Load(ctx context.Context, master string) ([]CodeModel, er
 		}
 	}
 	if len(sql2) > 0 {
+		if getDriver(l.DB) == DRIVER_ORACLE {
+			for i :=0; i < len(values); i++ {
+				count := i+1
+				sql2 = strings.Replace(sql2,"?",":val" + fmt.Sprintf("%v",count) ,1)
+			}
+		}
 		rows, err1 := l.DB.Query(sql2, values...)
 		if err1 != nil {
 			return nil, err1
@@ -123,7 +137,7 @@ func (l SqlCodeLoader) Load(ctx context.Context, master string) ([]CodeModel, er
 		// get list indexes column
 		modelTypes := reflect.TypeOf(models).Elem()
 		modelType := reflect.TypeOf(CodeModel{})
-		indexes, er2 := getColumnIndexes(modelType, columns)
+		indexes, er2 := getColumnIndexes(modelType, columns,getDriver(l.DB))
 		if er2 != nil {
 			return nil, er2
 		}
@@ -151,7 +165,7 @@ func StructScan(s interface{}, indexColumns []int) (r []interface{}) {
 	return
 }
 
-func getColumnIndexes(modelType reflect.Type, columnsName []string) (indexes []int, err error) {
+func getColumnIndexes(modelType reflect.Type, columnsName []string, driver string) (indexes []int, err error) {
 	if modelType.Kind() != reflect.Struct {
 		return nil, errors.New("bad type")
 	}
@@ -159,6 +173,9 @@ func getColumnIndexes(modelType reflect.Type, columnsName []string) (indexes []i
 		field := modelType.Field(i)
 		ormTag := field.Tag.Get("gorm")
 		column, ok := findTag(ormTag, "column")
+		if driver == DRIVER_ORACLE {
+			column = strings.ToUpper(column)
+		}
 		if ok {
 			if contains(columnsName, column) {
 				indexes = append(indexes, i)
@@ -201,4 +218,20 @@ func ScanType(rows *sql.Rows, modelTypes reflect.Type, indexes []int) (t []inter
 		}
 	}
 	return
+}
+
+func getDriver(db *sql.DB) string {
+	driver := reflect.TypeOf(db.Driver()).String()
+	switch driver {
+	case "*postgres.Driver":
+		return DRIVER_POSTGRES
+	case "*mysql.MySQLDriver":
+		return DRIVER_MYSQL
+	case "*mssql.Driver":
+		return DRIVER_MSSQL
+	case "*godror.drv":
+		return DRIVER_ORACLE
+	default:
+		return DRIVER_NOT_SUPPORT
+	}
 }
