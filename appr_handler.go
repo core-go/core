@@ -13,7 +13,7 @@ type ApprHandler struct {
 	ApprService ApprService
 	ModelType   reflect.Type
 	IdNames     []string
-	Indexs      map[string]int
+	Indexes     map[string]int
 	LogError    func(context.Context, string)
 	Offset      int
 	Resource    string
@@ -28,7 +28,7 @@ func NewApprHandler(apprService ApprService, modelType reflect.Type, logWriter L
 		idNames = GetListFieldsTagJson(modelType)
 	}
 	indexs := GetIndexes(modelType)
-	return &ApprHandler{LogWriter: logWriter, ApprService: apprService, ModelType: modelType, IdNames: idNames, Indexs: indexs, Offset: offset, Resource: resource, LogError: logError}
+	return &ApprHandler{LogWriter: logWriter, ApprService: apprService, ModelType: modelType, IdNames: idNames, Indexes: indexs, Offset: offset, Resource: resource, LogError: logError}
 }
 
 func (c *ApprHandler) newModel(body interface{}) (out interface{}) {
@@ -47,7 +47,7 @@ func (c *ApprHandler) newModel(body interface{}) (out interface{}) {
 }
 
 func (c *ApprHandler) Approve(w http.ResponseWriter, r *http.Request) {
-	id, err := BuildId(r, c.ModelType, c.IdNames, c.Indexs, c.Offset)
+	id, err := BuildId(r, c.ModelType, c.IdNames, c.Indexes, c.Offset)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	} else {
@@ -61,7 +61,7 @@ func (c *ApprHandler) Approve(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *ApprHandler) Reject(w http.ResponseWriter, r *http.Request) {
-	id, err := BuildId(r, c.ModelType, c.IdNames, c.Indexs, c.Offset)
+	id, err := BuildId(r, c.ModelType, c.IdNames, c.Indexes, c.Offset)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	} else {
