@@ -6,15 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
 const (
-	DRIVER_POSTGRES 	= "postgres"
-	DRIVER_MYSQL    	= "mysql"
-	DRIVER_MSSQL    	= "mssql"
-	DRIVER_ORACLE    	= "oracle"
-	DRIVER_NOT_SUPPORT  = "no support"
+	DriverPostgres   = "postgres"
+	DriverMysql      = "mysql"
+	DriverMssql      = "mssql"
+	DriverOracle     = "oracle"
+	DriverNotSupport = "no support"
 )
 
 type CodeModel struct {
@@ -40,14 +41,80 @@ type CodeLoader interface {
 	Load(ctx context.Context, master string) ([]CodeModel, error)
 }
 type SqlCodeLoader struct {
-	DB            *sql.DB
-	Table         string
-	Config        CodeConfig
-	QuestionParam bool
+	DB     *sql.DB
+	Table  string
+	Config CodeConfig
+	Driver string
 }
-
-func NewSqlCodeLoader(db *sql.DB, table string, config CodeConfig, questionParam bool) *SqlCodeLoader {
-	return &SqlCodeLoader{DB: db, Table: table, Config: config, QuestionParam: questionParam}
+type DynamicSqlCodeLoader struct {
+	DB             *sql.DB
+	Query          string
+	ParameterCount int
+	HandleDriver   bool
+	Driver         string
+}
+func NewDefaultDynamicSqlCodeLoader(db *sql.DB, query string) *DynamicSqlCodeLoader {
+	driver := GetDriver(db)
+	return &DynamicSqlCodeLoader{DB: db, Query: query, ParameterCount: 0, HandleDriver: true, Driver: driver}
+}
+func NewDynamicSqlCodeLoader(db *sql.DB, query string, parameterCount int, handleDriver bool) *DynamicSqlCodeLoader {
+	driver := GetDriver(db)
+	return &DynamicSqlCodeLoader{DB: db, Query: query, ParameterCount: parameterCount, HandleDriver: handleDriver, Driver: driver}
+}
+func (l DynamicSqlCodeLoader) Load(ctx context.Context, master string) ([]CodeModel, error) {
+	models := make([]CodeModel, 0)
+	params := make([]interface{}, 0)
+	params = append(params, master)
+	if l.ParameterCount > 1 {
+		for i := 2; i <= l.ParameterCount; i++ {
+			params = append(params, master)
+		}
+	}
+	driver := l.Driver
+	if l.HandleDriver {
+		if driver == DriverOracle || driver == DriverPostgres {
+			var x string
+			if driver == DriverOracle {
+				x = ":val"
+			} else {
+				x = "$"
+			}
+			for i := 0; i < len(params); i++ {
+				count := i + 1
+				l.Query = strings.Replace(l.Query, "?", x + strconv.Itoa(count), 1)
+			}
+		}
+	}
+	rows, er1 := l.DB.Query(l.Query, params...)
+	if er1 != nil {
+		return models, er1
+	}
+	defer rows.Close()
+	columns, er2 := rows.Columns()
+	if er2 != nil {
+		return models, er2
+	}
+	// get list indexes column
+	modelTypes := reflect.TypeOf(models).Elem()
+	modelType := reflect.TypeOf(CodeModel{})
+	indexes, er3 := GetColumnIndexes(modelType, columns, driver)
+	if er3 != nil {
+		return models, er3
+	}
+	tb, er4 := ScanType(rows, modelTypes, indexes)
+	if er4 != nil {
+		return models, er4
+	}
+	for _, v := range tb {
+		if c, ok := v.(*CodeModel); ok {
+			models = append(models, *c)
+		}
+	}
+	return models, nil
+}
+func NewSqlCodeLoader(db *sql.DB, table string, config CodeConfig) *SqlCodeLoader {
+	driver := GetDriver(db)
+	return &SqlCodeLoader{DB: db, Table: table, Config: config, Driver: driver}
 }
 func (l SqlCodeLoader) Load(ctx context.Context, master string) ([]CodeModel, error) {
 	models := make([]CodeModel, 0)
@@ -84,19 +151,23 @@ func (l SqlCodeLoader) Load(ctx context.Context, master string) ([]CodeModel, er
 	i := 1
 	if len(c.Master) > 0 {
 		i = i + 1
-		if l.QuestionParam {
-			p1 = fmt.Sprintf("%s = ?", c.Master)
-		} else {
+		if l.Driver == DriverPostgres {
 			p1 = fmt.Sprintf("%s = $1", c.Master)
+		} else if l.Driver == DriverOracle {
+			p1 = fmt.Sprintf("%s = :val1", c.Master)
+		} else {
+			p1 = fmt.Sprintf("%s = ?", c.Master)
 		}
 		values = append(values, master)
 	}
 	cols := strings.Join(s, ",")
 	if len(c.Status) > 0 && c.Active != nil {
 		p2 := ""
-		if !l.QuestionParam {
+		if l.Driver == DriverPostgres {
 			p2 = fmt.Sprintf("%s = $%d", c.Status, i)
-		} else {
+		} else if l.Driver == DriverOracle {
+			p1 = fmt.Sprintf("%s = :val%d", c.Status, i)
+		}else {
 			p2 = fmt.Sprintf("%s = ?", c.Status)
 		}
 		values = append(values, c.Active)
@@ -119,12 +190,6 @@ func (l SqlCodeLoader) Load(ctx context.Context, master string) ([]CodeModel, er
 		}
 	}
 	if len(sql2) > 0 {
-		if getDriver(l.DB) == DRIVER_ORACLE {
-			for i :=0; i < len(values); i++ {
-				count := i+1
-				sql2 = strings.Replace(sql2,"?",":val" + fmt.Sprintf("%v",count) ,1)
-			}
-		}
 		rows, err1 := l.DB.Query(sql2, values...)
 		if err1 != nil {
 			return nil, err1
@@ -137,7 +202,7 @@ func (l SqlCodeLoader) Load(ctx context.Context, master string) ([]CodeModel, er
 		// get list indexes column
 		modelTypes := reflect.TypeOf(models).Elem()
 		modelType := reflect.TypeOf(CodeModel{})
-		indexes, er2 := getColumnIndexes(modelType, columns,getDriver(l.DB))
+		indexes, er2 := GetColumnIndexes(modelType, columns, GetDriver(l.DB))
 		if er2 != nil {
 			return nil, er2
 		}
@@ -165,15 +230,15 @@ func StructScan(s interface{}, indexColumns []int) (r []interface{}) {
 	return
 }
 
-func getColumnIndexes(modelType reflect.Type, columnsName []string, driver string) (indexes []int, err error) {
+func GetColumnIndexes(modelType reflect.Type, columnsName []string, driver string) (indexes []int, err error) {
 	if modelType.Kind() != reflect.Struct {
 		return nil, errors.New("bad type")
 	}
 	for i := 0; i < modelType.NumField(); i++ {
 		field := modelType.Field(i)
 		ormTag := field.Tag.Get("gorm")
-		column, ok := findTag(ormTag, "column")
-		if driver == DRIVER_ORACLE {
+		column, ok := FindTag(ormTag, "column")
+		if driver == DriverOracle {
 			column = strings.ToUpper(column)
 		}
 		if ok {
@@ -185,7 +250,7 @@ func getColumnIndexes(modelType reflect.Type, columnsName []string, driver strin
 	return
 }
 
-func findTag(tag string, key string) (string, bool) {
+func FindTag(tag string, key string) (string, bool) {
 	if has := strings.Contains(tag, key); has {
 		str1 := strings.Split(tag, ";")
 		num := len(str1)
@@ -220,18 +285,18 @@ func ScanType(rows *sql.Rows, modelTypes reflect.Type, indexes []int) (t []inter
 	return
 }
 
-func getDriver(db *sql.DB) string {
+func GetDriver(db *sql.DB) string {
 	driver := reflect.TypeOf(db.Driver()).String()
 	switch driver {
 	case "*postgres.Driver":
-		return DRIVER_POSTGRES
+		return DriverPostgres
 	case "*mysql.MySQLDriver":
-		return DRIVER_MYSQL
+		return DriverMysql
 	case "*mssql.Driver":
-		return DRIVER_MSSQL
+		return DriverMssql
 	case "*godror.drv":
-		return DRIVER_ORACLE
+		return DriverOracle
 	default:
-		return DRIVER_NOT_SUPPORT
+		return DriverNotSupport
 	}
 }
