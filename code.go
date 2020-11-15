@@ -50,16 +50,33 @@ type DynamicSqlCodeLoader struct {
 	DB             *sql.DB
 	Query          string
 	ParameterCount int
-	HandleDriver   bool
 	Driver         string
 }
 func NewDefaultDynamicSqlCodeLoader(db *sql.DB, query string) *DynamicSqlCodeLoader {
 	driver := GetDriver(db)
-	return &DynamicSqlCodeLoader{DB: db, Query: query, ParameterCount: 0, HandleDriver: true, Driver: driver}
+	return &DynamicSqlCodeLoader{DB: db, Query: query, ParameterCount: 0, Driver: driver}
+	return NewDynamicSqlCodeLoader(db, query, 0, true)
 }
 func NewDynamicSqlCodeLoader(db *sql.DB, query string, parameterCount int, handleDriver bool) *DynamicSqlCodeLoader {
 	driver := GetDriver(db)
-	return &DynamicSqlCodeLoader{DB: db, Query: query, ParameterCount: parameterCount, HandleDriver: handleDriver, Driver: driver}
+	if parameterCount <= 0 {
+		parameterCount = 1
+	}
+	if handleDriver {
+		if driver == DriverOracle || driver == DriverPostgres {
+			var x string
+			if driver == DriverOracle {
+				x = ":val"
+			} else {
+				x = "$"
+			}
+			for i := 0; i < parameterCount; i++ {
+				count := i + 1
+				query = strings.Replace(query, "?", x + strconv.Itoa(count), 1)
+			}
+		}
+	}
+	return &DynamicSqlCodeLoader{DB: db, Query: query, ParameterCount: parameterCount, Driver: driver}
 }
 func (l DynamicSqlCodeLoader) Load(ctx context.Context, master string) ([]CodeModel, error) {
 	models := make([]CodeModel, 0)
@@ -71,20 +88,6 @@ func (l DynamicSqlCodeLoader) Load(ctx context.Context, master string) ([]CodeMo
 		}
 	}
 	driver := l.Driver
-	if l.HandleDriver {
-		if driver == DriverOracle || driver == DriverPostgres {
-			var x string
-			if driver == DriverOracle {
-				x = ":val"
-			} else {
-				x = "$"
-			}
-			for i := 0; i < len(params); i++ {
-				count := i + 1
-				l.Query = strings.Replace(l.Query, "?", x + strconv.Itoa(count), 1)
-			}
-		}
-	}
 	rows, er1 := l.DB.Query(l.Query, params...)
 	if er1 != nil {
 		return models, er1
