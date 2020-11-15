@@ -190,6 +190,18 @@ func (l SqlCodeLoader) Load(ctx context.Context, master string) ([]CodeModel, er
 		}
 	}
 	if len(sql2) > 0 {
+		if l.Driver == DriverOracle || l.Driver  == DriverPostgres {
+			var x string
+			if l.Driver  == DriverOracle {
+				x = ":val"
+			} else {
+				x = "$"
+			}
+			for i := 0; i < len(values); i++ {
+				count := i + 1
+				sql2 = strings.Replace(sql2, "?", x+strconv.Itoa(count), 1)
+			}
+		}
 		rows, err1 := l.DB.Query(sql2, values...)
 		if err1 != nil {
 			return nil, err1
@@ -288,7 +300,7 @@ func ScanType(rows *sql.Rows, modelTypes reflect.Type, indexes []int) (t []inter
 func GetDriver(db *sql.DB) string {
 	driver := reflect.TypeOf(db.Driver()).String()
 	switch driver {
-	case "*postgres.Driver":
+	case "*pq.Driver":
 		return DriverPostgres
 	case "*mysql.MySQLDriver":
 		return DriverMysql
