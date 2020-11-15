@@ -11,9 +11,9 @@ type TrackingConfig struct {
 	Authorization string `mapstructure:"authorization" json:"authorization,omitempty" gorm:"column:authorization" bson:"authorization,omitempty" dynamodbav:"authorization,omitempty" firestore:"authorization,omitempty"`
 	User          string `mapstructure:"user" json:"user,omitempty" gorm:"column:user" bson:"user,omitempty" dynamodbav:"user,omitempty" firestore:"user,omitempty"`
 	CreatedBy     string `mapstructure:"created_by" json:"createdBy,omitempty" gorm:"column:createdby" bson:"createdBy,omitempty" dynamodbav:"createdBy,omitempty" firestore:"createdBy,omitempty"`
-	CreationTime  string `mapstructure:"creation_time" json:"creationTime,omitempty" gorm:"column:creationtime" bson:"creationTime,omitempty" dynamodbav:"creationTime,omitempty" firestore:"creationTime,omitempty"`
+	CreatedAt     string `mapstructure:"created_at" json:"createdAt,omitempty" gorm:"column:createdat" bson:"createdAt,omitempty" dynamodbav:"createdAt,omitempty" firestore:"createdAt,omitempty"`
 	UpdatedBy     string `mapstructure:"updated_by" json:"updatedBy,omitempty" gorm:"column:updatedby" bson:"updatedBy,omitempty" dynamodbav:"updatedBy,omitempty" firestore:"updatedBy,omitempty"`
-	UpdateTime    string `mapstructure:"update_time" json:"updateTime,omitempty" gorm:"column:updatetime" bson:"updateTime,omitempty" dynamodbav:"updateTime,omitempty" firestore:"updateTime,omitempty"`
+	UpdatedAt     string `mapstructure:"updated_at" json:"updatedAt,omitempty" gorm:"column:updatedat" bson:"updatedAt,omitempty" dynamodbav:"updatedAt,omitempty" firestore:"updatedAt,omitempty"`
 }
 type DefaultModelBuilder struct {
 	IdGenerator    IdGenerator
@@ -29,8 +29,9 @@ type DefaultModelBuilder struct {
 	updatedByIndex int
 	updatedAtIndex int
 }
+
 func NewModelBuilderByConfig(generator IdGenerator, modelType reflect.Type, c TrackingConfig) *DefaultModelBuilder {
-	return NewModelBuilder(generator, modelType, c.Authorization, c.User, c.CreatedBy, c.CreationTime, c.UpdatedBy, c.UpdateTime)
+	return NewModelBuilder(generator, modelType, c.Authorization, c.User, c.CreatedBy, c.CreatedAt, c.UpdatedBy, c.UpdatedAt)
 }
 func NewModelBuilder(generator IdGenerator, modelType reflect.Type, authorization string, key string, createdByName, createdAtName, updatedByName, updatedAtName string) *DefaultModelBuilder {
 	createdByIndex := FindFieldIndex(modelType, createdByName)
