@@ -1,5 +1,6 @@
 package service
 
+import "C"
 import (
 	"context"
 	"database/sql"
@@ -7,12 +8,15 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	FormatDate = "2006-01-02 15:04:05"
+	FormatDate     = "2006-01-02 15:04:05"
+	DriverPostgres = "postgres"
+	DriverOracle   = "oracle"
 )
 
 type HistoryWriter interface {
@@ -32,21 +36,27 @@ type DiffConfig struct {
 	Timestamp  string `mapstructure:"timestamp" json:"timestamp,omitempty" gorm:"column:timestamp" bson:"timestamp,omitempty" dynamodbav:"timestamp,omitempty" firestore:"timestamp,omitempty"`
 }
 type SqlDiffReader struct {
-	DB         *sql.DB
-	Table      string
-	Entity     string
-	IdNames    []string
-	Config     DiffConfig
-	KeyBuilder KeyBuilder
+	DB           *sql.DB
+	Table        string
+	Entity       string
+	EntityType   string
+	IdNames      []string
+	Config       DiffConfig
+	KeyBuilder   KeyBuilder
+	Driver       string
+	columnSelect string
 }
 
 type SqlDiffListReader struct {
-	DB         *sql.DB
-	Table      string
-	Entity     string
-	IdNames    []string
-	Config     DiffConfig
-	KeyBuilder KeyBuilder
+	DB           *sql.DB
+	Table        string
+	Entity       string
+	EntityType   string
+	IdNames      []string
+	Config       DiffConfig
+	KeyBuilder   KeyBuilder
+	Driver       string
+	columnSelect string
 }
 type SqlHistoryWriter struct {
 	// DB         *sql.DB
@@ -58,12 +68,16 @@ type SqlHistoryWriter struct {
 	Generator  UniqueIdGenerator
 }
 
-func NewSqlDiffReader(DB *sql.DB, table string, entity string, idNames []string, config DiffConfig, keyBuilder KeyBuilder) *SqlDiffReader {
-	return &SqlDiffReader{DB, table, entity, idNames, getDefaultConfig(config), keyBuilder}
+func NewSqlDiffReader(DB *sql.DB, table string, entity string, entityType string, idNames []string, config DiffConfig, keyBuilder KeyBuilder) *SqlDiffReader {
+	columnSelect := BuildQueryColumn(config)
+	driver := getDriver(DB)
+	return &SqlDiffReader{DB, table, entity, entityType, idNames, getDefaultConfig(config), keyBuilder, driver, columnSelect}
 }
 
-func NewSqlDiffListReader(DB *sql.DB, table string, tableEntity string, idNames []string, config DiffConfig, keyBuilder KeyBuilder) *SqlDiffListReader {
-	return &SqlDiffListReader{DB, table, tableEntity, idNames, getDefaultConfig(config), keyBuilder}
+func NewSqlDiffListReader(DB *sql.DB, table string, tableEntity string, entityType string, idNames []string, config DiffConfig, keyBuilder KeyBuilder) *SqlDiffListReader {
+	columnSelect := BuildQueryColumn(config)
+	driver := getDriver(DB)
+	return &SqlDiffListReader{DB, table, tableEntity, entityType, idNames, getDefaultConfig(config), keyBuilder, driver, columnSelect}
 }
 
 func NewSqlHistoryWriter(table string, entity string, idNames []string, config DiffConfig, keyBuilder KeyBuilder, generator UniqueIdGenerator) *SqlHistoryWriter {
@@ -183,17 +197,6 @@ func (c SqlDiffListReader) Diff(ctx context.Context, ids interface{}) (*[]DiffMo
 	return nil, nil
 }
 
-func getColumns(config DiffConfig) []string {
-	v := reflect.ValueOf(config)
-	values := make([]string, 0)
-	for i := 0; i < v.NumField(); i++ {
-		if v.Field(i).String() != "" {
-			values = append(values, v.Field(i).String())
-		}
-	}
-	return values
-}
-
 func (r SqlDiffReader) GetEntityById(key interface{}, idNames []string) (interface{}, error) {
 	var saveValueId interface{}
 	if keyMap, ok := key.(map[string]interface{}); ok {
@@ -205,8 +208,9 @@ func (r SqlDiffReader) GetEntityById(key interface{}, idNames []string) (interfa
 		saveValueId = keyMap
 	}
 	result := DiffModel{}
-	columnSelect := BuildQueryColumn(r.Config)
-	querySql := fmt.Sprintf("select %s from %s where %s = ? and entitytablename = ?", columnSelect, r.Entity, r.Config.Id)
+	querySql := fmt.Sprintf("select %s from %s where %s = %s and %s = %s", r.columnSelect, r.Entity,
+		r.Config.Id, BuildParam(1, r.Driver),
+		r.EntityType, BuildParam(2, r.Driver))
 	err := SqlQueryOne(r.DB, &result, querySql, key, r.Table)
 	if err != nil {
 		return nil, err
@@ -217,23 +221,39 @@ func (r SqlDiffReader) GetEntityById(key interface{}, idNames []string) (interfa
 	return &result, nil
 }
 
-func BuildSqlParameters(n int) string {
-	arr := make([]string, n)
-	for i, _ := range arr {
-		arr[i] = "?"
+func BuildParameters(numCol int, driver string) string {
+	var arrValue []string
+	for i := 0; i < numCol; i++ {
+		arrValue = append(arrValue, BuildParam(i+1, driver))
 	}
-	return strings.Join(arr, ",")
+	return strings.Join(arrValue, ",")
+}
+
+func BuildParam(index int, driver string) string {
+	switch driver {
+	case DriverPostgres:
+		return "$" + strconv.Itoa(index)
+	case DriverOracle:
+		return ":val" + strconv.Itoa(index)
+	default:
+		return "?"
+	}
 }
 
 func BuildQueryColumn(config DiffConfig) string {
-	columns := getColumns(config)
 	sqlsel := make([]string, 0)
 	colDiffModel := GetColumnNameDiffModel()
-	n := len(colDiffModel)
-	for i, column := range columns {
-		if i < n {
-			sqlsel = append(sqlsel, column+" as "+colDiffModel[i])
-		}
+	if config.Id != "" {
+		sqlsel = append(sqlsel, config.Id+" as "+colDiffModel[0])
+	}
+	if config.Origin != "" {
+		sqlsel = append(sqlsel, config.Origin+" as "+colDiffModel[1])
+	}
+	if config.Value != "" {
+		sqlsel = append(sqlsel, config.Value+" as "+colDiffModel[2])
+	}
+	if config.ApprovedBy != "" {
+		sqlsel = append(sqlsel, config.ApprovedBy+" as "+colDiffModel[3])
 	}
 	return strings.Join(sqlsel, ",")
 }
@@ -282,8 +302,7 @@ func (c SqlDiffListReader) getEntityByIds(keyBuilder KeyBuilder, keys interface{
 	args = append(args, arrayKeys...)
 	args = append(args, c.Table)
 	results := make([]DiffModel, 0)
-	columnSelect := BuildQueryColumn(c.Config)
-	querySql := fmt.Sprintf("select %s from %s where %s IN (%s) and entitytablename = ?", columnSelect, c.Entity, c.Config.Id, BuildSqlParameters(n))
+	querySql := fmt.Sprintf("select %s from %s where %s IN (%s) and %s = %s", c.columnSelect, c.Entity, c.Config.Id, BuildParameters(n, c.Driver), c.EntityType, BuildParam(n+1, c.Driver))
 	err := SqlQuery(c.DB, &results, querySql, args...)
 	// map object id
 	for i, result := range results {
@@ -367,7 +386,12 @@ func mapToModel(vals []interface{}, result *DiffModel) {
 	result.Origin = origin
 	result.Value = value
 	if n > 3 && vals[3] != nil {
-		result.By = vals[3].(string)
+		if v, ok := vals[3].(string); ok {
+			result.By = v
+		}
+		if v, ok := vals[3].(*string); ok {
+			result.By = *v
+		}
 	}
 }
 
