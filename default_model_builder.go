@@ -73,7 +73,6 @@ func (c *DefaultModelBuilder) BuildToInsert(ctx context.Context, obj interface{}
 				createdByField.Set(reflect.ValueOf(userId))
 			}
 		}
-
 		if c.createdAtIndex >= 0 {
 			createdAtField := reflect.Indirect(valueModelObject).Field(c.createdAtIndex)
 			t := time.Now()
@@ -83,8 +82,26 @@ func (c *DefaultModelBuilder) BuildToInsert(ctx context.Context, obj interface{}
 				createdAtField.Set(reflect.ValueOf(t))
 			}
 		}
+
+		if c.updatedByIndex >= 0 {
+			updatedByField := reflect.Indirect(valueModelObject).Field(c.updatedByIndex)
+			if updatedByField.Kind() == reflect.Ptr {
+				updatedByField.Set(reflect.ValueOf(&userId))
+			} else {
+				updatedByField.Set(reflect.ValueOf(userId))
+			}
+		}
+		if c.updatedAtIndex >= 0 {
+			updatedAtField := reflect.Indirect(valueModelObject).Field(c.updatedAtIndex)
+			t := time.Now()
+			if updatedAtField.Kind() == reflect.Ptr {
+				updatedAtField.Set(reflect.ValueOf(&t))
+			} else {
+				updatedAtField.Set(reflect.ValueOf(t))
+			}
+		}
 	} else if valueModelObject.Kind() == reflect.Map {
-		var createdByTag, createdAtTag string
+		var createdByTag, createdAtTag, updatedByTag, updatedAtTag string
 		if c.createdByIndex >= 0 {
 			if createdByTag = GetBsonName(c.modelType, c.createdByIndex); createdByTag == "" || createdByTag == "-" {
 				createdByTag = GetJsonName(c.modelType, c.createdByIndex)
@@ -99,6 +116,23 @@ func (c *DefaultModelBuilder) BuildToInsert(ctx context.Context, obj interface{}
 			}
 			if createdAtTag != "" && createdAtTag != "-" {
 				valueModelObject.SetMapIndex(reflect.ValueOf(createdAtTag), reflect.ValueOf(time.Now()))
+			}
+		}
+
+		if c.updatedByIndex >= 0 {
+			if updatedByTag = GetBsonName(c.modelType, c.updatedByIndex); updatedByTag == "" || updatedByTag == "-" {
+				updatedByTag = GetJsonName(c.modelType, c.updatedByIndex)
+			}
+			if updatedByTag != "" && updatedByTag != "-" {
+				valueModelObject.SetMapIndex(reflect.ValueOf(updatedByTag), reflect.ValueOf(userId))
+			}
+		}
+		if c.updatedAtIndex >= 0 {
+			if updatedAtTag = GetBsonName(c.modelType, c.updatedAtIndex); updatedAtTag == "" || updatedAtTag == "-" {
+				updatedAtTag = GetJsonName(c.modelType, c.updatedAtIndex)
+			}
+			if updatedAtTag != "" && updatedAtTag != "-" {
+				valueModelObject.SetMapIndex(reflect.ValueOf(updatedAtTag), reflect.ValueOf(time.Now()))
 			}
 		}
 	}
