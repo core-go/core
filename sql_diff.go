@@ -15,8 +15,6 @@ import (
 
 const (
 	FormatDate     = "2006-01-02 15:04:05"
-	DriverPostgres = "postgres"
-	DriverOracle   = "oracle"
 )
 
 type HistoryWriter interface {
@@ -70,13 +68,13 @@ type SqlHistoryWriter struct {
 
 func NewSqlDiffReader(DB *sql.DB, table string, entity string, entityType string, idNames []string, config DiffConfig, keyBuilder KeyBuilder) *SqlDiffReader {
 	columnSelect := BuildQueryColumn(config)
-	driver := getDriver(DB)
+	driver := GetDriver(DB)
 	return &SqlDiffReader{DB, table, entity, entityType, idNames, getDefaultConfig(config), keyBuilder, driver, columnSelect}
 }
 
 func NewSqlDiffListReader(DB *sql.DB, table string, tableEntity string, entityType string, idNames []string, config DiffConfig, keyBuilder KeyBuilder) *SqlDiffListReader {
 	columnSelect := BuildQueryColumn(config)
-	driver := getDriver(DB)
+	driver := GetDriver(DB)
 	return &SqlDiffListReader{DB, table, tableEntity, entityType, idNames, getDefaultConfig(config), keyBuilder, driver, columnSelect}
 }
 
