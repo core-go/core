@@ -40,7 +40,7 @@ func (c *CodeHandler) Load(w http.ResponseWriter, r *http.Request) {
 		} else {
 			b, er1 := ioutil.ReadAll(r.Body)
 			if er1 != nil {
-				RespondString(w, r, http.StatusBadRequest, "Body cannot is empty")
+				http.Error(w, "Body cannot is empty", http.StatusBadRequest)
 				return
 			}
 			code = strings.Trim(string(b), " ")
