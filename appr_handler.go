@@ -53,7 +53,7 @@ func (c *ApprHandler) Approve(w http.ResponseWriter, r *http.Request) {
 	} else {
 		result, err := c.ApprService.Approve(r.Context(), id)
 		if err != nil {
-			Error(w, r, http.StatusInternalServerError, InternalServerError, c.LogError, c.Resource, "approve", err, c.LogWriter)
+			Error(w, r, http.StatusOK, StatusError, c.LogError, c.Resource, "approve", err, c.LogWriter)
 		} else {
 			Succeed(w, r, http.StatusOK, result, c.LogWriter, c.Resource, "approve")
 		}
@@ -67,7 +67,7 @@ func (c *ApprHandler) Reject(w http.ResponseWriter, r *http.Request) {
 	} else {
 		result, err := c.ApprService.Reject(r.Context(), id)
 		if err != nil {
-			Error(w, r, http.StatusInternalServerError, InternalServerError, c.LogError, c.Resource, "reject", err, c.LogWriter)
+			Error(w, r, http.StatusOK, StatusError, c.LogError, c.Resource, "reject", err, c.LogWriter)
 		} else {
 			Succeed(w, r, http.StatusOK, result, c.LogWriter, c.Resource, "reject")
 		}
