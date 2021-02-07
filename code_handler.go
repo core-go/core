@@ -13,20 +13,20 @@ type CodeHandler struct {
 	Action         string
 	RequiredMaster bool
 	LogError       func(context.Context, string)
-	LogWriter      LogWriter
+	WriteLog       func(ctx context.Context, resource string, action string, success bool, desc string) error
 }
 
-func NewDefaultCodeHandler(loader CodeLoader, resource string, action string, logError func(context.Context, string), logWriter LogWriter) *CodeHandler {
-	return NewCodeHandler(loader, resource, action, true, logError, logWriter)
+func NewDefaultCodeHandler(loader CodeLoader, resource string, action string, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error) *CodeHandler {
+	return NewCodeHandler(loader, resource, action, true, logError, writeLog)
 }
-func NewCodeHandler(loader CodeLoader, resource string, action string, requiredMaster bool, logError func(context.Context, string), logWriter LogWriter) *CodeHandler {
+func NewCodeHandler(loader CodeLoader, resource string, action string, requiredMaster bool, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error) *CodeHandler {
 	if len(resource) == 0 {
 		resource = "code"
 	}
 	if len(action) == 0 {
 		action = "load"
 	}
-	h := CodeHandler{Loader: loader, Resource: resource, Action: action, RequiredMaster: requiredMaster, LogWriter: logWriter, LogError: logError}
+	h := CodeHandler{Loader: loader, Resource: resource, Action: action, RequiredMaster: requiredMaster, WriteLog: writeLog, LogError: logError}
 	return &h
 }
 func (c *CodeHandler) Load(w http.ResponseWriter, r *http.Request) {
@@ -48,8 +48,8 @@ func (c *CodeHandler) Load(w http.ResponseWriter, r *http.Request) {
 	}
 	result, er4 := c.Loader.Load(r.Context(), code)
 	if er4 != nil {
-		Error(w, r, http.StatusInternalServerError, InternalServerError, c.LogError, c.Resource, c.Action, er4, c.LogWriter)
+		Error(w, r, http.StatusInternalServerError, InternalServerError, c.LogError, c.Resource, c.Action, er4, c.WriteLog)
 	} else {
-		Succeed(w, r, http.StatusOK, result, c.LogWriter, c.Resource, c.Action)
+		Succeed(w, r, http.StatusOK, result, c.WriteLog, c.Resource, c.Action)
 	}
 }

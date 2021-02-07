@@ -13,7 +13,7 @@ type DiffModelConfig struct {
 	By     string `mapstructure:"by" json:"by,omitempty" gorm:"column:by" bson:"by,omitempty" dynamodbav:"by,omitempty" firestore:"by,omitempty"`
 }
 type DiffHandler struct {
-	LogWriter   LogWriter
+	WriteLog    func(ctx context.Context, resource string, action string, success bool, desc string) error
 	DiffService DiffService
 	ModelType   reflect.Type
 	IdNames     []string
@@ -23,8 +23,16 @@ type DiffHandler struct {
 	LogError    func(context.Context, string)
 	Config      *DiffModelConfig
 }
-
-func NewDiffHandler(diffService DiffService, modelType reflect.Type, idNames []string, resource string, logWriter LogWriter, logError func(context.Context, string), config *DiffModelConfig, option ...int) *DiffHandler {
+func NewDiffHandler(diffService DiffService, modelType reflect.Type, resource string, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, config *DiffModelConfig, option ...int) *DiffHandler {
+	offset := 1
+	if len(option) == 1 {
+		offset = option[0]
+	}
+	idNames := GetListFieldsTagJson(modelType)
+	indexs := GetIndexes(modelType)
+	return &DiffHandler{WriteLog: writeLog, DiffService: diffService, ModelType: modelType, IdNames: idNames, Indexes: indexs, Resource: resource, Offset: offset, Config: config, LogError: logError}
+}
+func NewDiffHandlerWithIds(diffService DiffService, modelType reflect.Type, resource string, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, idNames []string, config *DiffModelConfig, option ...int) *DiffHandler {
 	offset := 1
 	if len(option) == 1 {
 		offset = option[0]
@@ -33,7 +41,7 @@ func NewDiffHandler(diffService DiffService, modelType reflect.Type, idNames []s
 		idNames = GetListFieldsTagJson(modelType)
 	}
 	indexs := GetIndexes(modelType)
-	return &DiffHandler{LogWriter: logWriter, DiffService: diffService, ModelType: modelType, IdNames: idNames, Indexes: indexs, Resource: resource, Offset: offset, Config: config, LogError: logError}
+	return &DiffHandler{WriteLog: writeLog, DiffService: diffService, ModelType: modelType, IdNames: idNames, Indexes: indexs, Resource: resource, Offset: offset, Config: config, LogError: logError}
 }
 
 func (c *DiffHandler) Diff(w http.ResponseWriter, r *http.Request) {
@@ -43,10 +51,10 @@ func (c *DiffHandler) Diff(w http.ResponseWriter, r *http.Request) {
 	} else {
 		result, err := c.DiffService.Diff(r.Context(), id)
 		if err != nil {
-			Error(w, r, http.StatusInternalServerError, InternalServerError, c.LogError, c.Resource, "diff", err, c.LogWriter)
+			Error(w, r, http.StatusInternalServerError, InternalServerError, c.LogError, c.Resource, "diff", err, c.WriteLog)
 		} else {
 			if c.Config == nil {
-				Succeed(w, r, http.StatusOK, result, c.LogWriter, c.Resource, "diff")
+				Succeed(w, r, http.StatusOK, result, c.WriteLog, c.Resource, "diff")
 			} else {
 				m := make(map[string]interface{})
 				if result.Id != nil {
@@ -61,7 +69,7 @@ func (c *DiffHandler) Diff(w http.ResponseWriter, r *http.Request) {
 				if len(result.By) > 0 {
 					m[c.Config.By] = result.By
 				}
-				Succeed(w, r, http.StatusOK, m, c.LogWriter, c.Resource, "diff")
+				Succeed(w, r, http.StatusOK, m, c.WriteLog, c.Resource, "diff")
 			}
 		}
 	}
