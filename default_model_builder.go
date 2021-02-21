@@ -16,7 +16,7 @@ type TrackingConfig struct {
 	UpdatedAt     string `mapstructure:"updated_at" json:"updatedAt,omitempty" gorm:"column:updatedat" bson:"updatedAt,omitempty" dynamodbav:"updatedAt,omitempty" firestore:"updatedAt,omitempty"`
 }
 type DefaultModelBuilder struct {
-	IdGenerator    IdGenerator
+	GenerateId     func(ctx context.Context, model interface{}) (int, error)
 	Authorization  string
 	Key            string
 	modelType      reflect.Type
@@ -30,17 +30,17 @@ type DefaultModelBuilder struct {
 	updatedAtIndex int
 }
 
-func NewModelBuilderByConfig(generator IdGenerator, modelType reflect.Type, c TrackingConfig) *DefaultModelBuilder {
-	return NewModelBuilder(generator, modelType, c.Authorization, c.User, c.CreatedBy, c.CreatedAt, c.UpdatedBy, c.UpdatedAt)
+func NewModelBuilderByConfig(generateId func(ctx context.Context, model interface{}) (int, error), modelType reflect.Type, c TrackingConfig) *DefaultModelBuilder {
+	return NewModelBuilder(generateId, modelType, c.Authorization, c.User, c.CreatedBy, c.CreatedAt, c.UpdatedBy, c.UpdatedAt)
 }
-func NewModelBuilder(generator IdGenerator, modelType reflect.Type, authorization string, key string, createdByName, createdAtName, updatedByName, updatedAtName string) *DefaultModelBuilder {
+func NewModelBuilder(generateId func(ctx context.Context, model interface{}) (int, error), modelType reflect.Type, authorization string, key string, createdByName, createdAtName, updatedByName, updatedAtName string) *DefaultModelBuilder {
 	createdByIndex := FindFieldIndex(modelType, createdByName)
 	createdAtIndex := FindFieldIndex(modelType, createdAtName)
 	updatedByIndex := FindFieldIndex(modelType, updatedByName)
 	updatedAtIndex := FindFieldIndex(modelType, updatedAtName)
 
 	return &DefaultModelBuilder{
-		IdGenerator:    generator,
+		GenerateId:     generateId,
 		Authorization:  authorization,
 		Key:            key,
 		modelType:      modelType,
@@ -56,8 +56,8 @@ func NewModelBuilder(generator IdGenerator, modelType reflect.Type, authorizatio
 }
 
 func (c *DefaultModelBuilder) BuildToInsert(ctx context.Context, obj interface{}) interface{} {
-	if c.IdGenerator != nil {
-		c.IdGenerator.Generate(ctx, obj)
+	if c.GenerateId != nil {
+		c.GenerateId(ctx, obj)
 	}
 	valueModelObject := reflect.Indirect(reflect.ValueOf(obj))
 	if valueModelObject.Kind() == reflect.Ptr {

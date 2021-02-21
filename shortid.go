@@ -13,12 +13,6 @@ func ShortId() (string, error) {
 	return sid.Generate()
 }
 
-func NewShortIdGenerator() *ShortIdGenerator {
-	return &ShortIdGenerator{}
-}
-
-type ShortIdGenerator struct {
-}
-func (s *ShortIdGenerator) Generate(ctx context.Context) (string, error) {
+func GenerateShortId(ctx context.Context) (string, error) {
 	return ShortId()
 }

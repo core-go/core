@@ -7,17 +7,17 @@ import (
 )
 
 type DefaultIdGenerator struct {
-	Generator UniqueIdGenerator
+	GenerateId func(ctx context.Context) (string, error)
 	idTogether bool
-	emptyOnly bool
+	emptyOnly  bool
 }
 
-func NewDefaultIdGenerator(generator UniqueIdGenerator) *DefaultIdGenerator {
-	return NewIdGenerator(generator, true, true)
+func NewDefaultIdGenerator(generate func(context.Context) (string, error)) *DefaultIdGenerator {
+	return NewIdGenerator(generate, true, true)
 }
 
-func NewIdGenerator(generator UniqueIdGenerator, idTogether bool, emptyOnly bool) *DefaultIdGenerator {
-	x := DefaultIdGenerator{Generator: generator, idTogether: idTogether, emptyOnly: emptyOnly}
+func NewIdGenerator(generate func(context.Context) (string, error), idTogether bool, emptyOnly bool) *DefaultIdGenerator {
+	x := DefaultIdGenerator{GenerateId: generate, idTogether: idTogether, emptyOnly: emptyOnly}
 	return &x
 }
 
@@ -47,7 +47,7 @@ func (s *DefaultIdGenerator) Generate(ctx context.Context, model interface{}) (i
 			if idTags[0] == "manual" {
 				continue
 			}
-			id, err := s.Generator.Generate(ctx)
+			id, err := s.GenerateId(ctx)
 			if err != nil {
 				return 0, err
 			}

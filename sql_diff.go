@@ -1,6 +1,5 @@
 package service
 
-import "C"
 import (
 	"context"
 	"database/sql"
@@ -14,6 +13,11 @@ import (
 )
 
 const (
+	DriverPostgres   = "postgres"
+	DriverMysql      = "mysql"
+	DriverMssql      = "mssql"
+	DriverOracle     = "oracle"
+	DriverNotSupport = "no support"
 	FormatDate     = "2006-01-02 15:04:05"
 )
 
@@ -515,4 +519,32 @@ func GetListFieldsTagJson(modelType reflect.Type) []string {
 		}
 	}
 	return idFields
+}
+
+
+// StructScan : transfer struct to slice for scan
+func StructScan(s interface{}, indexColumns []int) (r []interface{}) {
+	if s != nil {
+		maps := reflect.Indirect(reflect.ValueOf(s))
+		for _, index := range indexColumns {
+			r = append(r, maps.Field(index).Addr().Interface())
+		}
+	}
+	return
+}
+
+func GetDriver(db *sql.DB) string {
+	driver := reflect.TypeOf(db.Driver()).String()
+	switch driver {
+	case "*pq.Driver":
+		return DriverPostgres
+	case "*mysql.MySQLDriver":
+		return DriverMysql
+	case "*mssql.Driver":
+		return DriverMssql
+	case "*godror.drv":
+		return DriverOracle
+	default:
+		return DriverNotSupport
+	}
 }
