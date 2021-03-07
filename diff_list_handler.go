@@ -8,26 +8,26 @@ import (
 )
 
 type DiffListHandler struct {
-	WriteLog        func(ctx context.Context, resource string, action string, success bool, desc string) error
+	Error           func(context.Context, string)
+	Log             func(ctx context.Context, resource string, action string, success bool, desc string) error
 	DiffListService DiffListService
 	ModelType       reflect.Type
 	modelTypeId     reflect.Type
 	IdNames         []string
 	Resource        string
-	LogError        func(context.Context, string)
 	Config          *DiffModelConfig
 }
 func NewDiffListHandler(diffListService DiffListService, modelType reflect.Type, resource string, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, config *DiffModelConfig) *DiffListHandler {
 	idNames := GetListFieldsTagJson(modelType)
 	modelTypeId := newModelTypeID(modelType, idNames)
-	return &DiffListHandler{WriteLog: writeLog, DiffListService: diffListService, ModelType: modelType, modelTypeId: modelTypeId, IdNames: idNames, Resource: resource, Config: config, LogError: logError}
+	return &DiffListHandler{Log: writeLog, DiffListService: diffListService, ModelType: modelType, modelTypeId: modelTypeId, IdNames: idNames, Resource: resource, Config: config, Error: logError}
 }
 func NewDiffListHandlerWithIds(diffListService DiffListService, modelType reflect.Type, resource string, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, idNames []string, config *DiffModelConfig) *DiffListHandler {
 	if len(idNames) == 0 {
 		idNames = GetListFieldsTagJson(modelType)
 	}
 	modelTypeId := newModelTypeID(modelType, idNames)
-	return &DiffListHandler{WriteLog: writeLog, DiffListService: diffListService, ModelType: modelType, modelTypeId: modelTypeId, IdNames: idNames, Resource: resource, Config: config, LogError: logError}
+	return &DiffListHandler{Log: writeLog, DiffListService: diffListService, ModelType: modelType, modelTypeId: modelTypeId, IdNames: idNames, Resource: resource, Config: config, Error: logError}
 }
 
 func (c *DiffListHandler) DiffList(w http.ResponseWriter, r *http.Request) {
@@ -37,10 +37,10 @@ func (c *DiffListHandler) DiffList(w http.ResponseWriter, r *http.Request) {
 	} else {
 		list, err := c.DiffListService.Diff(r.Context(), ids)
 		if err != nil {
-			Error(w, r, http.StatusInternalServerError, InternalServerError, c.LogError, c.Resource, "diff", err, c.WriteLog)
+			Error(w, r, http.StatusInternalServerError, InternalServerError, c.Error, c.Resource, "diff", err, c.Log)
 		} else {
 			if c.Config == nil || list == nil || len(*list) == 0 {
-				Succeed(w, r, http.StatusOK, list, c.WriteLog, c.Resource, "diff")
+				Succeed(w, r, http.StatusOK, list, c.Log, c.Resource, "diff")
 			} else {
 				l := make([]map[string]interface{}, 0)
 				for _, result := range *list {
@@ -59,7 +59,7 @@ func (c *DiffListHandler) DiffList(w http.ResponseWriter, r *http.Request) {
 					}
 					l = append(l, m)
 				}
-				Succeed(w, r, http.StatusOK, l, c.WriteLog, c.Resource, "diff")
+				Succeed(w, r, http.StatusOK, l, c.Log, c.Resource, "diff")
 			}
 		}
 	}

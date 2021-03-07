@@ -9,12 +9,12 @@ import (
 )
 
 type ApprHandler struct {
-	WriteLog    func(ctx context.Context, resource string, action string, success bool, desc string) error
+	Error       func(context.Context, string)
+	Log         func(ctx context.Context, resource string, action string, success bool, desc string) error
 	ApprService ApprService
 	ModelType   reflect.Type
 	IdNames     []string
 	Indexes     map[string]int
-	LogError    func(context.Context, string)
 	Offset      int
 	Resource    string
 }
@@ -25,7 +25,7 @@ func NewApprHandler(apprService ApprService, modelType reflect.Type, resource st
 	}
 	idNames := GetListFieldsTagJson(modelType)
 	indexs := GetIndexes(modelType)
-	return &ApprHandler{WriteLog: writeLog, ApprService: apprService, ModelType: modelType, IdNames: idNames, Indexes: indexs, Offset: offset, Resource: resource, LogError: logError}
+	return &ApprHandler{Log: writeLog, ApprService: apprService, ModelType: modelType, IdNames: idNames, Indexes: indexs, Offset: offset, Resource: resource, Error: logError}
 }
 func NewApprHandlerWithIds(apprService ApprService, modelType reflect.Type, resource string, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, idNames []string, option ...int) *ApprHandler {
 	offset := 1
@@ -36,7 +36,7 @@ func NewApprHandlerWithIds(apprService ApprService, modelType reflect.Type, reso
 		idNames = GetListFieldsTagJson(modelType)
 	}
 	indexs := GetIndexes(modelType)
-	return &ApprHandler{WriteLog: writeLog, ApprService: apprService, ModelType: modelType, IdNames: idNames, Indexes: indexs, Offset: offset, Resource: resource, LogError: logError}
+	return &ApprHandler{Log: writeLog, ApprService: apprService, ModelType: modelType, IdNames: idNames, Indexes: indexs, Offset: offset, Resource: resource, Error: logError}
 }
 
 func (c *ApprHandler) newModel(body interface{}) (out interface{}) {
@@ -61,9 +61,9 @@ func (c *ApprHandler) Approve(w http.ResponseWriter, r *http.Request) {
 	} else {
 		result, err := c.ApprService.Approve(r.Context(), id)
 		if err != nil {
-			Error(w, r, http.StatusOK, StatusError, c.LogError, c.Resource, "approve", err, c.WriteLog)
+			Error(w, r, http.StatusOK, StatusError, c.Error, c.Resource, "approve", err, c.Log)
 		} else {
-			Succeed(w, r, http.StatusOK, result, c.WriteLog, c.Resource, "approve")
+			Succeed(w, r, http.StatusOK, result, c.Log, c.Resource, "approve")
 		}
 	}
 }
@@ -75,9 +75,9 @@ func (c *ApprHandler) Reject(w http.ResponseWriter, r *http.Request) {
 	} else {
 		result, err := c.ApprService.Reject(r.Context(), id)
 		if err != nil {
-			Error(w, r, http.StatusOK, StatusError, c.LogError, c.Resource, "reject", err, c.WriteLog)
+			Error(w, r, http.StatusOK, StatusError, c.Error, c.Resource, "reject", err, c.Log)
 		} else {
-			Succeed(w, r, http.StatusOK, result, c.WriteLog, c.Resource, "reject")
+			Succeed(w, r, http.StatusOK, result, c.Log, c.Resource, "reject")
 		}
 	}
 }

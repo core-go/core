@@ -11,6 +11,8 @@ import (
 	"strings"
 )
 
+const InternalServerError = "Internal Server Error"
+
 func GetIndexes(modelType reflect.Type) map[string]int {
 	numField := modelType.NumField()
 	mapJsonNameIndex := make(map[string]int, 0)
