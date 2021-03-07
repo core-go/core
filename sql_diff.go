@@ -67,7 +67,7 @@ type SqlHistoryWriter struct {
 	IdNames    []string
 	Config     DiffConfig
 	KeyBuilder KeyBuilder
-	Generator  UniqueIdGenerator
+	Generate   func()(string, error)
 }
 
 func NewSqlDiffReader(DB *sql.DB, table string, entity string, entityType string, idNames []string, config DiffConfig, keyBuilder KeyBuilder) *SqlDiffReader {
@@ -82,8 +82,8 @@ func NewSqlDiffListReader(DB *sql.DB, table string, tableEntity string, entityTy
 	return &SqlDiffListReader{DB, table, tableEntity, entityType, idNames, getDefaultConfig(config), keyBuilder, driver, columnSelect}
 }
 
-func NewSqlHistoryWriter(table string, entity string, idNames []string, config DiffConfig, keyBuilder KeyBuilder, generator UniqueIdGenerator) *SqlHistoryWriter {
-	return &SqlHistoryWriter{table, entity, idNames, getDefaultConfig(config), keyBuilder, generator}
+func NewSqlHistoryWriter(table string, entity string, idNames []string, config DiffConfig, keyBuilder KeyBuilder, generate func()(string, error)) *SqlHistoryWriter {
+	return &SqlHistoryWriter{table, entity, idNames, getDefaultConfig(config), keyBuilder, generate}
 }
 
 func getDefaultConfig(config DiffConfig) DiffConfig {
@@ -129,8 +129,8 @@ func (r SqlHistoryWriter) Write(ctx context.Context, db *sql.DB, id interface{},
 		sqlParam += "?,"
 	}
 	if len(r.Config.HistoryId) > 1 {
-		if r.Generator != nil {
-			historyID, err := r.Generator.Generate(ctx)
+		if r.Generate != nil {
+			historyID, err := r.Generate()
 			if err != nil {
 				return err
 			}
@@ -168,8 +168,8 @@ func (r SqlHistoryWriter) Write(ctx context.Context, db *sql.DB, id interface{},
 	}
 	strSQL = strings.TrimRight(strSQL, ", ")
 	sqlParam = strings.TrimRight(sqlParam, ", ")
-	query := `INSERT INTO ` + r.Table + `(` + strSQL + `) 
-		VALUES (` + sqlParam + `)`
+	query := `insert into ` + r.Table + `(` + strSQL + `) 
+		values (` + sqlParam + `)`
 	_, err := db.Exec(query, sqlVar...)
 	if err != nil {
 		return err
