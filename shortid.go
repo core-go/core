@@ -1,9 +1,6 @@
 package service
 
-import (
-	"context"
-	"github.com/teris-io/shortid"
-)
+import "github.com/teris-io/shortid"
 
 func ShortId() (string, error) {
 	sid, err := shortid.New(1, shortid.DefaultABC, 2342)
@@ -13,6 +10,6 @@ func ShortId() (string, error) {
 	return sid.Generate()
 }
 
-func GenerateShortId(ctx context.Context) (string, error) {
+func GenerateShortId() (string, error) {
 	return ShortId()
 }

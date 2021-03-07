@@ -1,16 +1,14 @@
 package service
 
-import "context"
-
 type DefaultUniqueIdGenerator struct {
 	ShortId bool
 }
 
-func NewUniqueIdGenerator(shortId bool) UniqueIdGenerator {
+func NewUniqueIdGenerator(shortId bool) *DefaultUniqueIdGenerator {
 	return &DefaultUniqueIdGenerator{shortId}
 }
 
-func (g *DefaultUniqueIdGenerator) Generate(ctx context.Context) (string, error) {
+func (g *DefaultUniqueIdGenerator) Generate() (string, error) {
 	if g.ShortId {
 		randomId, er3 := ShortId()
 		if er3 != nil {
