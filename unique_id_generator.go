@@ -1,5 +1,7 @@
 package service
 
+import "context"
+
 type UniqueIdGenerator interface {
-	Generate() (string, error)
+	Generate(ctx context.Context) (string, error)
 }
