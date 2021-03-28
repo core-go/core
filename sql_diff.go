@@ -534,14 +534,14 @@ func getDriver(db *sql.DB) string {
 	switch driver {
 	case "*pq.Driver":
 		return DriverPostgres
-	case "*sqlite3.SQLiteDriver":
-		return DriverSqlite3
+	case "*godror.drv":
+		return DriverOracle
 	case "*mysql.MySQLDriver":
 		return DriverMysql
 	case "*mssql.Driver":
 		return DriverMssql
-	case "*godror.drv":
-		return DriverOracle
+	case "*sqlite3.SQLiteDriver":
+		return DriverSqlite3
 	default:
 		return DriverNotSupport
 	}
