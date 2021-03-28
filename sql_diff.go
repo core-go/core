@@ -17,12 +17,13 @@ const (
 	DriverMysql      = "mysql"
 	DriverMssql      = "mssql"
 	DriverOracle     = "oracle"
+	DriverSqlite3    = "sqlite3"
 	DriverNotSupport = "no support"
-	FormatDate     = "2006-01-02 15:04:05"
+	// FormatDate       = "2006-01-02 15:04:05"
 )
 
 type HistoryWriter interface {
-	Write(ctx context.Context, id interface{}, diff DiffModel, approvedBy string) error
+	Write(ctx context.Context, db *sql.Tx, tableName string, id interface{}, diff DiffModel, approvedBy string) error
 }
 type KeyBuilder interface {
 	BuildKey(object interface{}) string
@@ -45,6 +46,7 @@ type SqlDiffReader struct {
 	IdNames      []string
 	Config       DiffConfig
 	KeyBuilder   KeyBuilder
+	BuildParam   func(i int) string
 	Driver       string
 	columnSelect string
 }
@@ -58,32 +60,35 @@ type SqlDiffListReader struct {
 	Config       DiffConfig
 	KeyBuilder   KeyBuilder
 	Driver       string
+	BuildParam   func(int) string
 	columnSelect string
 }
 type SqlHistoryWriter struct {
-	// DB         *sql.DB
 	Table      string
 	Entity     string
 	IdNames    []string
 	Config     DiffConfig
 	KeyBuilder KeyBuilder
-	Generate   func()(string, error)
+	BuildParam func(int) string
+	Generate   func() (string, error)
 }
 
-func NewSqlDiffReader(DB *sql.DB, table string, entity string, entityType string, idNames []string, config DiffConfig, keyBuilder KeyBuilder) *SqlDiffReader {
+func NewSqlDiffReader(db *sql.DB, table string, entity string, entityType string, idNames []string, config DiffConfig, keyBuilder KeyBuilder) *SqlDiffReader {
 	columnSelect := BuildQueryColumn(config)
-	driver := GetDriver(DB)
-	return &SqlDiffReader{DB, table, entity, entityType, idNames, getDefaultConfig(config), keyBuilder, driver, columnSelect}
+	driver := getDriver(db)
+	build := getBuild(db)
+	return &SqlDiffReader{DB: db, Table: table, Entity: entity, EntityType: entityType, IdNames: idNames, Config: getDefaultConfig(config), KeyBuilder: keyBuilder, BuildParam: build, Driver: driver, columnSelect: columnSelect}
 }
 
-func NewSqlDiffListReader(DB *sql.DB, table string, tableEntity string, entityType string, idNames []string, config DiffConfig, keyBuilder KeyBuilder) *SqlDiffListReader {
+func NewSqlDiffListReader(db *sql.DB, table string, tableEntity string, entityType string, idNames []string, config DiffConfig, keyBuilder KeyBuilder) *SqlDiffListReader {
 	columnSelect := BuildQueryColumn(config)
-	driver := GetDriver(DB)
-	return &SqlDiffListReader{DB, table, tableEntity, entityType, idNames, getDefaultConfig(config), keyBuilder, driver, columnSelect}
+	driver := getDriver(db)
+	buildParam := getBuild(db)
+	return &SqlDiffListReader{DB: db, BuildParam: buildParam, Table: table, Entity: tableEntity, EntityType: entityType, IdNames: idNames, Config: getDefaultConfig(config), KeyBuilder: keyBuilder, Driver: driver, columnSelect: columnSelect}
 }
 
-func NewSqlHistoryWriter(table string, entity string, idNames []string, config DiffConfig, keyBuilder KeyBuilder, generate func()(string, error)) *SqlHistoryWriter {
-	return &SqlHistoryWriter{table, entity, idNames, getDefaultConfig(config), keyBuilder, generate}
+func NewSqlHistoryWriter(table string, entity string, idNames []string, config DiffConfig, keyBuilder KeyBuilder, buildParam func(int) string, generate func() (string, error)) *SqlHistoryWriter {
+	return &SqlHistoryWriter{Table: table, Entity: entity, IdNames: idNames, Config: getDefaultConfig(config), KeyBuilder: keyBuilder, BuildParam: buildParam, Generate: generate}
 }
 
 func getDefaultConfig(config DiffConfig) DiffConfig {
@@ -99,10 +104,9 @@ func getDefaultConfig(config DiffConfig) DiffConfig {
 	return config
 }
 
-func (r SqlHistoryWriter) Write(ctx context.Context, db *sql.DB, id interface{}, diff DiffModel, approvedBy string) error {
+func (r SqlHistoryWriter) Write(ctx context.Context, tx *sql.Tx, tableName string, id interface{}, diff DiffModel, approvedBy string) error {
 	entityID := ""
 	dt := time.Now()
-	updateTime := dt.Format(FormatDate)
 
 	if len(r.IdNames) == 1 {
 		entityID = r.IdNames[0]
@@ -117,16 +121,18 @@ func (r SqlHistoryWriter) Write(ctx context.Context, db *sql.DB, id interface{},
 			entityID = r.KeyBuilder.BuildKeyFromMap(v, r.IdNames)
 		}
 	}
+	i := 1
 	var sqlVar []interface{}
-	strSQL := ""
-	sqlParam := ""
-	strSQL += "entitytablename, "
-	sqlParam += "?,"
+	var sqlParams []string
+	var strSQLs []string
+	strSQLs = append(strSQLs, tableName)
+	sqlParams = append(sqlParams, r.BuildParam(i))
 	sqlVar = append(sqlVar, r.Entity)
 	if len(r.Config.ApprovedBy) > 1 {
-		strSQL += r.Config.ApprovedBy + `, `
+		strSQLs = append(strSQLs, r.Config.ApprovedBy)
 		sqlVar = append(sqlVar, approvedBy)
-		sqlParam += "?,"
+		sqlParams = append(sqlParams, r.BuildParam(i))
+		i++
 	}
 	if len(r.Config.HistoryId) > 1 {
 		if r.Generate != nil {
@@ -134,43 +140,49 @@ func (r SqlHistoryWriter) Write(ctx context.Context, db *sql.DB, id interface{},
 			if err != nil {
 				return err
 			}
-			strSQL += r.Config.HistoryId + `, `
+			strSQLs = append(strSQLs, r.Config.HistoryId)
 			sqlVar = append(sqlVar, historyID)
-			sqlParam += "?,"
+			sqlParams = append(sqlParams, r.BuildParam(i))
+			i++
 		}
 	}
 	if len(r.Config.Timestamp) > 1 {
-		strSQL += r.Config.Timestamp + `, `
-		sqlVar = append(sqlVar, updateTime)
-		sqlParam += "?,"
+		strSQLs = append(strSQLs, r.Config.Timestamp)
+		sqlVar = append(sqlVar, dt)
+		sqlParams = append(sqlParams, r.BuildParam(i))
+		i++
 	}
 	if len(r.Config.Value) > 1 {
-		strSQL += r.Config.Value + `, `
+		strSQLs = append(strSQLs, r.Config.Value)
 		str := fmt.Sprintf("%v", diff.Value)
 		sqlVar = append(sqlVar, str)
-		sqlParam += "?,"
+		sqlParams = append(sqlParams, r.BuildParam(i))
+		i++
 	}
 	if len(r.Config.Origin) > 1 {
-		strSQL += r.Config.Origin + `, `
+		strSQLs = append(strSQLs, r.Config.Origin)
 		str := fmt.Sprintf("%v", diff.Origin)
 		sqlVar = append(sqlVar, str)
-		sqlParam += "?,"
+		sqlParams = append(sqlParams, r.BuildParam(i))
+		i++
 	}
 	if len(r.Config.Id) > 1 {
-		strSQL += r.Config.Id + `, `
+		strSQLs = append(strSQLs, r.Config.Id)
 		sqlVar = append(sqlVar, entityID)
-		sqlParam += "?,"
+		sqlParams = append(sqlParams, r.BuildParam(i))
+		i++
 	}
 	if len(r.Config.ChangedBy) > 1 {
-		strSQL += r.Config.ChangedBy + `, `
+		strSQLs = append(strSQLs, r.Config.ChangedBy)
 		sqlVar = append(sqlVar, diff.By)
-		sqlParam += "?,"
+		sqlParams = append(sqlParams, r.BuildParam(i))
+		i++
 	}
-	strSQL = strings.TrimRight(strSQL, ", ")
-	sqlParam = strings.TrimRight(sqlParam, ", ")
+	strSQL := strings.Join(strSQLs, ",")
+	sqlParam := strings.Join(sqlParams, ",")
 	query := `insert into ` + r.Table + `(` + strSQL + `) 
 		values (` + sqlParam + `)`
-	_, err := db.Exec(query, sqlVar...)
+	_, err := tx.ExecContext(ctx, query, sqlVar...)
 	if err != nil {
 		return err
 	}
@@ -178,7 +190,7 @@ func (r SqlHistoryWriter) Write(ctx context.Context, db *sql.DB, id interface{},
 }
 
 func (r SqlDiffReader) Diff(ctx context.Context, id interface{}) (*DiffModel, error) {
-	i, err := r.GetEntityById(id, r.IdNames)
+	i, err := r.getEntityById(ctx, id, r.IdNames)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +201,7 @@ func (r SqlDiffReader) Diff(ctx context.Context, id interface{}) (*DiffModel, er
 }
 
 func (c SqlDiffListReader) Diff(ctx context.Context, ids interface{}) (*[]DiffModel, error) {
-	i, err := c.getEntityByIds(c.KeyBuilder, ids, c.IdNames)
+	i, err := c.getEntityByIds(ctx, c.KeyBuilder, ids, c.IdNames)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +211,7 @@ func (c SqlDiffListReader) Diff(ctx context.Context, ids interface{}) (*[]DiffMo
 	return nil, nil
 }
 
-func (r SqlDiffReader) GetEntityById(key interface{}, idNames []string) (interface{}, error) {
+func (r SqlDiffReader) getEntityById(ctx context.Context, key interface{}, idNames []string) (interface{}, error) {
 	var saveValueId interface{}
 	if keyMap, ok := key.(map[string]interface{}); ok {
 		entityId := r.KeyBuilder.BuildKeyFromMap(keyMap, idNames)
@@ -211,9 +223,9 @@ func (r SqlDiffReader) GetEntityById(key interface{}, idNames []string) (interfa
 	}
 	result := DiffModel{}
 	querySql := fmt.Sprintf("select %s from %s where %s = %s and %s = %s", r.columnSelect, r.Entity,
-		r.Config.Id, BuildParam(1, r.Driver),
-		r.EntityType, BuildParam(2, r.Driver))
-	err := SqlQueryOne(r.DB, &result, querySql, key, r.Table)
+		r.Config.Id, r.BuildParam(1),
+		r.EntityType, r.BuildParam(2))
+	err := SqlQueryOne(ctx, r.DB, &result, querySql, key, r.Table)
 	if err != nil {
 		return nil, err
 	}
@@ -223,25 +235,13 @@ func (r SqlDiffReader) GetEntityById(key interface{}, idNames []string) (interfa
 	return &result, nil
 }
 
-func BuildParameters(numCol int, driver string) string {
+func BuildParameters(numCol int, buildParam func(int) string) string {
 	var arrValue []string
 	for i := 0; i < numCol; i++ {
-		arrValue = append(arrValue, BuildParam(i+1, driver))
+		arrValue = append(arrValue, buildParam(i+1))
 	}
 	return strings.Join(arrValue, ",")
 }
-
-func BuildParam(index int, driver string) string {
-	switch driver {
-	case DriverPostgres:
-		return "$" + strconv.Itoa(index)
-	case DriverOracle:
-		return ":val" + strconv.Itoa(index)
-	default:
-		return "?"
-	}
-}
-
 func BuildQueryColumn(config DiffConfig) string {
 	sqlsel := make([]string, 0)
 	colDiffModel := GetColumnNameDiffModel()
@@ -271,7 +271,7 @@ func GetColumnNameDiffModel() []string {
 	return ids
 }
 
-func (c SqlDiffListReader) getEntityByIds(keyBuilder KeyBuilder, keys interface{}, idNames []string) (interface{}, error) {
+func (c SqlDiffListReader) getEntityByIds(ctx context.Context, keyBuilder KeyBuilder, keys interface{}, idNames []string) (interface{}, error) {
 	arrayKeys := make([]interface{}, 0)
 	args := make([]interface{}, 0)
 	listIds := make(map[string]interface{}, 0)
@@ -304,8 +304,8 @@ func (c SqlDiffListReader) getEntityByIds(keyBuilder KeyBuilder, keys interface{
 	args = append(args, arrayKeys...)
 	args = append(args, c.Table)
 	results := make([]DiffModel, 0)
-	querySql := fmt.Sprintf("select %s from %s where %s IN (%s) and %s = %s", c.columnSelect, c.Entity, c.Config.Id, BuildParameters(n, c.Driver), c.EntityType, BuildParam(n+1, c.Driver))
-	err := SqlQuery(c.DB, &results, querySql, args...)
+	querySql := fmt.Sprintf("select %s from %s where %s IN (%s) and %s = %s", c.columnSelect, c.Entity, c.Config.Id, BuildParameters(n, c.BuildParam), c.EntityType, c.BuildParam(n+1))
+	err := SqlQuery(ctx, c.DB, &results, querySql, args...)
 	// map object id
 	for i, result := range results {
 		id := result.Id.(*string)
@@ -348,8 +348,13 @@ func (b *DefaultKeyBuilder) getPositionPrimaryKeys(modelType reflect.Type) []int
 	return b.PositionPrimaryKeysMap[modelType]
 }
 
-func SqlQueryOne(db *sql.DB, result *DiffModel, sql string, values ...interface{}) error {
-	rows, err := db.Query(sql+" LIMIT 1", values...)
+func SqlQueryOne(ctx context.Context, db *sql.DB, result *DiffModel, sql string, values ...interface{}) error {
+	driver := getDriver(db)
+	suffix := " limit 1 "
+	if driver == DriverOracle {
+		suffix = " AND ROWNUM = 1 "
+	}
+	rows, err := db.QueryContext(ctx, sql + suffix, values...)
 	if err != nil {
 		return err
 	}
@@ -377,7 +382,7 @@ func SqlQueryOne(db *sql.DB, result *DiffModel, sql string, values ...interface{
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	return errors.New("NotFound Item.")
+	return errors.New("not found")
 }
 
 func mapToModel(vals []interface{}, result *DiffModel) {
@@ -416,8 +421,8 @@ func convertStringToMap(str *string) (*map[string]interface{}, error) {
 	return &p, err
 }
 
-func SqlQuery(db *sql.DB, results *[]DiffModel, sql string, values ...interface{}) error {
-	rows, err := db.Query(sql, values...)
+func SqlQuery(ctx context.Context, db *sql.DB, results *[]DiffModel, sql string, values ...interface{}) error {
+	rows, err := db.QueryContext(ctx, sql, values...)
 	if err != nil {
 		return err
 	}
@@ -521,30 +526,48 @@ func GetListFieldsTagJson(modelType reflect.Type) []string {
 	return idFields
 }
 
-
-// StructScan : transfer struct to slice for scan
-func StructScan(s interface{}, indexColumns []int) (r []interface{}) {
-	if s != nil {
-		maps := reflect.Indirect(reflect.ValueOf(s))
-		for _, index := range indexColumns {
-			r = append(r, maps.Field(index).Addr().Interface())
-		}
+func getDriver(db *sql.DB) string {
+	if db == nil {
+		return DriverNotSupport
 	}
-	return
-}
-
-func GetDriver(db *sql.DB) string {
 	driver := reflect.TypeOf(db.Driver()).String()
 	switch driver {
 	case "*pq.Driver":
 		return DriverPostgres
+	case "*godror.drv":
+		return DriverOracle
 	case "*mysql.MySQLDriver":
 		return DriverMysql
 	case "*mssql.Driver":
 		return DriverMssql
-	case "*godror.drv":
-		return DriverOracle
+	case "*sqlite3.SQLiteDriver":
+		return DriverSqlite3
 	default:
 		return DriverNotSupport
+	}
+}
+func buildParam(i int) string {
+	return "?"
+}
+func buildOracleParam(i int) string {
+	return ":val" + strconv.Itoa(i)
+}
+func buildMsSqlParam(i int) string {
+	return "@p" + strconv.Itoa(i)
+}
+func buildDollarParam(i int) string {
+	return "$" + strconv.Itoa(i)
+}
+func getBuild(db *sql.DB) func(i int) string {
+	driver := reflect.TypeOf(db.Driver()).String()
+	switch driver {
+	case "*pq.Driver":
+		return buildDollarParam
+	case "*godror.drv":
+		return buildOracleParam
+	case "*mysql.MySQLDriver":
+		return buildMsSqlParam
+	default:
+		return buildParam
 	}
 }
