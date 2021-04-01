@@ -73,18 +73,28 @@ type SqlHistoryWriter struct {
 	Generate   func() (string, error)
 }
 
-func NewSqlDiffReader(db *sql.DB, table string, entity string, entityType string, idNames []string, config DiffConfig, keyBuilder KeyBuilder) *SqlDiffReader {
+func NewSqlDiffReader(db *sql.DB, table string, entity string, entityType string, idNames []string, config DiffConfig, keyBuilder KeyBuilder, options...func(int) string) *SqlDiffReader {
 	columnSelect := BuildQueryColumn(config)
 	driver := getDriver(db)
-	build := getBuild(db)
-	return &SqlDiffReader{DB: db, Table: table, Entity: entity, EntityType: entityType, IdNames: idNames, Config: getDefaultConfig(config), KeyBuilder: keyBuilder, BuildParam: build, Driver: driver, columnSelect: columnSelect}
+	var buildParam func(int) string
+	if len(options) > 0 && options[0] != nil {
+		buildParam = options[0]
+	} else {
+		buildParam = getBuild(db)
+	}
+	return &SqlDiffReader{DB: db, Table: table, Entity: entity, EntityType: entityType, IdNames: idNames, Config: getDefaultConfig(config), KeyBuilder: keyBuilder, BuildParam: buildParam, Driver: driver, columnSelect: columnSelect}
 }
 
-func NewSqlDiffListReader(db *sql.DB, table string, tableEntity string, entityType string, idNames []string, config DiffConfig, keyBuilder KeyBuilder) *SqlDiffListReader {
+func NewSqlDiffListReader(db *sql.DB, table string, entity string, entityType string, idNames []string, config DiffConfig, keyBuilder KeyBuilder, options...func(int) string) *SqlDiffListReader {
 	columnSelect := BuildQueryColumn(config)
 	driver := getDriver(db)
-	buildParam := getBuild(db)
-	return &SqlDiffListReader{DB: db, BuildParam: buildParam, Table: table, Entity: tableEntity, EntityType: entityType, IdNames: idNames, Config: getDefaultConfig(config), KeyBuilder: keyBuilder, Driver: driver, columnSelect: columnSelect}
+	var buildParam func(int) string
+	if len(options) > 0 && options[0] != nil {
+		buildParam = options[0]
+	} else {
+		buildParam = getBuild(db)
+	}
+	return &SqlDiffListReader{DB: db, BuildParam: buildParam, Table: table, Entity: entity, EntityType: entityType, IdNames: idNames, Config: getDefaultConfig(config), KeyBuilder: keyBuilder, Driver: driver, columnSelect: columnSelect}
 }
 
 func NewSqlHistoryWriter(table string, entity string, idNames []string, config DiffConfig, keyBuilder KeyBuilder, buildParam func(int) string, generate func() (string, error)) *SqlHistoryWriter {
@@ -565,7 +575,7 @@ func getBuild(db *sql.DB) func(i int) string {
 		return buildDollarParam
 	case "*godror.drv":
 		return buildOracleParam
-	case "*mysql.MySQLDriver":
+	case "*mssql.Driver":
 		return buildMsSqlParam
 	default:
 		return buildParam
