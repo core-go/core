@@ -23,7 +23,7 @@ const (
 )
 
 type HistoryWriter interface {
-	Write(ctx context.Context, db *sql.Tx, tableName string, id interface{}, diff DiffModel, approvedBy string) error
+	Write(ctx context.Context, tx *sql.Tx, tableName string, id interface{}, diff DiffModel, approvedBy string) error
 }
 type KeyBuilder interface {
 	BuildKey(object interface{}) string
