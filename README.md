@@ -3,10 +3,6 @@ Some standard interfaces:
 - StringService
 - ViewService: to get all data, to get data by identity
 - GenericService: to insert, update, save, delete data
-- DiffService: to check differences between 2 models
-- ApprService: to approve or reject the changes
-- ModelBuilder, which is using IdGenerator
-- UniqueValueBuilder
 
 ## Installation
 
@@ -24,11 +20,8 @@ import "github.com/common-go/service"
 
 You can optimize the import by version:
 - v0.0.2: StringService
-- v0.0.3: UniqueValueBuilder only
 - v0.0.4: ViewService only
-- v1.0.5: ViewService, GenericService, DiffService, ApprService
-- v1.0.7: UniqueValueBuilder, Loader, Generator, DiffService and ApprService
-- v1.1.0: DefaultUniqueValueBuilder
+- v1.0.5: ViewService, GenericService
 
 ## Details:
 #### string_service.go
@@ -58,29 +51,6 @@ type GenericService interface {
 	Insert(ctx context.Context, model interface{}) (int64, error)
 	Update(ctx context.Context, model interface{}) (int64, error)
 	Patch(ctx context.Context, model map[string]interface{}) (int64, error)
-	Save(ctx context.Context, model interface{}) (int64, error)
 	Delete(ctx context.Context, id interface{}) (int64, error)
-}
-```
-
-#### diff_service.go
-```go
-type DiffService interface {
-	Diff(ctx context.Context, id interface{}) (*DiffModel, error)
-}
-```
-
-#### appr_service.go
-```go
-type ApprService interface {
-	Approve(ctx context.Context, id interface{}) (StatusCode, error)
-	Reject(ctx context.Context, id interface{}) (StatusCode, error)
-}
-```
-
-#### unique_value_builder.go
-```go
-type UniqueValueBuilder interface {
-	Build(ctx context.Context, model interface{}, name string) (string, error)
 }
 ```
