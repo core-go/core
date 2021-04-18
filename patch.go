@@ -30,17 +30,17 @@ func BuildMapAndStruct(r *http.Request, interfaceBody interface{}) (map[string]i
 	}
 	return body, nil
 }
-func BodyToJson(r *http.Request, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int, modelBuilder ModelBuilder) (map[string]interface{}, error, error) {
+func BodyToJson(r *http.Request, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int, modelBuilder ModelBuilder) (map[string]interface{}, error) {
 	var controlModel interface{}
 	if modelBuilder != nil {
 		var er0 error
 		controlModel, er0 = modelBuilder.BuildToPatch(r.Context(), structBody)
 		if er0 != nil {
-			return nil, er0, nil
+			return nil, er0
 		}
 		inRec, er1 := json.Marshal(controlModel)
 		if er1 != nil {
-			return nil, nil, er1
+			return nil, er1
 		}
 		var model map[string]interface{}
 		json.Unmarshal(inRec, &model)
@@ -75,5 +75,5 @@ func BodyToJson(r *http.Request, structBody interface{}, body map[string]interfa
 			}
 		}
 	}
-	return result, nil, nil
+	return result, nil
 }
