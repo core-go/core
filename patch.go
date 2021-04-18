@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-type CModelBuilder interface {
+type ModelBuilder interface {
 	BuildToInsert(ctx context.Context, model interface{}) (interface{}, error)
 	BuildToUpdate(ctx context.Context, model interface{}) (interface{}, error)
 	BuildToPatch(ctx context.Context, model interface{}) (interface{}, error)
@@ -30,7 +30,7 @@ func BuildMapAndStruct(r *http.Request, interfaceBody interface{}) (map[string]i
 	}
 	return body, nil
 }
-func BodyToJson(r *http.Request, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int, modelBuilder CModelBuilder) (map[string]interface{}, error, error) {
+func BodyToJson(r *http.Request, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int, modelBuilder ModelBuilder) (map[string]interface{}, error, error) {
 	var controlModel interface{}
 	if modelBuilder != nil {
 		var er0 error
