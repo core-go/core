@@ -17,7 +17,7 @@ func Error(w http.ResponseWriter, r *http.Request, code int, result interface{},
 	if logError != nil {
 		logError(r.Context(), err.Error())
 	}
-	Respond(w, r, code, result)
+	JSON(w, code, result)
 }
 func ErrorAndLog(w http.ResponseWriter, r *http.Request, code int, result interface{}, logError func(context.Context, string), resource string, action string, err error, writeLog func(context.Context, string, string, bool, string) error) {
 	if logError != nil {
@@ -27,12 +27,6 @@ func ErrorAndLog(w http.ResponseWriter, r *http.Request, code int, result interf
 }
 func Succeed(w http.ResponseWriter, r *http.Request, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
 	RespondAndLog(w, r, code, result, writeLog, resource, action, true, "")
-}
-func Respond(w http.ResponseWriter, r *http.Request, code int, result interface{}) {
-	response, _ := json.Marshal(result)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	w.Write(response)
 }
 func RespondAndLog(w http.ResponseWriter, r *http.Request, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, resource string, action string, success bool, desc string) {
 	response, _ := json.Marshal(result)
