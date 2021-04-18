@@ -1,7 +1,6 @@
 package service
 
 import (
-	"encoding/json"
 	"math"
 	"math/rand"
 	"reflect"
@@ -86,18 +85,6 @@ func ValueOf(m interface{}, path string) interface{} {
 	}
 	return c
 }
-func Marshal(v interface{}) ([]byte, error) {
-	b, ok1 := v.([]byte)
-	if ok1 {
-		return b, nil
-	}
-	s, ok2 := v.(string)
-	if ok2 {
-		return []byte(s), nil
-	}
-	return json.Marshal(v)
-}
-
 func MakeDurations(vs []int64) []time.Duration {
 	durations := make([]time.Duration, 0)
 	for _, v := range vs {
