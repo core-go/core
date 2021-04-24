@@ -1,4 +1,4 @@
-package service
+package activity
 
 import (
 	"bytes"
@@ -99,7 +99,7 @@ func BuildLog(ctx context.Context, ch ActivityLogSchema, c ActivityLogConfig, ge
 func (s *ActivityLogClient) Write(ctx context.Context, resource string, action string, success bool, desc string) error {
 	ch := s.Schema
 	log := BuildLog(ctx, s.Schema, s.Config, s.Generate, s.Transform, resource, action, success, desc, ch.Ext)
-	data, er0 := Marshal(log)
+	data, er0 := marshal(log)
 	if er0 != nil {
 		return er0
 	}
@@ -127,7 +127,7 @@ func PostWithRetries(ctx context.Context, client *http.Client, url string, log [
 		return er1
 	}
 	i := 0
-	err := Retry(ctx, retries, func() (err error) {
+	err := retry(ctx, retries, func() (err error) {
 		i = i + 1
 		_, er2 := DoWithClient(ctx, client, "POST", url, log, headers)
 		s := string(log)
@@ -200,7 +200,7 @@ func GetString(ctx context.Context, key string) string {
 	return ""
 }
 func DoWithClient(ctx context.Context, client *http.Client, method string, url string, obj interface{}, headers *map[string]string) (*json.Decoder, error) {
-	rq, err := Marshal(obj)
+	rq, err := marshal(obj)
 	if err != nil {
 		return nil, err
 	}
@@ -234,9 +234,19 @@ func AddHeaderAndDo(client *http.Client, req *http.Request, headers *map[string]
 	resp, err := client.Do(req)
 	return resp, err
 }
-
+func marshal(v interface{}) ([]byte, error) {
+	b, ok1 := v.([]byte)
+	if ok1 {
+		return b, nil
+	}
+	s, ok2 := v.(string)
+	if ok2 {
+		return []byte(s), nil
+	}
+	return json.Marshal(v)
+}
 //Copy this code from https://stackoverflow.com/questions/47606761/repeat-code-if-an-error-occured
-func Retry(ctx context.Context, sleeps []time.Duration, f func() error) (err error) {
+func retry(ctx context.Context, sleeps []time.Duration, f func() error) (err error) {
 	attempts := len(sleeps)
 	for i := 0; ; i++ {
 		err = f()

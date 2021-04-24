@@ -1,20 +1,11 @@
-package id
+package sql
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
-)
-
-const (
-	driverPostgres   = "postgres"
-	driverMysql      = "mysql"
-	driverMssql      = "mssql"
-	driverOracle     = "oracle"
-	driverNotSupport = "no support"
 )
 
 type FieldLoader struct {
@@ -73,22 +64,4 @@ func (l *FieldLoader) Values(ctx context.Context, ids []string) ([]string, error
 		}
 	}
 	return vs, nil
-}
-func getDriver(db *sql.DB) string {
-	if db == nil {
-		return driverNotSupport
-	}
-	driver := reflect.TypeOf(db.Driver()).String()
-	switch driver {
-	case "*pq.Driver":
-		return driverPostgres
-	case "*mysql.MySQLDriver":
-		return driverMysql
-	case "*mssql.Driver":
-		return driverMssql
-	case "*godror.drv":
-		return driverOracle
-	default:
-		return driverNotSupport
-	}
 }
