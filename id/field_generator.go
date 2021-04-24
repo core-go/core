@@ -11,6 +11,10 @@ import (
 type FieldGenerator struct {
 }
 
+func NewFieldGenerator() *FieldGenerator {
+	return &FieldGenerator{}
+}
+
 func (d *FieldGenerator) Generate(ctx context.Context, name string) (string, error) {
 	name = strings.TrimSpace(name)
 	name = regexp.MustCompile(`\s`).ReplaceAllString(name, "-")

@@ -3,5 +3,5 @@ package id
 import "context"
 
 type UniqueValueBuilder interface {
-	Build(ctx context.Context, model interface{}, name string) (string, error)
+	Build(ctx context.Context, model interface{}) (string, error)
 }

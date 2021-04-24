@@ -14,18 +14,22 @@ type DefaultUniqueValueBuilder struct {
 	GenerateId func(ctx context.Context) (string, error)
 }
 
-func NewUniqueValueBuilder(generator Generator, values func(context.Context, []string) ([]string, error), name string, max int, idGenerator func(ctx context.Context) (string, error)) *DefaultUniqueValueBuilder {
+func NewUniqueValueBuilder(generator Generator, values func(context.Context, []string) ([]string, error), name string, max int, generatorId func(context.Context) (string, error)) *DefaultUniqueValueBuilder {
 	return &DefaultUniqueValueBuilder{
 		Generator:  generator,
 		Values:     values,
 		Name:       name,
 		Max:        max,
-		GenerateId: idGenerator,
+		GenerateId: generatorId,
 	}
 }
 
 // Build name is the field is used for create urlId
-func (b *DefaultUniqueValueBuilder) Build(ctx context.Context, model interface{}, name string) (string, error) {
+func (b *DefaultUniqueValueBuilder) Build(ctx context.Context, model interface{}) (string, error) {
+	return Build(ctx, model, b.Name, b.Max, b.Generator, b.Values, b.GenerateId)
+}
+
+func Build(ctx context.Context, model interface{}, name string, max int, generator Generator, values func(context.Context, []string) ([]string, error), generateId func(ctx context.Context) (string, error)) (string, error) {
 	var finalUrlId = ""
 
 	var limitPreUrlId, err1 = getValue(model, name)
@@ -47,19 +51,19 @@ func (b *DefaultUniqueValueBuilder) Build(ctx context.Context, model interface{}
 		return "", fmt.Errorf("value of " + name + " cannot be empty")
 	}
 
-	if len(limitPreUrlIdStr) > b.Max {
-		limitPreUrlId = limitPreUrlIdStr[:b.Max]
+	if len(limitPreUrlIdStr) > max {
+		limitPreUrlId = limitPreUrlIdStr[:max]
 	}
-	var preUrlId, er1 = b.Generator.Generate(ctx, limitPreUrlIdStr)
+	var preUrlId, er1 = generator.Generate(ctx, limitPreUrlIdStr)
 	if er1 != nil {
 		return "", er1
 	}
-	var array20ItemPattern, er2 = b.Generator.Array(ctx, preUrlId)
+	var array20ItemPattern, er2 = generator.Array(ctx, preUrlId)
 	if er2 != nil {
 		return "", er2
 	}
 
-	var urlIds, er3 = b.Values(ctx, array20ItemPattern)
+	var urlIds, er3 = values(ctx, array20ItemPattern)
 	if er3 != nil {
 		return "", er3
 	}
@@ -68,7 +72,7 @@ func (b *DefaultUniqueValueBuilder) Build(ctx context.Context, model interface{}
 	} else {
 		var urlIdNeed = findNotIn(urlIds, array20ItemPattern)
 		if urlIdNeed == "" {
-			randomId, er4 := b.GenerateId(ctx)
+			randomId, er4 := generateId(ctx)
 			if er4 != nil {
 				return "", er4
 			}

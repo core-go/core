@@ -11,13 +11,6 @@ import (
 	"time"
 )
 
-func IsPointer(s interface{}) int {
-	if reflect.ValueOf(s).Kind() == reflect.Ptr {
-		return 1
-	}
-	return -1
-}
-
 func SetValue(model interface{}, index int, value interface{}) (interface{}, error) {
 	valueModelObject := reflect.Indirect(reflect.ValueOf(model))
 	if valueModelObject.Kind() == reflect.Ptr {
