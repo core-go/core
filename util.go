@@ -11,6 +11,13 @@ import (
 	"time"
 )
 
+func IsPointer(s interface{}) int {
+	if reflect.ValueOf(s).Kind() == reflect.Ptr {
+		return 1
+	}
+	return -1
+}
+
 func SetValue(model interface{}, index int, value interface{}) (interface{}, error) {
 	valueModelObject := reflect.Indirect(reflect.ValueOf(model))
 	if valueModelObject.Kind() == reflect.Ptr {
@@ -38,8 +45,6 @@ func RemoveUniCode(str string) string {
 	return str
 }
 
-// Left left-pads the string with pad up to len runes
-// len may be exceeded if
 func PadLeft(str string, length int, pad string) string {
 	return strings.Repeat(pad, length-len(str)) + str
 }
@@ -84,6 +89,23 @@ func ValueOf(m interface{}, path string) interface{} {
 		i++
 	}
 	return c
+}
+func FindNotIn(all []string, itemsNotIn []string) string {
+	var result = ""
+	for i := 1; i < len(itemsNotIn); i++ {
+		if IndexOf(itemsNotIn[i], all) < 0 {
+			return itemsNotIn[i]
+		}
+	}
+	return result
+}
+func IndexOf(element string, data []string) int {
+	for k, v := range data {
+		if element == v {
+			return k
+		}
+	}
+	return -1 //not found.
 }
 func MakeDurations(vs []int64) []time.Duration {
 	durations := make([]time.Duration, 0)
