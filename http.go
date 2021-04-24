@@ -7,20 +7,20 @@ import (
 )
 
 func StartServer(handler http.Handler, conf ServerConfig) {
-	server := GetServerAddress(conf.Port)
-	log.Println(GetStartMessage(conf))
+	server := Addr(conf.Port)
+	log.Println(ServerInfo(conf))
 	if err := http.ListenAndServe(server, handler); err != nil {
 		panic(err)
 	}
 }
-func GetServerAddress(port *int64) string {
+func Addr(port *int64) string {
 	server := ""
 	if port != nil && *port >= 0 {
 		server = ":" + strconv.FormatInt(*port, 10)
 	}
 	return server
 }
-func GetStartMessage(conf ServerConfig) string {
+func ServerInfo(conf ServerConfig) string {
 	if len(conf.Version) > 0 {
 		if conf.Port != nil && *conf.Port >= 0 {
 			return "Start service: " + conf.Name + " at port " + strconv.FormatInt(*conf.Port, 10) + " with version " + conf.Version

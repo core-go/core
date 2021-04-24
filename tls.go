@@ -9,8 +9,8 @@ import (
 
 func StartServerTLS(r http.Handler, conf ServerConfig, cert, key []byte) {
 	var err error
-	server := GetServerAddress(conf.Port)
-	log.Println(GetStartMessage(conf))
+	server := Addr(conf.Port)
+	log.Println(ServerInfo(conf))
 	s := &http.Server{Addr: server, Handler: r, TLSConfig: &tls.Config{}}
 	s.TLSConfig.NextProtos = make([]string, 1)
 	if !strSliceContains(s.TLSConfig.NextProtos, "http/1.1") {
