@@ -59,6 +59,22 @@ type AuditLogClient struct {
 	Error     func(context.Context, string)
 	Retries   []time.Duration
 }
+func (s *AuditLogClient) Write(ctx context.Context, resource string, action string, success bool, desc string) error {
+	ch := s.Schema
+	log := BuildLog(ctx, s.Schema, s.Config, s.Generate, s.Transform, resource, action, success, desc, ch.Ext)
+	data, er0 := marshal(log)
+	if er0 != nil {
+		return er0
+	}
+	headers := BuildHeader(ctx, ch.Headers)
+	if !s.Config.Goroutines {
+		er3 := PostLog(ctx, s.Client, s.Url, data, headers, s.Error, s.Retries...)
+		return er3
+	} else {
+		go PostLog(ctx, s.Client, s.Url, data, headers, s.Error, s.Retries...)
+		return nil
+	}
+}
 
 func BuildLog(ctx context.Context, ch AuditLogSchema, c AuditLogConfig, generate func(ctx context.Context) (string, error), transform func(map[string]interface{}) map[string]interface{}, resource string, action string, success bool, desc string, ext2 *[]string) map[string]interface{} {
 	log := make(map[string]interface{})
@@ -95,22 +111,6 @@ func BuildLog(ctx context.Context, ch AuditLogSchema, c AuditLogConfig, generate
 		return m2
 	}
 	return m2
-}
-func (s *AuditLogClient) Write(ctx context.Context, resource string, action string, success bool, desc string) error {
-	ch := s.Schema
-	log := BuildLog(ctx, s.Schema, s.Config, s.Generate, s.Transform, resource, action, success, desc, ch.Ext)
-	data, er0 := marshal(log)
-	if er0 != nil {
-		return er0
-	}
-	headers := BuildHeader(ctx, ch.Headers)
-	if !s.Config.Goroutines {
-		er3 := PostLog(ctx, s.Client, s.Url, data, headers, s.Error, s.Retries...)
-		return er3
-	} else {
-		go PostLog(ctx, s.Client, s.Url, data, headers, s.Error, s.Retries...)
-		return nil
-	}
 }
 func PostLog(ctx context.Context, client *http.Client, url string, log []byte, headers *map[string]string, logError func(context.Context, string), retries ...time.Duration) error {
 	l := len(retries)
