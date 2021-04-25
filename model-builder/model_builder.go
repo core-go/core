@@ -30,10 +30,26 @@ type ModelBuilder struct {
 	updatedAtIndex int
 }
 
-func NewModelBuilderByConfig(generateId func(ctx context.Context, model interface{}) (int, error), modelType reflect.Type, c TrackingConfig) *ModelBuilder {
+func NewDefaultModelBuilderByConfig(generateId func(context.Context) (string, error), modelType reflect.Type, c TrackingConfig) *ModelBuilder {
+	if generateId != nil {
+		idGenerator := NewIdGenerator(generateId)
+		return NewModelBuilderByConfig(idGenerator.Generate, modelType, c)
+	} else {
+		return NewModelBuilderByConfig(nil, modelType, c)
+	}
+}
+func NewModelBuilderByConfig(generateId func(context.Context, interface{}) (int, error), modelType reflect.Type, c TrackingConfig) *ModelBuilder {
 	return NewModelBuilder(generateId, modelType, c.CreatedBy, c.CreatedAt, c.UpdatedBy, c.UpdatedAt, c.User, c.Authorization)
 }
-func NewModelBuilder(generateId func(ctx context.Context, model interface{}) (int, error), modelType reflect.Type, options ...string) *ModelBuilder {
+func NewDefaultModelBuilder(generateId func(context.Context) (string, error), modelType reflect.Type, options ...string) *ModelBuilder {
+	if generateId != nil {
+		idGenerator := NewIdGenerator(generateId)
+		return NewModelBuilder(idGenerator.Generate, modelType, options...)
+	} else {
+		return NewModelBuilder(nil, modelType, options...)
+	}
+}
+func NewModelBuilder(generateId func(context.Context, interface{}) (int, error), modelType reflect.Type, options ...string) *ModelBuilder {
 	var createdByName, createdAtName, updatedByName, updatedAtName, key, authorization string
 	if len(options) > 0 {
 		createdByName = options[0]
