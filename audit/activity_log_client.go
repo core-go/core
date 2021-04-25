@@ -1,4 +1,4 @@
-package activity
+package audit
 
 import (
 	"bytes"
@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func NewActivityLogClient(client *http.Client, url string, config ActivityLogConfig, schema ActivityLogSchema, generate func(context.Context) (string, error), logError func(context.Context, string), transform func(map[string]interface{}) map[string]interface{}, retries ...time.Duration) *ActivityLogClient {
+func NewAuditLogClient(client *http.Client, url string, config AuditLogConfig, schema AuditLogSchema, generate func(context.Context) (string, error), logError func(context.Context, string), transform func(map[string]interface{}) map[string]interface{}, retries ...time.Duration) *AuditLogClient {
 	if len(schema.User) == 0 {
 		schema.User = "user"
 	}
@@ -26,18 +26,18 @@ func NewActivityLogClient(client *http.Client, url string, config ActivityLogCon
 	if len(schema.Status) == 0 {
 		schema.Status = "status"
 	}
-	sender := ActivityLogClient{Client: client, Url: url, Config: config, Schema: schema, Generate: generate, Transform: transform, Error: logError, Retries: retries}
+	sender := AuditLogClient{Client: client, Url: url, Config: config, Schema: schema, Generate: generate, Transform: transform, Error: logError, Retries: retries}
 	return &sender
 }
 
-type ActivityLogConfig struct {
+type AuditLogConfig struct {
 	User       string `mapstructure:"user" json:"user,omitempty" gorm:"column:user" bson:"user,omitempty" dynamodbav:"user,omitempty" firestore:"user,omitempty"`
 	Ip         string `mapstructure:"ip" json:"ip,omitempty" gorm:"column:ip" bson:"ip,omitempty" dynamodbav:"ip,omitempty" firestore:"ip,omitempty"`
 	True       string `mapstructure:"true" json:"true,omitempty" gorm:"column:true" bson:"true,omitempty" dynamodbav:"true,omitempty" firestore:"true,omitempty"`
 	False      string `mapstructure:"false" json:"false,omitempty" gorm:"column:false" bson:"false,omitempty" dynamodbav:"false,omitempty" firestore:"false,omitempty"`
 	Goroutines bool   `mapstructure:"goroutines" json:"goroutines,omitempty" gorm:"column:goroutines" bson:"goroutines,omitempty" dynamodbav:"goroutines,omitempty" firestore:"goroutines,omitempty"`
 }
-type ActivityLogSchema struct {
+type AuditLogSchema struct {
 	Id        string    `mapstructure:"id" json:"id,omitempty" gorm:"column:id" bson:"_id,omitempty" dynamodbav:"id,omitempty" firestore:"id,omitempty"`
 	User      string    `mapstructure:"user" json:"user,omitempty" gorm:"column:user" bson:"user,omitempty" dynamodbav:"user,omitempty" firestore:"user,omitempty"`
 	Ip        string    `mapstructure:"ip" json:"ip,omitempty" gorm:"column:ip" bson:"ip,omitempty" dynamodbav:"ip,omitempty" firestore:"ip,omitempty"`
@@ -49,18 +49,18 @@ type ActivityLogSchema struct {
 	Ext       *[]string `mapstructure:"ext" json:"ext,omitempty" gorm:"column:ext" bson:"ext,omitempty" dynamodbav:"ext,omitempty" firestore:"ext,omitempty"`
 	Headers   *[]string `mapstructure:"headers" json:"headers,omitempty" gorm:"column:headers" bson:"headers,omitempty" dynamodbav:"headers,omitempty" firestore:"headers,omitempty"`
 }
-type ActivityLogClient struct {
+type AuditLogClient struct {
 	Client    *http.Client
 	Url       string
-	Config    ActivityLogConfig
-	Schema    ActivityLogSchema
+	Config    AuditLogConfig
+	Schema    AuditLogSchema
 	Generate  func(ctx context.Context) (string, error)
 	Transform func(map[string]interface{}) map[string]interface{}
 	Error     func(context.Context, string)
 	Retries   []time.Duration
 }
 
-func BuildLog(ctx context.Context, ch ActivityLogSchema, c ActivityLogConfig, generate func(ctx context.Context) (string, error), transform func(map[string]interface{}) map[string]interface{}, resource string, action string, success bool, desc string, ext2 *[]string) map[string]interface{} {
+func BuildLog(ctx context.Context, ch AuditLogSchema, c AuditLogConfig, generate func(ctx context.Context) (string, error), transform func(map[string]interface{}) map[string]interface{}, resource string, action string, success bool, desc string, ext2 *[]string) map[string]interface{} {
 	log := make(map[string]interface{})
 	log[ch.Timestamp] = time.Now()
 	log[ch.Resource] = resource
@@ -96,7 +96,7 @@ func BuildLog(ctx context.Context, ch ActivityLogSchema, c ActivityLogConfig, ge
 	}
 	return m2
 }
-func (s *ActivityLogClient) Write(ctx context.Context, resource string, action string, success bool, desc string) error {
+func (s *AuditLogClient) Write(ctx context.Context, resource string, action string, success bool, desc string) error {
 	ch := s.Schema
 	log := BuildLog(ctx, s.Schema, s.Config, s.Generate, s.Transform, resource, action, success, desc, ch.Ext)
 	data, er0 := marshal(log)
@@ -245,6 +245,7 @@ func marshal(v interface{}) ([]byte, error) {
 	}
 	return json.Marshal(v)
 }
+
 //Copy this code from https://stackoverflow.com/questions/47606761/repeat-code-if-an-error-occured
 func retry(ctx context.Context, sleeps []time.Duration, f func() error) (err error) {
 	attempts := len(sleeps)
@@ -257,7 +258,6 @@ func retry(ctx context.Context, sleeps []time.Duration, f func() error) (err err
 			break
 		}
 		time.Sleep(sleeps[i])
-		//Infof(ctx, "Retrying %d of %d after error: %s", i+1, attempts, err.Error())
 	}
 	return fmt.Errorf("after %d attempts, last error: %s", attempts, err)
 }
