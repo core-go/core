@@ -20,3 +20,17 @@ func ShortId() (string, error) {
 func Generate(ctx context.Context) (string, error) {
 	return ShortId()
 }
+
+func Func(auto *bool) func(context.Context) (string, error) {
+	if auto != nil && *auto {
+		return Generate
+	}
+	return nil
+}
+
+func GetFunc(auto bool) func(context.Context) (string, error) {
+	if auto {
+		return Generate
+	}
+	return nil
+}
