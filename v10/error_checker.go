@@ -1,8 +1,6 @@
 package validator
 
-import (
-	sv "github.com/common-go/service"
-)
+import sv "github.com/core-go/service"
 
 func NewErrorChecker() *sv.ErrorChecker {
 	v := NewValidator()

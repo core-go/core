@@ -1,7 +1,7 @@
 package validator
 
 import (
-	s "github.com/common-go/service"
+	s "github.com/core-go/service"
 	"github.com/go-playground/validator/v10"
 )
 
