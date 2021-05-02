@@ -18,7 +18,7 @@ const (
 	driverNotSupport = "no support"
 )
 
-type DatabaseConfig struct {
+type Config struct {
 	MultiStatements bool        `mapstructure:"multi_statements" json:"multiStatements,omitempty" gorm:"column:multistatements" bson:"multiStatements,omitempty" dynamodbav:"multiStatements,omitempty" firestore:"multiStatements,omitempty"`
 	DataSourceName  string      `mapstructure:"data_source_name" json:"dataSourceName,omitempty" gorm:"column:datasourcename" bson:"dataSourceName,omitempty" dynamodbav:"dataSourceName,omitempty" firestore:"dataSourceName,omitempty"`
 	Driver          string      `mapstructure:"driver" json:"driver,omitempty" gorm:"column:driver" bson:"driver,omitempty" dynamodbav:"driver,omitempty" firestore:"driver,omitempty"`
@@ -46,7 +46,7 @@ type RetryConfig struct {
 	Retry9 int64 `mapstructure:"9" json:"retry9,omitempty" gorm:"column:retry9" bson:"retry9,omitempty" dynamodbav:"retry9,omitempty" firestore:"retry9,omitempty"`
 }
 
-func OpenByConfig(c DatabaseConfig) (*sql.DB, error) {
+func OpenByConfig(c Config) (*sql.DB, error) {
 	if c.Mock {
 		return nil, nil
 	}
@@ -57,7 +57,7 @@ func OpenByConfig(c DatabaseConfig) (*sql.DB, error) {
 		return Open(c, durations...)
 	}
 }
-func open(c DatabaseConfig) (*sql.DB, error) {
+func open(c Config) (*sql.DB, error) {
 	dsn := c.DataSourceName
 	if len(dsn) == 0 {
 		dsn = buildDataSourceName(c)
@@ -77,7 +77,7 @@ func open(c DatabaseConfig) (*sql.DB, error) {
 	}
 	return db, err
 }
-func Open(c DatabaseConfig, retries ...time.Duration) (*sql.DB, error) {
+func Open(c Config, retries ...time.Duration) (*sql.DB, error) {
 	if c.Mock {
 		return nil, nil
 	}
@@ -119,7 +119,7 @@ func retry(sleeps []time.Duration, f func() error) (err error) {
 	}
 	return fmt.Errorf("after %d attempts, last error: %s", attempts, err)
 }
-func buildDataSourceName(c DatabaseConfig) string {
+func buildDataSourceName(c Config) string {
 	if c.Driver == "postgres" {
 		uri := fmt.Sprintf("user=%s dbname=%s password=%s host=%s port=%d sslmode=disable", c.User, c.Database, c.Password, c.Host, c.Port)
 		return uri
