@@ -262,7 +262,7 @@ func (h *GenericHandler) Patch(w http.ResponseWriter, r *http.Request) {
 	}
 	body, er2 := BodyToJson(r, bodyStruct, body0, h.Keys, h.mapIndex, h.modelBuilder)
 	if er2 != nil {
-		http.Error(w, "Invalid Data: "+er2.Error(), http.StatusBadRequest)
+		// http.Error(w, "Invalid Data: "+er2.Error(), http.StatusBadRequest)
 		ErrorAndLog(w, r, http.StatusInternalServerError, InternalServerError, h.Error, h.Resource, h.Config.Patch, er2, h.Log)
 		return
 	}

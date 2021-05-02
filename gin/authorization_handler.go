@@ -1,7 +1,9 @@
-package service
+package gin
 
 import (
 	"context"
+	"github.com/gin-gonic/gin"
+	"net"
 	"net/http"
 )
 
@@ -24,43 +26,56 @@ func NewAuthorizationHandlerWithIp(verifyToken func(string, string) (bool, strin
 	return &AuthorizationHandler{Authorization: authorization, GetAndVerifyToken: verifyToken, Secret: secret, Ip: ip}
 }
 
-func (c *AuthorizationHandler) HandleAuthorization(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func (c *AuthorizationHandler) HandleAuthorization() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		r := ctx.Request
 		au := r.Header["Authorization"]
 		authorization := au[0]
 		isToken, _, data, _, _, err := c.GetAndVerifyToken(authorization, c.Secret)
-		var ctx context.Context
-		ctx = r.Context()
+		var ctx2 context.Context
+		ctx2 = r.Context()
 		if len(c.Ip) > 0 {
-			ip := GetRemoteIp(r)
-			ctx = context.WithValue(ctx, c.Ip, ip)
+			ip := getRemoteIp(r)
+			ctx2 = context.WithValue(ctx2, c.Ip, ip)
 		}
 		if !isToken {
 			if len(c.Ip) == 0 {
-				next.ServeHTTP(w, r)
+				ctx.Next()
 			} else {
-				next.ServeHTTP(w, r.WithContext(ctx))
+				ctx.Request = r.WithContext(ctx2)
+				ctx.Next()
 			}
 		} else {
 			if err != nil {
 				if len(c.Ip) == 0 {
-					next.ServeHTTP(w, r)
+					ctx.Next()
 				} else {
-					next.ServeHTTP(w, r.WithContext(ctx))
+					ctx.Request = r.WithContext(ctx2)
+					ctx.Next()
 				}
 			} else {
 				if len(c.Authorization) > 0 {
-					ctx := context.WithValue(ctx, c.Authorization, data)
-					next.ServeHTTP(w, r.WithContext(ctx))
+					ctx2 := context.WithValue(ctx2, c.Authorization, data)
+					ctx.Request = r.WithContext(ctx2)
+					ctx.Next()
 				} else {
 					for k, e := range data {
 						if len(k) > 0 {
-							ctx = context.WithValue(ctx, k, e)
+							ctx2 = context.WithValue(ctx2, k, e)
 						}
 					}
-					next.ServeHTTP(w, r.WithContext(ctx))
+					ctx.Request = r.WithContext(ctx2)
+					ctx.Next()
 				}
 			}
 		}
-	})
+	}
+}
+
+func getRemoteIp(r *http.Request) string {
+	remoteIP, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		remoteIP = r.RemoteAddr
+	}
+	return remoteIP
 }
