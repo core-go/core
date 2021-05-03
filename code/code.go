@@ -11,12 +11,12 @@ import (
 )
 
 const (
-	DriverPostgres   = "postgres"
-	DriverMysql      = "mysql"
-	DriverMssql      = "mssql"
-	DriverOracle     = "oracle"
-	DriverSqlite3    = "sqlite3"
-	DriverNotSupport = "no support"
+	driverPostgres   = "postgres"
+	driverMysql      = "mysql"
+	driverMssql      = "mssql"
+	driverOracle     = "oracle"
+	driverSqlite3    = "sqlite3"
+	driverNotSupport = "no support"
 )
 
 type Model struct {
@@ -68,7 +68,7 @@ func NewDefaultDynamicSqlCodeLoader(db *sql.DB, query string, options ...int) *D
 func NewDynamicSqlCodeLoader(db *sql.DB, query string, parameterCount int, options ...bool) *DynamicSqlLoader {
 	driver := getDriver(db)
 	var mp func(string) string
-	if driver == DriverOracle {
+	if driver == driverOracle {
 		mp = strings.ToUpper
 	} else {
 		mp = strings.ToLower
@@ -83,13 +83,13 @@ func NewDynamicSqlCodeLoader(db *sql.DB, query string, parameterCount int, optio
 		handleDriver = true
 	}
 	if handleDriver {
-		if driver == DriverOracle || driver == DriverPostgres || driver == DriverMssql {
+		if driver == driverOracle || driver == driverPostgres || driver == driverMssql {
 			var x string
-			if driver == DriverOracle {
+			if driver == driverOracle {
 				x = ":val"
-			} else if driver == DriverPostgres {
+			} else if driver == driverPostgres {
 				x = "$"
-			} else if driver == DriverMssql {
+			} else if driver == driverMssql {
 				x = "@p"
 			}
 			for i := 0; i < parameterCount; i++ {
@@ -156,7 +156,7 @@ func NewSqlCodeLoader(db *sql.DB, table string, config StructureConfig, options 
 	}
 	driver := getDriver(db)
 	var mp func(string) string
-	if driver == DriverOracle {
+	if driver == driverOracle {
 		mp = strings.ToUpper
 	}
 	return &SqlLoader{DB: db, Table: table, Config: config, Build: build, Map: mp}
@@ -335,21 +335,21 @@ func getBuild(db *sql.DB) func(i int) string {
 }
 func getDriver(db *sql.DB) string {
 	if db == nil {
-		return DriverNotSupport
+		return driverNotSupport
 	}
 	driver := reflect.TypeOf(db.Driver()).String()
 	switch driver {
 	case "*pq.Driver":
-		return DriverPostgres
+		return driverPostgres
 	case "*godror.drv":
-		return DriverOracle
+		return driverOracle
 	case "*mysql.MySQLDriver":
-		return DriverMysql
+		return driverMysql
 	case "*mssql.Driver":
-		return DriverMssql
+		return driverMssql
 	case "*sqlite3.SQLiteDriver":
-		return DriverSqlite3
+		return driverSqlite3
 	default:
-		return DriverNotSupport
+		return driverNotSupport
 	}
 }
