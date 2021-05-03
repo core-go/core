@@ -1,9 +1,4 @@
 # service
-Some standard interfaces:
-- StringService
-- ViewService: to get all data, to get data by identity
-- GenericService: to insert, update, save, delete data
-
 ## Installation
 Please make sure to initialize a Go module before installing core-go/service:
 
