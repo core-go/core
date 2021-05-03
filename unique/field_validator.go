@@ -5,11 +5,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	sv "github.com/core-go/service"
 	"reflect"
 	"strconv"
 	"strings"
-
-	sv "github.com/core-go/service"
 )
 
 const (
@@ -31,17 +30,33 @@ type FieldValidator struct {
 	modelType      reflect.Type
 	tableName      string
 	fieldName      string
+	jsonFieldName  string
 	fieldIndex     int
-	columnName     string
 	idColumnFields []string
 	keyIndexes     map[string]int
-	query          string
 }
 
-func NewUniqueFieldValidator(db *sql.DB, validate func(ctx context.Context, model interface{}) ([]sv.ErrorMessage, error), tableName string, fieldName string, modelType reflect.Type) *FieldValidator {
+func NewUniqueFieldValidator(db *sql.DB, tableName string, columnName string, modelType reflect.Type, options...func(context.Context, interface{}) ([]sv.ErrorMessage, error)) *FieldValidator {
+	var validate func(context.Context, interface{}) ([]sv.ErrorMessage, error)
+	if len(options) > 0 {
+		validate = options[0]
+	}
 	driver := getDriver(db)
 	keyIndexes, _ := getColumnIndexes(modelType)
-	idColumnFieldsName, _ := findNames(modelType)
+	idColumnFieldsName, _ := findPrimaryKeys(modelType)
+
+	columnName = strings.ToLower(columnName)
+	var jsonFieldName string
+	i, ok := keyIndexes[columnName]
+	if ok {
+		field := modelType.Field(i)
+		jsonTags := field.Tag.Get("json")
+		jsonTag := strings.Split(jsonTags, ",")
+		jsonFieldName = jsonTag[0]
+		if len(jsonFieldName) == 0 {
+			jsonFieldName = field.Name
+		}
+	}
 
 	return &FieldValidator{
 		db:             db,
@@ -49,41 +64,46 @@ func NewUniqueFieldValidator(db *sql.DB, validate func(ctx context.Context, mode
 		validate:       validate,
 		modelType:      modelType,
 		tableName:      tableName,
-		fieldName:      fieldName,
-		columnName:     "",
+		fieldName:      columnName,
+		jsonFieldName:  jsonFieldName,
 		idColumnFields: idColumnFieldsName,
 		keyIndexes:     keyIndexes,
-		query:          "",
 	}
 }
-func (v *FieldValidator) Validate(ctx context.Context, model interface{}) (errors []sv.ErrorMessage, err error) {
-	errors, err = v.validate(ctx, model)
-	if err != nil {
-		return errors, err
+func (v *FieldValidator) Validate(ctx context.Context, model interface{}) ([]sv.ErrorMessage, error) {
+	var errs []sv.ErrorMessage
+	var err error
+	if v.validate != nil {
+		errs, err = v.validate(ctx, model)
+		if err != nil {
+			return errs, err
+		}
+	} else {
+		errs = make([]sv.ErrorMessage, 0)
 	}
 
 	vo := reflect.Indirect(reflect.ValueOf(model))
 	if vo.Kind() == reflect.Ptr {
 		vo = reflect.Indirect(vo)
 	}
-	updateStatus, valuesId := IsIdValid(v.keyIndexes, v.idColumnFields, vo)
-	values := BuildParameters(v.keyIndexes, vo, v.fieldName, valuesId, updateStatus)
-	syntax := GetDriverParam(v.driver, values)
-	query := BuildQuery(v.tableName, v.fieldName, v.idColumnFields, syntax, v.driver, updateStatus)
+	updateStatus, valuesId := isIdValid(v.keyIndexes, v.idColumnFields, vo)
+	values := buildParameters(v.keyIndexes, vo, v.fieldName, valuesId, updateStatus)
+	syntax := getDriverParam(v.driver, values)
+	query := buildQuery(v.tableName, v.fieldName, v.idColumnFields, syntax, v.driver, updateStatus)
 
 	rows, err := v.db.Query(query, values...)
 	if err != nil {
-		return errors, err
+		return errs, err
 	}
 
 	for rows.Next() {
-		er := sv.ErrorMessage{Field: v.fieldName, Code: "duplicate"}
-		return append(errors, er), nil
+		er := sv.ErrorMessage{Field: v.jsonFieldName, Code: "duplicate"}
+		return append(errs, er), nil
 	}
-	return errors, err
+	return errs, err
 }
 
-func IsIdValid(keyIndexes map[string]int, idColumnFields []string, modelType reflect.Value) (bool, []interface{}) {
+func isIdValid(keyIndexes map[string]int, idColumnFields []string, modelType reflect.Value) (bool, []interface{}) {
 	var valuesID []interface{}
 	for _, field := range idColumnFields {
 		index := keyIndexes[field]
@@ -96,8 +116,7 @@ func IsIdValid(keyIndexes map[string]int, idColumnFields []string, modelType ref
 	}
 	return true, valuesID
 }
-
-func BuildQuery(tableName string, fieldsName string, idColumnFields []string, syntax []string, driver string, updateStatus bool) string {
+func buildQuery(tableName string, fieldsName string, idColumnFields []string, syntax []string, driver string, updateStatus bool) string {
 	var update string
 	query := fmt.Sprintf("select %s from %s", fieldsName, tableName) + " where " + fieldsName + fmt.Sprintf(" = %s", syntax[0])
 	n := len(idColumnFields) - 1
@@ -112,18 +131,15 @@ func BuildQuery(tableName string, fieldsName string, idColumnFields []string, sy
 			update += u
 		}
 	}
-
 	var limit string
 	if driver == driverOracle {
 		limit = fmt.Sprintf(oraclePagingFormat, "0", "1")
 	} else {
 		limit = fmt.Sprintf(defaultPagingFormat, "1", "0")
 	}
-
 	return query + update + limit
 }
-
-func BuildParameters(keyIndexes map[string]int, modelType reflect.Value, fieldsName string, valuesID []interface{}, updateStatus bool) []interface{} {
+func buildParameters(keyIndexes map[string]int, modelType reflect.Value, fieldsName string, valuesID []interface{}, updateStatus bool) []interface{} {
 	var values []interface{}
 	index := keyIndexes[fieldsName]
 	if updateStatus {
@@ -136,15 +152,15 @@ func BuildParameters(keyIndexes map[string]int, modelType reflect.Value, fieldsN
 	}
 	return values
 }
-func GetDriverParam(driver string, values []interface{}) []string {
+func getDriverParam(driver string, values []interface{}) []string {
 	var syntax []string
 	for i := 0; i < len(values); i++ {
 		var s string
-		if driver == "postgres" {
+		if driver == driverPostgres {
 			s = "$" + strconv.Itoa(i+1)
-		} else if driver == "oracle" {
+		} else if driver == driverOracle {
 			s = ":val" + strconv.Itoa(i+1)
-		} else if driver == "mssql" {
+		} else if driver == driverMssql {
 			s = "@p" + strconv.Itoa(i+1)
 		} else {
 			s = "?"
@@ -184,7 +200,7 @@ func findTag(tag string, key string) (string, bool) {
 	}
 	return "", false
 }
-func findNames(modelType reflect.Type) ([]string, []string) {
+func findPrimaryKeys(modelType reflect.Type) ([]string, []string) {
 	numField := modelType.NumField()
 	var idColumnFields []string
 	var idJsons []string
