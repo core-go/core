@@ -14,7 +14,7 @@ func BuildContextWithMask(next http.Handler, mask func(fieldName, s string) stri
 		var ctx context.Context
 		ctx = r.Context()
 		if len(fieldConfig.Ip) > 0 {
-			ip := GetRemoteIp(r)
+			ip := getRemoteIp(r)
 			ctx = context.WithValue(ctx, fieldConfig.Ip, ip)
 		}
 		if fieldConfig.Constants != nil && len(fieldConfig.Constants) > 0 {

@@ -2,9 +2,8 @@ package gin
 
 import (
 	"context"
+	sv "github.com/core-go/service"
 	"github.com/gin-gonic/gin"
-	"net"
-	"net/http"
 )
 
 type AuthorizationHandler struct {
@@ -35,7 +34,7 @@ func (c *AuthorizationHandler) HandleAuthorization() gin.HandlerFunc {
 		var ctx2 context.Context
 		ctx2 = r.Context()
 		if len(c.Ip) > 0 {
-			ip := getRemoteIp(r)
+			ip := sv.GetRemoteIp(r)
 			ctx2 = context.WithValue(ctx2, c.Ip, ip)
 		}
 		if !isToken {
@@ -70,12 +69,4 @@ func (c *AuthorizationHandler) HandleAuthorization() gin.HandlerFunc {
 			}
 		}
 	}
-}
-
-func getRemoteIp(r *http.Request) string {
-	remoteIP, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		remoteIP = r.RemoteAddr
-	}
-	return remoteIP
 }

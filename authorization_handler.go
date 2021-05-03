@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"net"
 	"net/http"
 )
 
@@ -63,4 +64,12 @@ func (c *AuthorizationHandler) HandleAuthorization(next http.Handler) http.Handl
 			}
 		}
 	})
+}
+
+func GetRemoteIp(r *http.Request) string {
+	remoteIP, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		remoteIP = r.RemoteAddr
+	}
+	return remoteIP
 }

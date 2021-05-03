@@ -110,12 +110,12 @@ func BuildLogFields(c LogConfig, r *http.Request) map[string]interface{} {
 		fields[c.Method] = r.Method
 	}
 	if len(c.RemoteIp) > 0 {
-		remoteIP := GetRemoteIp(r)
+		remoteIP := getRemoteIp(r)
 		fields[c.RemoteIp] = remoteIP
 	}
 	return fields
 }
-func GetRemoteIp(r *http.Request) string {
+func getRemoteIp(r *http.Request) string {
 	remoteIP, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		remoteIP = r.RemoteAddr
