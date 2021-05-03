@@ -17,7 +17,6 @@ type HGenericService interface {
 	Insert(ctx context.Context, model interface{}) (int64, error)
 	Update(ctx context.Context, model interface{}) (int64, error)
 	Patch(ctx context.Context, model map[string]interface{}) (int64, error)
-	//Save(ctx context.Context, model interface{}) (int64, error)
 	Delete(ctx context.Context, id interface{}) (int64, error)
 }
 
@@ -267,7 +266,7 @@ func (h *GenericHandler) Patch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.Validate != nil {
-		errors, er3 := h.Validate(r.Context(), &bodyStruct)
+		errors, er3 := h.Validate(r.Context(), bodyStruct)
 		if er3 != nil {
 			ErrorAndLog(w, r, http.StatusInternalServerError, InternalServerError, h.Error, h.Resource, h.Config.Patch, er3, h.Log)
 			return
