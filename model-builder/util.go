@@ -3,11 +3,11 @@ package builder
 import "reflect"
 
 func setValue(model interface{}, index int, value interface{}) (interface{}, error) {
-	valueModelObject := reflect.Indirect(reflect.ValueOf(model))
-	if valueModelObject.Kind() == reflect.Ptr {
-		valueModelObject = reflect.Indirect(valueModelObject)
+	v := reflect.Indirect(reflect.ValueOf(model))
+	if v.Kind() == reflect.Ptr {
+		v = reflect.Indirect(v)
 	}
 
-	valueModelObject.Field(index).Set(reflect.ValueOf(value))
+	v.Field(index).Set(reflect.ValueOf(value))
 	return model, nil
 }
