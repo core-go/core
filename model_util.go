@@ -9,6 +9,16 @@ import (
 	"strings"
 )
 
+func SetValue(model interface{}, index int, value interface{}) (interface{}, error) {
+	vo := reflect.Indirect(reflect.ValueOf(model))
+	if vo.Kind() == reflect.Ptr {
+		vo = reflect.Indirect(vo)
+	}
+
+	vo.Field(index).Set(reflect.ValueOf(value))
+	return model, nil
+}
+
 func SetField(v interface{}, name string, value string) error {
 	// v must be a pointer to a struct
 	rv := reflect.ValueOf(v)

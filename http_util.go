@@ -37,7 +37,8 @@ func IsTheSameType(modelType reflect.Type, obj interface{}) bool {
 	}
 	return false
 }
-// Return the struct, not pointer
+
+// NewModel Return the struct, not pointer
 func NewModel(modelType reflect.Type, body io.ReadCloser) (out interface{}, err error) {
 	if body != nil {
 		req := reflect.New(modelType).Interface()
@@ -109,7 +110,7 @@ func CheckId(r *http.Request, body interface{}, keysJson []string, mapIndex map[
 	}
 	return nil
 }
-func BuildId(r *http.Request, modelType reflect.Type, idNames []string, indexs map[string]int, offset int) (interface{}, error) {
+func BuildId(r *http.Request, modelType reflect.Type, idNames []string, indexes map[string]int, offset int) (interface{}, error) {
 	modelValue := reflect.New(modelType)
 	if len(idNames) > 1 {
 		mapKey := make(map[string]interface{})
@@ -122,7 +123,7 @@ func BuildId(r *http.Request, modelType reflect.Type, idNames []string, indexs m
 				if len(strings.Trim(idValue, " ")) == 0 {
 					return nil, fmt.Errorf("%v is required", idName)
 				}
-				index, _ := indexs[idName]
+				index, _ := indexes[idName]
 				ifField := reflect.Indirect(modelValue).FieldByIndex([]int{index})
 				idType := ifField.Type().String()
 				switch idType {
@@ -151,22 +152,22 @@ func BuildId(r *http.Request, modelType reflect.Type, idNames []string, indexs m
 		if err1 != nil {
 			return nil, err1
 		}
-		if idstr, ok := idValue.(string); ok {
-			if len(strings.Trim(idstr, " ")) == 0 {
+		if idStr, ok := idValue.(string); ok {
+			if len(strings.Trim(idStr, " ")) == 0 {
 				return nil, fmt.Errorf("%v is required", idNames[0])
 			}
-			index, _ := indexs[idNames[0]]
+			index, _ := indexes[idNames[0]]
 			ifField := reflect.Indirect(modelValue).FieldByIndex([]int{index})
 			idType := ifField.Type().String()
 			switch idType {
 			case "int64", "*int64":
-				if id, err := strconv.ParseInt(idstr, 10, 64); err != nil {
+				if id, err := strconv.ParseInt(idStr, 10, 64); err != nil {
 					return nil, fmt.Errorf("%v is invalid", idNames[0])
 				} else {
 					return id, nil
 				}
 			case "int", "int32", "*int32":
-				if id, err := strconv.ParseInt(idstr, 10, 32); err != nil {
+				if id, err := strconv.ParseInt(idStr, 10, 32); err != nil {
 					return nil, fmt.Errorf("%v is invalid", idNames[0])
 				} else {
 					return id, nil

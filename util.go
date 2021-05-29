@@ -11,16 +11,6 @@ import (
 	"time"
 )
 
-func SetValue(model interface{}, index int, value interface{}) (interface{}, error) {
-	valueModelObject := reflect.Indirect(reflect.ValueOf(model))
-	if valueModelObject.Kind() == reflect.Ptr {
-		valueModelObject = reflect.Indirect(valueModelObject)
-	}
-
-	valueModelObject.Field(index).Set(reflect.ValueOf(value))
-	return model, nil
-}
-
 func RemoveUniCode(str string) string {
 	str = strings.ToLower(str)
 	str = regexp.MustCompile(`à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ`).ReplaceAllString(str, "a")
