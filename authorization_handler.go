@@ -28,38 +28,42 @@ func NewAuthorizationHandlerWithIp(verifyToken func(string, string) (bool, strin
 func (c *AuthorizationHandler) HandleAuthorization(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		au := r.Header["Authorization"]
-		authorization := au[0]
-		isToken, _, data, _, _, err := c.GetAndVerifyToken(authorization, c.Secret)
-		var ctx context.Context
-		ctx = r.Context()
-		if len(c.Ip) > 0 {
-			ip := GetRemoteIp(r)
-			ctx = context.WithValue(ctx, c.Ip, ip)
-		}
-		if !isToken {
-			if len(c.Ip) == 0 {
-				next.ServeHTTP(w, r)
-			} else {
-				next.ServeHTTP(w, r.WithContext(ctx))
-			}
+		if au == nil || len(au) == 0 {
+			next.ServeHTTP(w, r)
 		} else {
-			if err != nil {
+			authorization := au[0]
+			isToken, _, data, _, _, err := c.GetAndVerifyToken(authorization, c.Secret)
+			var ctx context.Context
+			ctx = r.Context()
+			if len(c.Ip) > 0 {
+				ip := GetRemoteIp(r)
+				ctx = context.WithValue(ctx, c.Ip, ip)
+			}
+			if !isToken {
 				if len(c.Ip) == 0 {
 					next.ServeHTTP(w, r)
 				} else {
 					next.ServeHTTP(w, r.WithContext(ctx))
 				}
 			} else {
-				if len(c.Authorization) > 0 {
-					ctx := context.WithValue(ctx, c.Authorization, data)
-					next.ServeHTTP(w, r.WithContext(ctx))
-				} else {
-					for k, e := range data {
-						if len(k) > 0 {
-							ctx = context.WithValue(ctx, k, e)
-						}
+				if err != nil {
+					if len(c.Ip) == 0 {
+						next.ServeHTTP(w, r)
+					} else {
+						next.ServeHTTP(w, r.WithContext(ctx))
 					}
-					next.ServeHTTP(w, r.WithContext(ctx))
+				} else {
+					if len(c.Authorization) > 0 {
+						ctx := context.WithValue(ctx, c.Authorization, data)
+						next.ServeHTTP(w, r.WithContext(ctx))
+					} else {
+						for k, e := range data {
+							if len(k) > 0 {
+								ctx = context.WithValue(ctx, k, e)
+							}
+						}
+						next.ServeHTTP(w, r.WithContext(ctx))
+					}
 				}
 			}
 		}

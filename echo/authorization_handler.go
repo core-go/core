@@ -6,6 +6,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+
 type AuthorizationHandler struct {
 	GetAndVerifyToken func(authorization string, secret string) (bool, string, map[string]interface{}, int64, int64, error)
 	Secret            string
@@ -30,23 +31,18 @@ func (c *AuthorizationHandler) HandleAuthorization() echo.MiddlewareFunc {
 		return func(ctx echo.Context) error {
 			r := ctx.Request()
 			au := r.Header["Authorization"]
-			authorization := au[0]
-			isToken, _, data, _, _, err := c.GetAndVerifyToken(authorization, c.Secret)
-			var ctx2 context.Context
-			ctx2 = r.Context()
-			if len(c.Ip) > 0 {
-				ip := sv.GetRemoteIp(r)
-				ctx2 = context.WithValue(ctx2, c.Ip, ip)
-			}
-			if !isToken {
-				if len(c.Ip) == 0 {
-					return next(ctx)
-				} else {
-					ctx.SetRequest(r.WithContext(ctx2))
-					return next(ctx)
-				}
+			if au == nil || len(au) == 0 {
+				return next(ctx)
 			} else {
-				if err != nil {
+				authorization := au[0]
+				isToken, _, data, _, _, err := c.GetAndVerifyToken(authorization, c.Secret)
+				var ctx2 context.Context
+				ctx2 = r.Context()
+				if len(c.Ip) > 0 {
+					ip := sv.GetRemoteIp(r)
+					ctx2 = context.WithValue(ctx2, c.Ip, ip)
+				}
+				if !isToken {
 					if len(c.Ip) == 0 {
 						return next(ctx)
 					} else {
@@ -54,18 +50,27 @@ func (c *AuthorizationHandler) HandleAuthorization() echo.MiddlewareFunc {
 						return next(ctx)
 					}
 				} else {
-					if len(c.Authorization) > 0 {
-						ctx2 := context.WithValue(ctx2, c.Authorization, data)
-						ctx.SetRequest(r.WithContext(ctx2))
-						return next(ctx)
-					} else {
-						for k, e := range data {
-							if len(k) > 0 {
-								ctx2 = context.WithValue(ctx2, k, e)
-							}
+					if err != nil {
+						if len(c.Ip) == 0 {
+							return next(ctx)
+						} else {
+							ctx.SetRequest(r.WithContext(ctx2))
+							return next(ctx)
 						}
-						ctx.SetRequest(r.WithContext(ctx2))
-						return next(ctx)
+					} else {
+						if len(c.Authorization) > 0 {
+							ctx2 := context.WithValue(ctx2, c.Authorization, data)
+							ctx.SetRequest(r.WithContext(ctx2))
+							return next(ctx)
+						} else {
+							for k, e := range data {
+								if len(k) > 0 {
+									ctx2 = context.WithValue(ctx2, k, e)
+								}
+							}
+							ctx.SetRequest(r.WithContext(ctx2))
+							return next(ctx)
+						}
 					}
 				}
 			}
