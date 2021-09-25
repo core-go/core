@@ -54,23 +54,21 @@ func NewLoadHandlerWithKeysAndLog(load func(context.Context, interface{}) (inter
 	indexes := sv.GetIndexes(modelType)
 	return &LoadHandler{WriteLog: writeLog, LoadData: load, Keys: keys, ModelType: modelType, Indexes: indexes, Error: logError, Resource: resource, Action: action}
 }
-func (h *LoadHandler) Load() echo.HandlerFunc {
-	return func(ctx echo.Context) error {
-		r := ctx.Request()
-		id, er1 := sv.BuildId(r, h.ModelType, h.Keys, h.Indexes, 0)
-		if er1 != nil {
-			ctx.String(http.StatusBadRequest, er1.Error())
-			return er1
+func (h *LoadHandler) Load(ctx echo.Context) error {
+	r := ctx.Request()
+	id, er1 := sv.BuildId(r, h.ModelType, h.Keys, h.Indexes, 0)
+	if er1 != nil {
+		ctx.String(http.StatusBadRequest, er1.Error())
+		return er1
+	} else {
+		model, er2 := h.LoadData(r.Context(), id)
+		if er2 != nil {
+			return ErrorAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, h.Error, h.Resource, h.Action, er2, h.WriteLog)
 		} else {
-			model, er2 := h.LoadData(r.Context(), id)
-			if er2 != nil {
-				return ErrorAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, h.Error, h.Resource, h.Action, er2, h.WriteLog)
+			if model == nil {
+				return Respond(ctx, http.StatusNotFound, model, h.WriteLog, h.Resource, h.Action, false, "Not found")
 			} else {
-				if model == nil {
-					return Respond(ctx, http.StatusNotFound, model, h.WriteLog, h.Resource, h.Action, false, "Not found")
-				} else {
-					return Succeed(ctx, http.StatusOK, model, h.WriteLog, h.Resource, h.Action)
-				}
+				return Succeed(ctx, http.StatusOK, model, h.WriteLog, h.Resource, h.Action)
 			}
 		}
 	}
