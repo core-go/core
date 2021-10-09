@@ -110,10 +110,12 @@ func (h *Handler) Load(w http.ResponseWriter, r *http.Request) {
 }
 
 func respond(w http.ResponseWriter, r *http.Request, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, resource string, action string, success bool, desc string) {
-	response, _ := json.Marshal(result)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	w.Write(response)
+	err := json.NewEncoder(w).Encode(result)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 	if writeLog != nil {
 		writeLog(r.Context(), resource, action, success, desc)
 	}

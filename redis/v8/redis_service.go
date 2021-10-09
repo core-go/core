@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"context"
 	"github.com/go-redis/redis/v8"
 	"time"
 )
@@ -25,32 +26,32 @@ func NewRedisService(redisUrl string) (*RedisService, error) {
 }
 
 func (c *RedisService) Put(key string, obj interface{}, timeToLive time.Duration) error {
-	return Set(c.Client, key, obj, timeToLive)
+	return Set(context.TODO(), c.Client, key, obj, timeToLive)
 }
 
 func (c *RedisService) Expire(key string, timeToLive time.Duration) (bool, error) {
-	return Expire(c.Client, key, timeToLive)
+	return Expire(context.TODO(), c.Client, key, timeToLive)
 }
 
 func (c *RedisService) Get(key string) (interface{}, error) {
-	return Get(c.Client, key)
+	return Get(context.TODO(), c.Client, key)
 }
 
 func (c *RedisService) ContainsKey(key string) (bool, error) {
-	return Exists(c.Client, key)
+	return Exists(context.TODO(), c.Client, key)
 }
 
 func (c *RedisService) Remove(key string) (bool, error) {
-	return Delete(c.Client, key)
+	return Delete(context.TODO(), c.Client, key)
 }
 
 func (c *RedisService) Clear() error {
-	return Clear(c.Client)
+	return Clear(context.TODO(), c.Client)
 }
 
 func (c *RedisService) GetMany(keys []string) (map[string]interface{}, []string, error) {
 	m2 := make(map[string]interface{})
-	m, n, err := GetMany(c.Client, keys)
+	m, n, err := GetMany(context.TODO(), c.Client, keys)
 	if err != nil {
 		return m2, n, err
 	}
@@ -61,17 +62,17 @@ func (c *RedisService) GetMany(keys []string) (map[string]interface{}, []string,
 }
 
 func (c *RedisService) GetManyStrings(keys []string) (map[string]string, []string, error) {
-	return GetMany(c.Client, keys)
+	return GetMany(context.TODO(), c.Client, keys)
 }
 
 func (c *RedisService) Keys() ([]string, error) {
-	return Keys(c.Client)
+	return Keys(context.TODO(), c.Client)
 }
 
 func (c *RedisService) Count() (int64, error) {
-	return Count(c.Client)
+	return Count(context.TODO(), c.Client)
 }
 
 func (c *RedisService) Size() (int64, error) {
-	return Size(c.Client)
+	return Size(context.TODO(), c.Client)
 }

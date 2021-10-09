@@ -181,14 +181,26 @@ func NewRedisPoolByConfig(c Config) (*redis.Pool, error) {
 }
 
 func Set(pool *redis.Pool, key string, value interface{}, timeToLive time.Duration) error {
-	valueJson, err := json.Marshal(value)
-	if err != nil {
-		return err
-	}
 	conn := pool.Get()
 	defer conn.Close()
-	_, err = conn.Do("SET", key, valueJson, "EX", int(timeToLive))
-	return err
+	s, ok := value.(string)
+	if ok {
+		_, err := conn.Do("SET", key, s, "EX", int(timeToLive))
+		return err
+	} else {
+		s2, ok2 := value.(*string)
+		if ok2 {
+			_, err := conn.Do("SET", key, s2, "EX", int(timeToLive))
+			return err
+		} else {
+			valueJson, err := json.Marshal(value)
+			if err != nil {
+				return err
+			}
+			_, err = conn.Do("SET", key, valueJson, "EX", int(timeToLive))
+			return err
+		}
+	}
 }
 
 func Expire(pool *redis.Pool, key string, timeToLive time.Duration) (bool, error) {

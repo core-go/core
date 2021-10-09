@@ -59,9 +59,9 @@ func (h *PrivilegesHandler) GetPrivilege(w http.ResponseWriter, r *http.Request)
 	result := h.Privilege(r.Context(), userId, privilegeId)
 	respond(w, r, http.StatusOK, result)
 }
-func respond(w http.ResponseWriter, r *http.Request, code int, result interface{}) {
-	response, _ := json.Marshal(result)
+func respond(w http.ResponseWriter, r *http.Request, code int, result interface{}) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	w.Write(response)
+	err := json.NewEncoder(w).Encode(result)
+	return err
 }

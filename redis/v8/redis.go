@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/go-redis/redis"
 	"github.com/go-redis/redis/v8"
 	"net/url"
 	"time"
@@ -95,39 +94,37 @@ func NewRedisClient(uri string) (*redis.Client, error) {
 	return client, nil
 }
 
-func Set(client *redis.Client, key string, value interface{}, timeToLive time.Duration) error {
-	valueJson, err := json.Marshal(value)
-	if err != nil {
-		return err
-	}
-	status := client.Set(context.TODO(), key, valueJson, timeToLive)
+func Set(ctx context.Context, client *redis.Client, key string, value interface{}, timeToLive time.Duration) error {
+	status := client.Set(ctx, key, value, timeToLive)
+	return status.Err()
+}
+func SetNX(ctx context.Context, client *redis.Client, key string, value interface{}, timeToLive time.Duration) error {
+	status := client.SetNX(ctx, key, value, timeToLive)
 	return status.Err()
 }
 
-func Expire(client *redis.Client, key string, timeToLive time.Duration) (bool, error) {
-	return client.Expire(context.TODO(), key, timeToLive).Result()
+func Expire(ctx context.Context, client *redis.Client, key string, timeToLive time.Duration) (bool, error) {
+	return client.Expire(ctx, key, timeToLive).Result()
 }
 
-func Get(client *redis.Client, key string) (string, error) {
-	res, err := client.Get(context.TODO(), key).Result()
+func Get(ctx context.Context, client *redis.Client, key string) (string, error) {
+	res, err := client.Get(ctx, key).Result()
 	if err != nil {
 		return "", err
 	}
 
 	return res, nil
 }
-
-func GetAndDecode(client *redis.Client, key string, obj interface{}) (string, error) {
-	res, er0 := client.Get(context.TODO(), key).Result()
+func GetAndDecode(ctx context.Context, client *redis.Client, key string, obj interface{}) (string, error) {
+	res, er0 := client.Get(ctx, key).Result()
 	if er0 != nil {
 		return "", er0
 	}
 	er1 := json.Unmarshal([]byte(res), &obj)
 	return res, er1
 }
-
-func Exists(client *redis.Client, key string) (bool, error) {
-	result, err := client.Do(context.TODO(), "EXISTS", key).Int()
+func Exists(ctx context.Context, client *redis.Client, key string) (bool, error) {
+	result, err := client.Do(ctx, "EXISTS", key).Int()
 	if err != nil {
 		return false, err
 	}
@@ -136,27 +133,10 @@ func Exists(client *redis.Client, key string) (bool, error) {
 	}
 	return true, nil
 }
-
-func Delete(client *redis.Client, key string) (bool, error) {
-	count, err := client.Do(context.TODO(), "DEL", key).Int()
-	if err != nil {
-		return false, err
-	}
-	if count == 0 {
-		return false, nil
-	}
-	return true, nil
-}
-
-func Clear(client *redis.Client) error {
-	status := client.Do(context.TODO(), "flushdb")
-	return status.Err()
-}
-
-func GetMany(client *redis.Client, keys []string) (map[string]string, []string, error) {
+func GetMany(ctx context.Context, client *redis.Client, keys []string) (map[string]string, []string, error) {
 	result := make(map[string]string)
 	keyNil := make([]string, 0)
-	res, err := client.MGet(context.TODO(), keys...).Result()
+	res, err := client.MGet(ctx, keys...).Result()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -169,9 +149,31 @@ func GetMany(client *redis.Client, keys []string) (map[string]string, []string, 
 	}
 	return result, keyNil, nil
 }
+func Random(ctx context.Context, client *redis.Client) (key string, value string,err error) {
+	key, err = client.RandomKey(ctx).Result()
+	if err != nil {
+		return
+	}
+	value, err = Get(ctx, client, key)
+	return
+}
+func Delete(ctx context.Context, client *redis.Client, key string) (bool, error) {
+	count, err := client.Do(ctx, "DEL", key).Int()
+	if err != nil {
+		return false, err
+	}
+	if count == 0 {
+		return false, nil
+	}
+	return true, nil
+}
 
-func Keys(client *redis.Client) ([]string, error) {
-	cmd := client.Do(context.TODO(), "KEYS", "*")
+func Clear(ctx context.Context, client *redis.Client) error {
+	status := client.Do(ctx, "flushdb")
+	return status.Err()
+}
+func Keys(ctx context.Context, client *redis.Client) ([]string, error) {
+	cmd := client.Do(ctx, "KEYS", "*")
 	err := cmd.Err()
 	if err != nil {
 		return nil, err
@@ -186,8 +188,8 @@ func Keys(client *redis.Client) ([]string, error) {
 	return keys, nil
 }
 
-func Count(client *redis.Client) (int64, error) {
-	cmd := client.Do(context.TODO(), "KEYS", "*")
+func Count(ctx context.Context, client *redis.Client) (int64, error) {
+	cmd := client.Do(ctx, "KEYS", "*")
 	err := cmd.Err()
 	if err != nil {
 		return 0, err
@@ -195,7 +197,7 @@ func Count(client *redis.Client) (int64, error) {
 	return int64(len(cmd.Args())), nil
 }
 
-func Size(client *redis.Client) (int64, error) {
-	cmd := client.DBSize(context.TODO())
+func Size(ctx context.Context, client *redis.Client) (int64, error) {
+	cmd := client.DBSize(ctx)
 	return cmd.Result()
 }
