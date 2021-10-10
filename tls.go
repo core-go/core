@@ -1,8 +1,7 @@
 package service
 
-import (
-	"crypto/tls"
-)
+import "crypto/tls"
+
 func CreateTLSConfig(cert, key []byte) (*tls.Config, error) {
 	c := &tls.Config{}
 	c.NextProtos = make([]string, 1)
