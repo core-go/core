@@ -77,21 +77,21 @@ func Marshal(v interface{}) ([]byte, error) {
 	}
 	return json.Marshal(v)
 }
-
 func JSON(w http.ResponseWriter, code int, result interface{}) error {
 	w.WriteHeader(code)
 	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(result)
 	return err
 }
-func GetParam(r *http.Request, options ...int) string {
+
+func GetParam(r *http.Request, options... int) string {
 	offset := 0
 	if len(options) > 0 && options[0] > 0 {
 		offset = options[0]
 	}
 	s := r.URL.Path
 	params := strings.Split(s, "/")
-	i := len(params) - 1 - offset
+	i := len(params)-1-offset
 	if i >= 0 {
 		return params[i]
 	} else {
@@ -162,15 +162,15 @@ func CreateTime(s string) *time.Time {
 	}
 	return &t
 }
-func QueryString(v url.Values, name string, options... string) *string {
-	s, ok := v[name]
-	if ok && len(s) == 1 {
-		return &s[0]
+func QueryString(v url.Values, name string, options... string) string {
+	s := v.Get(name)
+	if len(s) > 0 {
+		return s
 	}
 	if len(options) > 0 {
-		return &options[0]
+		return options[0]
 	}
-	return nil
+	return ""
 }
 func QueryStrings(v url.Values, name string, options...[]string) []string {
 	s, ok := v[name]
@@ -184,8 +184,8 @@ func QueryStrings(v url.Values, name string, options...[]string) []string {
 }
 func QueryTime(v url.Values, name string, options...time.Time) *time.Time {
 	s := QueryString(v, name)
-	if s != nil {
-		t := CreateTime(*s)
+	if len(s) == 0 {
+		t := CreateTime(s)
 		if t != nil {
 			return t
 		}
@@ -197,11 +197,8 @@ func QueryTime(v url.Values, name string, options...time.Time) *time.Time {
 }
 func QueryInt64(v url.Values, name string, options...int64) *int64 {
 	s := QueryString(v, name)
-	if s != nil {
-		if len(*s) == 0 {
-			return nil
-		}
-		i, err := strconv.ParseInt(*s, 10, 64)
+	if len(s) == 0 {
+		i, err := strconv.ParseInt(s, 10, 64)
 		if err != nil {
 			return nil
 		}
@@ -228,27 +225,30 @@ func QueryInt(v url.Values, name string, options...int64) *int {
 	}
 	return nil
 }
-func QueryRequiredString(w http.ResponseWriter, v url.Values, name string) *string {
+func QueryRequiredString(w http.ResponseWriter, v url.Values, name string) string {
 	s := QueryString(v, name)
-	if s == nil {
+	if len(s) == 0 {
 		http.Error(w, fmt.Sprintf("%s is required", name), http.StatusBadRequest)
-		return nil
 	}
 	return s
 }
-func QueryRequiredStrings(w http.ResponseWriter, v url.Values, name string) []string {
-	s, ok := v[name]
-	if ok {
-		return s
-	} else {
+func QueryRequiredStrings(w http.ResponseWriter, v url.Values, name string, options...string) []string {
+	s := QueryString(v, name)
+	if len(s) == 0 {
 		http.Error(w, fmt.Sprintf("%s is required", name), http.StatusBadRequest)
 		return nil
+	} else {
+		if len(options) > 0 && len(options[0]) > 0 {
+			return strings.Split(s, options[0])
+		} else {
+			return strings.Split(s, ",")
+		}
 	}
 }
 func QueryRequiredTime(w http.ResponseWriter, s url.Values, name string) *time.Time {
 	v := QueryTime(s, name)
 	if v == nil {
-		http.Error(w, fmt.Sprintf("%s is required", name), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("%s is a required time", name), http.StatusBadRequest)
 		return nil
 	}
 	return v
@@ -256,7 +256,7 @@ func QueryRequiredTime(w http.ResponseWriter, s url.Values, name string) *time.T
 func QueryRequiredInt64(w http.ResponseWriter, s url.Values, name string) *int64 {
 	v := QueryInt64(s, name)
 	if v == nil {
-		http.Error(w, fmt.Sprintf("%s is required", name), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("%s is a required integer", name), http.StatusBadRequest)
 		return nil
 	}
 	return v
@@ -264,7 +264,7 @@ func QueryRequiredInt64(w http.ResponseWriter, s url.Values, name string) *int64
 func QueryRequiredInt32(w http.ResponseWriter, s url.Values, name string) *int32 {
 	v := QueryInt32(s, name)
 	if v == nil {
-		http.Error(w, fmt.Sprintf("%s is required", name), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("%s is a required integer", name), http.StatusBadRequest)
 		return nil
 	}
 	return v
@@ -272,7 +272,7 @@ func QueryRequiredInt32(w http.ResponseWriter, s url.Values, name string) *int32
 func QueryRequiredInt(w http.ResponseWriter, s url.Values, name string) *int {
 	v := QueryInt(s, name)
 	if v == nil {
-		http.Error(w, fmt.Sprintf("%s is required", name), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("%s is a required integer", name), http.StatusBadRequest)
 		return nil
 	}
 	return v
