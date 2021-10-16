@@ -220,7 +220,7 @@ func (h *GenericHandler) Update(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid Data", http.StatusBadRequest)
 		return
 	}
-	er1 := CheckId(r, body, h.Keys, h.mapIndex)
+	er1 := MatchId(r, body, h.Keys, h.mapIndex)
 	if er1 != nil {
 		http.Error(w, er1.Error(), http.StatusBadRequest)
 		return
@@ -266,7 +266,7 @@ func (h *GenericHandler) Patch(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid Data", http.StatusBadRequest)
 		return
 	}
-	er1 := CheckId(r, bodyStruct, h.Keys, h.mapIndex)
+	er1 := MatchId(r, bodyStruct, h.Keys, h.mapIndex)
 	if er1 != nil {
 		http.Error(w, er1.Error(), http.StatusBadRequest)
 		return

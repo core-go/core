@@ -166,7 +166,7 @@ func (h *GenericHandler) Update(ctx echo.Context) error {
 		ctx.String(http.StatusBadRequest, "Invalid Data")
 		return er0
 	}
-	er1 := sv.CheckId(r, body, h.Keys, h.mapIndex)
+	er1 := sv.MatchId(r, body, h.Keys, h.mapIndex)
 	if er1 != nil {
 		ctx.String(http.StatusBadRequest, er1.Error())
 		return er1
@@ -209,7 +209,7 @@ func (h *GenericHandler) Patch(ctx echo.Context) error {
 		ctx.String(http.StatusBadRequest, "Invalid Data")
 		return er0
 	}
-	er1 := sv.CheckId(r, bodyStruct, h.Keys, h.mapIndex)
+	er1 := sv.MatchId(r, bodyStruct, h.Keys, h.mapIndex)
 	if er1 != nil {
 		ctx.String(http.StatusBadRequest, er1.Error())
 		return er1

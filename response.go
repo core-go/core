@@ -84,6 +84,14 @@ func JSON(w http.ResponseWriter, code int, result interface{}) error {
 	return err
 }
 
+func Decode(w http.ResponseWriter, r *http.Request, obj interface{}) error {
+	err := json.NewDecoder(r.Body).Decode(obj)
+	defer r.Body.Close()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+	return err
+}
 func GetParam(r *http.Request, options... int) string {
 	offset := 0
 	if len(options) > 0 && options[0] > 0 {
