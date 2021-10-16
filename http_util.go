@@ -110,45 +110,49 @@ func CheckId(r *http.Request, body interface{}, keysJson []string, mapIndex map[
 	}
 	return nil
 }
-func BuildId(r *http.Request, modelType reflect.Type, idNames []string, indexes map[string]int, offset int) (interface{}, error) {
+func MakeId(r *http.Request, modelType reflect.Type, idNames []string, indexes map[string]int, options... int) (map[string]interface{}, error){
 	modelValue := reflect.New(modelType)
-	if len(idNames) > 1 {
-		mapKey := make(map[string]interface{})
-		_, mapParams, err2 := GetParamIds(r, idNames, offset)
-		if err2 != nil {
-			return nil, err2
-		}
-		for _, idName := range idNames {
-			if idValue, ok := mapParams[idName]; ok {
-				if len(strings.Trim(idValue, " ")) == 0 {
-					return nil, fmt.Errorf("%v is required", idName)
-				}
-				index, _ := indexes[idName]
-				ifField := reflect.Indirect(modelValue).FieldByIndex([]int{index})
-				idType := ifField.Type().String()
-				switch idType {
-				case "int64", "*int64":
-					if id, err := strconv.ParseInt(idValue, 10, 64); err != nil {
-						return nil, fmt.Errorf("%v is invalid", idName)
-					} else {
-						mapKey[idName] = id
-					}
-				case "int", "int32", "*int32":
-					if id, err := strconv.ParseInt(idValue, 10, 32); err != nil {
-						return nil, fmt.Errorf("%v is invalid", idName)
-					} else {
-						mapKey[idName] = id
-					}
-				default:
-					mapKey[idName] = idValue
-				}
-			} else {
+	mapKey := make(map[string]interface{})
+	_, mapParams, err2 := GetParamIds(r, idNames, options...)
+	if err2 != nil {
+		return nil, err2
+	}
+	for _, idName := range idNames {
+		if idValue, ok := mapParams[idName]; ok {
+			if len(strings.Trim(idValue, " ")) == 0 {
 				return nil, fmt.Errorf("%v is required", idName)
 			}
+			index, _ := indexes[idName]
+			ifField := reflect.Indirect(modelValue).FieldByIndex([]int{index})
+			idType := ifField.Type().String()
+			switch idType {
+			case "int64", "*int64":
+				if id, err := strconv.ParseInt(idValue, 10, 64); err != nil {
+					return nil, fmt.Errorf("%v is invalid", idName)
+				} else {
+					mapKey[idName] = id
+				}
+			case "int", "int32", "*int32":
+				if id, err := strconv.ParseInt(idValue, 10, 32); err != nil {
+					return nil, fmt.Errorf("%v is invalid", idName)
+				} else {
+					mapKey[idName] = id
+				}
+			default:
+				mapKey[idName] = idValue
+			}
+		} else {
+			return nil, fmt.Errorf("%v is required", idName)
 		}
-		return mapKey, nil
+	}
+	return mapKey, nil
+}
+func BuildId(r *http.Request, modelType reflect.Type, idNames []string, indexes map[string]int, options... int) (interface{}, error) {
+	if len(idNames) > 1 {
+		return MakeId(r, modelType, idNames, indexes, options...)
 	} else if len(idNames) == 1 {
-		idValue, _, err1 := GetParamIds(r, idNames, offset)
+		modelValue := reflect.New(modelType)
+		idValue, _, err1 := GetParamIds(r, idNames, options...)
 		if err1 != nil {
 			return nil, err1
 		}
@@ -239,7 +243,11 @@ func GetIndexes(modelType reflect.Type) map[string]int {
 	}
 	return mapJsonNameIndex
 }
-func GetParamIds(r *http.Request, idNames []string, offset int) (interface{}, map[string]string, error) {
+func GetParamIds(r *http.Request, idNames []string, options... int) (interface{}, map[string]string, error) {
+	offset := 0
+	if len(options) > 0 && options[0] > 0 {
+		offset = options[0]
+	}
 	sizeName := len(idNames)
 	params := strings.Split(r.RequestURI, "/")
 	// remove some item last array

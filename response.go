@@ -98,7 +98,22 @@ func GetParam(r *http.Request, options... int) string {
 		return ""
 	}
 }
-
+func GetRequiredParam(w http.ResponseWriter,r *http.Request, options ...int) string {
+	p := GetParam(r, options...)
+	if len(p) == 0 {
+		http.Error(w, "parameter is required", http.StatusBadRequest)
+		return ""
+	}
+	return p
+}
+func GetRequiredParams(w http.ResponseWriter,r *http.Request, options ...int) []string {
+	p := GetParam(r, options...)
+	if len(p) == 0 {
+		http.Error(w, "parameters are required", http.StatusBadRequest)
+		return nil
+	}
+	return strings.Split(p, ",")
+}
 func GetParams(r *http.Request, options ...int) []string {
 	p := GetParam(r, options...)
 	return strings.Split(p, ",")
@@ -182,9 +197,45 @@ func QueryStrings(v url.Values, name string, options...[]string) []string {
 	}
 	return nil
 }
+func QueryArray(v url.Values, name string, all []string, options...[]string) []string {
+	s, ok := v[name]
+	if ok {
+		x := QueryIn(all, s)
+		return x
+	}
+	if len(options) > 0 {
+		return options[0]
+	}
+	return nil
+}
+func isIn(arr []string, s string) bool {
+	for _, a := range arr {
+		if s == a {
+			return true
+		}
+	}
+	return false
+}
+func QueryIn(all []string, s []string) []string {
+	var fieldsParamArr []string
+	checkSubstr := strings.Index(s[0], ",")
+	if checkSubstr > 0 {
+		fieldsParamArr = strings.Split(s[0], ",")
+	} else {
+		fieldsParamArr = s
+	}
+	for _, v := range fieldsParamArr {
+		valueTrim := strings.TrimSpace(v)
+		check := isIn(all, valueTrim)
+		if check == false {
+			return nil
+		}
+	}
+	return fieldsParamArr
+}
 func QueryTime(v url.Values, name string, options...time.Time) *time.Time {
 	s := QueryString(v, name)
-	if len(s) == 0 {
+	if len(s) > 0 {
 		t := CreateTime(s)
 		if t != nil {
 			return t
@@ -197,7 +248,7 @@ func QueryTime(v url.Values, name string, options...time.Time) *time.Time {
 }
 func QueryInt64(v url.Values, name string, options...int64) *int64 {
 	s := QueryString(v, name)
-	if len(s) == 0 {
+	if len(s) > 0 {
 		i, err := strconv.ParseInt(s, 10, 64)
 		if err != nil {
 			return nil

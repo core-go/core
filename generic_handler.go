@@ -12,6 +12,18 @@ const (
 	Patch  = "patch"
 )
 
+type Load interface {
+	Load(w http.ResponseWriter, r *http.Request)
+}
+type Handler interface {
+	Search(w http.ResponseWriter, r *http.Request)
+	Load(w http.ResponseWriter, r *http.Request)
+	Create(w http.ResponseWriter, r *http.Request)
+	Insert(w http.ResponseWriter, r *http.Request)
+	Update(w http.ResponseWriter, r *http.Request)
+	Patch(w http.ResponseWriter, r *http.Request)
+	Delete(w http.ResponseWriter, r *http.Request)
+}
 type HGenericService interface {
 	Load(ctx context.Context, id interface{}) (interface{}, error)
 	Insert(ctx context.Context, model interface{}) (int64, error)
