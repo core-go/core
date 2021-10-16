@@ -30,11 +30,15 @@ func BuildMapAndStruct(r *http.Request, interfaceBody interface{}) (map[string]i
 	}
 	return body, nil
 }
-func BodyToJson(r *http.Request, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int, modelBuilder ModelBuilder) (map[string]interface{}, error) {
+func BodyToJsonMap(r *http.Request, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int, options...func(context.Context, interface{}) (interface{}, error)) (map[string]interface{}, error) {
 	var controlModel interface{}
-	if modelBuilder != nil {
+	var buildToPatch func(context.Context, interface{}) (interface{}, error)
+	if len(options) > 0 && options[0] != nil {
+		buildToPatch = options[0]
+	}
+	if buildToPatch != nil {
 		var er0 error
-		controlModel, er0 = modelBuilder.BuildToPatch(r.Context(), structBody)
+		controlModel, er0 = buildToPatch(r.Context(), structBody)
 		if er0 != nil {
 			return nil, er0
 		}

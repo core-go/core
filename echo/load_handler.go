@@ -82,7 +82,7 @@ func Respond(ctx echo.Context, code int, result interface{}, writeLog func(conte
 	return err
 }
 
-func RespondAndLog(ctx echo.Context, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, resource string, action string, success bool, desc string) error {
+func RespondAndLog(ctx echo.Context, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, success bool, resource string, action string, desc string) error {
 	err := ctx.JSON(code, result)
 	if writeLog != nil {
 		writeLog(ctx.Request().Context(), resource, action, success, desc)
@@ -94,9 +94,9 @@ func ErrorAndLog(ctx echo.Context, code int, result interface{}, logError func(c
 	if logError != nil {
 		logError(ctx.Request().Context(), err.Error())
 	}
-	RespondAndLog(ctx, code, result, writeLog, resource, action, false, err.Error())
+	RespondAndLog(ctx, code, result, writeLog, false, resource, action, err.Error())
 	return err
 }
 func Succeed(ctx echo.Context, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
-	return RespondAndLog(ctx, code, result, writeLog, resource, action, true, "")
+	return RespondAndLog(ctx, code, result, writeLog, true, resource, action, "")
 }

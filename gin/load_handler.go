@@ -81,7 +81,7 @@ func Respond(ctx *gin.Context, code int, result interface{}, writeLog func(conte
 	}
 }
 
-func RespondAndLog(ctx *gin.Context, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, resource string, action string, success bool, desc string) {
+func RespondAndLog(ctx *gin.Context, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, success bool, resource string, action string, desc string) {
 	ctx.JSON(code, result)
 	if writeLog != nil {
 		writeLog(ctx.Request.Context(), resource, action, success, desc)

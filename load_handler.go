@@ -53,19 +53,22 @@ func NewLoadHandlerWithKeysAndLog(load func(context.Context, interface{}) (inter
 	return &LoadHandler{WriteLog: writeLog, LoadData: load, Keys: keys, ModelType: modelType, Indexes: indexes, Error: logError, Resource: resource, Action: action}
 }
 func (h *LoadHandler) Load(w http.ResponseWriter, r *http.Request) {
-	id, er1 := BuildId(r, h.ModelType, h.Keys, h.Indexes, 0)
+	id, er1 := BuildId(r, h.ModelType, h.Keys, h.Indexes)
 	if er1 != nil {
 		http.Error(w, er1.Error(), http.StatusBadRequest)
 	} else {
 		model, er2 := h.LoadData(r.Context(), id)
-		if er2 != nil {
-			ErrorAndLog(w, r, http.StatusInternalServerError, InternalServerError, h.Error, h.Resource, h.Action, er2, h.WriteLog)
+		RespondModel(w, r, model, er2, h.Error, h.WriteLog, h.Resource, h.Action)
+	}
+}
+func RespondModel(w http.ResponseWriter, r *http.Request, model interface{}, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
+	if err != nil {
+		Respond(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
+	} else {
+		if model == nil {
+			RespondAndLog(w, r, http.StatusNotFound, model, writeLog, false, resource, action, "Not found")
 		} else {
-			if model == nil {
-				RespondAndLog(w, r, http.StatusNotFound, model, h.WriteLog, h.Resource, h.Action, false, "Not found")
-			} else {
-				Succeed(w, r, http.StatusOK, model, h.WriteLog, h.Resource, h.Action)
-			}
+			Succeed(w, r, http.StatusOK, model, writeLog, resource, action)
 		}
 	}
 }
