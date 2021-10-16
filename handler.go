@@ -73,27 +73,27 @@ type GenericHandler struct {
 	mapIndex     map[string]int
 }
 
-func NewGenericHandler(genericService HGenericService, modelType reflect.Type, modelBuilder ModelBuilder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
-	return NewGenericHandlerWithConfig(genericService, modelType, nil, modelBuilder, logError, validate, options...)
+func NewHandler(genericService HGenericService, modelType reflect.Type, modelBuilder ModelBuilder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
+	return NewHandlerWithConfig(genericService, modelType, nil, modelBuilder, logError, validate, options...)
 }
-func NewGenericHandlerWithKeys(genericService HGenericService, keys []string, modelType reflect.Type, modelBuilder ModelBuilder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
+func NewHandlerWithKeys(genericService HGenericService, keys []string, modelType reflect.Type, modelBuilder ModelBuilder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 {
 		writeLog = options[0]
 	}
-	return NewGenericHandlerWithKeysAndLog(genericService, keys, modelType, nil, modelBuilder, logError, validate, writeLog, "", nil)
+	return NewHandlerWithKeysAndLog(genericService, keys, modelType, nil, modelBuilder, logError, validate, writeLog, "", nil)
 }
-func NewGenericHandlerWithConfig(genericService HGenericService, modelType reflect.Type, status *StatusConfig, modelBuilder ModelBuilder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
+func NewHandlerWithConfig(genericService HGenericService, modelType reflect.Type, status *StatusConfig, modelBuilder ModelBuilder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 && options[0] != nil {
 		writeLog = options[0]
 	}
-	return NewGenericHandlerWithKeysAndLog(genericService, nil, modelType, status, modelBuilder, logError, validate, writeLog, "", nil)
+	return NewHandlerWithKeysAndLog(genericService, nil, modelType, status, modelBuilder, logError, validate, writeLog, "", nil)
 }
-func NewGenericHandlerWithLog(genericService HGenericService, modelType reflect.Type, status *StatusConfig, modelBuilder ModelBuilder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]ErrorMessage, error), writeLog func(context.Context, string, string, bool, string) error, resource string, conf *ActionConfig) *GenericHandler {
-	return NewGenericHandlerWithKeysAndLog(genericService, nil, modelType, status, modelBuilder, logError, validate, writeLog, resource, conf)
+func NewHandlerWithLog(genericService HGenericService, modelType reflect.Type, status *StatusConfig, modelBuilder ModelBuilder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]ErrorMessage, error), writeLog func(context.Context, string, string, bool, string) error, resource string, conf *ActionConfig) *GenericHandler {
+	return NewHandlerWithKeysAndLog(genericService, nil, modelType, status, modelBuilder, logError, validate, writeLog, resource, conf)
 }
-func NewGenericHandlerWithKeysAndLog(genericService HGenericService, keys []string, modelType reflect.Type, status *StatusConfig, modelBuilder ModelBuilder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]ErrorMessage, error), writeLog func(context.Context, string, string, bool, string) error, resource string, conf *ActionConfig) *GenericHandler {
+func NewHandlerWithKeysAndLog(genericService HGenericService, keys []string, modelType reflect.Type, status *StatusConfig, modelBuilder ModelBuilder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]ErrorMessage, error), writeLog func(context.Context, string, string, bool, string) error, resource string, conf *ActionConfig) *GenericHandler {
 	if keys == nil || len(keys) == 0 {
 		keys = GetJsonPrimaryKeys(modelType)
 	}

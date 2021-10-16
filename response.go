@@ -38,6 +38,16 @@ func ErrorAndLog(w http.ResponseWriter, r *http.Request, code int, result interf
 	}
 	return RespondAndLog(w, r, code, result, writeLog, resource, action, false, err.Error())
 }
+func Respond(w http.ResponseWriter, r *http.Request, code int, result interface{}, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
+	if err != nil {
+		if logError != nil {
+			logError(r.Context(), err.Error())
+		}
+		return RespondAndLog(w, r, code, result, writeLog, resource, action, false, err.Error())
+	} else {
+		return RespondAndLog(w, r, code, result, writeLog, resource, action, true, "")
+	}
+}
 func Succeed(w http.ResponseWriter, r *http.Request, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
 	return RespondAndLog(w, r, code, result, writeLog, resource, action, true, "")
 }
