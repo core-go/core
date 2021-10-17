@@ -118,6 +118,11 @@ func InitializeAction(conf *ActionConfig) ActionConfig {
 	}
 	return c
 }
+func BuildHandlerParams(modelType reflect.Type) ([]string, map[string]int, map[string]int) {
+	keys := GetJsonPrimaryKeys(modelType)
+	m1, m2 := BuildMapField(modelType)
+	return keys, m2, m1
+}
 type GenericHandler struct {
 	*LoadHandler
 	Status       StatusConfig

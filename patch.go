@@ -15,7 +15,7 @@ type ModelBuilder interface {
 	BuildToPatch(ctx context.Context, model interface{}) (interface{}, error)
 	BuildToSave(ctx context.Context, model interface{}) (interface{}, error)
 }
-func BuildMapAndStruct(r *http.Request, interfaceBody interface{}) (map[string]interface{}, error) {
+func BuildMapAndStruct(r *http.Request, interfaceBody interface{}, options...http.ResponseWriter) (map[string]interface{}, error) {
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(r.Body)
 	s := buf.String()
@@ -26,6 +26,9 @@ func BuildMapAndStruct(r *http.Request, interfaceBody interface{}) (map[string]i
 	}
 	er2 := json.NewDecoder(strings.NewReader(s)).Decode(interfaceBody)
 	if er2 != nil {
+		if len(options) > 0 && options[0] != nil {
+			http.Error(options[0], "Invalid Data", http.StatusBadRequest)
+		}
 		return nil, er2
 	}
 	return body, nil
