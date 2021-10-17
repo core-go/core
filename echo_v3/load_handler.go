@@ -62,26 +62,40 @@ func (h *LoadHandler) Load(ctx echo.Context) error {
 		return er1
 	} else {
 		model, er2 := h.LoadData(r.Context(), id)
-		if er2 != nil {
-			return ErrorAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, h.Error, h.Resource, h.Action, er2, h.WriteLog)
+		return RespondModel(ctx, model, er2, h.Error, h.WriteLog, h.Resource, h.Action)
+	}
+}
+
+func RespondModel(ctx echo.Context, model interface{}, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
+	if err != nil {
+		return Respond(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
+	} else {
+		if model == nil {
+			return RespondAndLog(ctx, http.StatusNotFound, model, writeLog, false, resource, action, "Not found")
 		} else {
-			if model == nil {
-				return Respond(ctx, http.StatusNotFound, model, h.WriteLog, h.Resource, h.Action, false, "Not found")
-			} else {
-				return Succeed(ctx, http.StatusOK, model, h.WriteLog, h.Resource, h.Action)
-			}
+			return Succeed(ctx, http.StatusOK, model, writeLog, resource, action)
 		}
 	}
 }
-
-func Respond(ctx echo.Context, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, resource string, action string, success bool, desc string) error {
-	err := ctx.JSON(code, result)
-	if writeLog != nil {
-		writeLog(ctx.Request().Context(), resource, action, success, desc)
+func Respond(ctx echo.Context, code int, result interface{}, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options... string) error {
+	var resource, action string
+	if len(options) > 0 && len(options[0]) > 0 {
+		resource = options[0]
 	}
-	return err
+	if len(options) > 1 && len(options[1]) > 0 {
+		action = options[1]
+	}
+	if err != nil {
+		if logError != nil {
+			logError(ctx.Request().Context(), err.Error())
+			return RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, writeLog, false, resource, action, err.Error())
+		} else {
+			return RespondAndLog(ctx, http.StatusInternalServerError, err.Error(), writeLog, false, resource, action, err.Error())
+		}
+	} else {
+		return RespondAndLog(ctx, code, result, writeLog, true, resource, action, "")
+	}
 }
-
 func RespondAndLog(ctx echo.Context, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, success bool, resource string, action string, desc string) error {
 	err := ctx.JSON(code, result)
 	if writeLog != nil {

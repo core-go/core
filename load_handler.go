@@ -61,6 +61,13 @@ func (h *LoadHandler) Load(w http.ResponseWriter, r *http.Request) {
 		RespondModel(w, r, model, er2, h.Error, h.WriteLog, h.Resource, h.Action)
 	}
 }
+func GetId(w http.ResponseWriter, r *http.Request, modelType reflect.Type, jsonId []string, indexes map[string]int, options... int) (map[string]interface{}, error) {
+	id, err := MakeId(r, modelType, jsonId, indexes, options...)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+	return id, err
+}
 func RespondModel(w http.ResponseWriter, r *http.Request, model interface{}, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
 	if err != nil {
 		Respond(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)

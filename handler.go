@@ -11,8 +11,18 @@ const (
 	Update = "update"
 	Patch  = "patch"
 )
-
+type Diff interface {
+	Diff(w http.ResponseWriter, r *http.Request)
+}
+type Approve interface {
+	Approve(w http.ResponseWriter, r *http.Request)
+	Reject(w http.ResponseWriter, r *http.Request)
+}
 type Load interface {
+	Load(w http.ResponseWriter, r *http.Request)
+}
+type Search interface {
+	Search(w http.ResponseWriter, r *http.Request)
 	Load(w http.ResponseWriter, r *http.Request)
 }
 type Handler interface {
@@ -241,9 +251,8 @@ func (h *GenericHandler) Patch(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid Data", http.StatusBadRequest)
 		return
 	}
-	er1 := MatchId(r, bodyStruct, h.Keys, h.mapIndex)
+	er1 := CheckId(w, r, bodyStruct, h.Keys, h.mapIndex)
 	if er1 != nil {
-		http.Error(w, er1.Error(), http.StatusBadRequest)
 		return
 	}
 	body, er2 := BodyToJson(w, r, bodyStruct, body0, h.Keys, h.mapIndex, h.modelBuilder.BuildToPatch, h.Error, h.Log, h.Resource, h.Config.Patch)
@@ -312,5 +321,16 @@ func HandleResult(w http.ResponseWriter, r *http.Request, body interface{}, coun
 		RespondAndLog(w, r, http.StatusNotFound, ReturnStatus(status.NotFound), writeLog, false, resource, action, "Data Not Found")
 	} else {
 		Succeed(w, r, http.StatusOK, SetStatus(body, status.Success), writeLog, resource, action)
+	}
+}
+func AfterCreated(w http.ResponseWriter, r *http.Request, body interface{}, count int64, err error, status StatusConfig, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
+	if err != nil {
+		Respond(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
+		return
+	}
+	if count <= 0 {
+		RespondAndLog(w, r, http.StatusConflict, ReturnStatus(status.DuplicateKey), writeLog, false, resource, action, "Duplicate Key")
+	} else {
+		Succeed(w, r, http.StatusCreated, SetStatus(body, status.Success), writeLog, resource, action)
 	}
 }

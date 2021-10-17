@@ -117,7 +117,7 @@ func MatchId(r *http.Request, body interface{}, keysJson []string, mapIndex map[
 	}
 	return nil
 }
-func MakeId(r *http.Request, modelType reflect.Type, idNames []string, indexes map[string]int, options... int) (map[string]interface{}, error){
+func MakeId(r *http.Request, modelType reflect.Type, idNames []string, indexes map[string]int, options... int) (map[string]interface{}, error) {
 	modelValue := reflect.New(modelType)
 	mapKey := make(map[string]interface{})
 	_, mapParams, err2 := GetParamIds(r, idNames, options...)

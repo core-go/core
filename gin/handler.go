@@ -119,14 +119,7 @@ func (h *GenericHandler) Insert(ctx *gin.Context) {
 	}
 	if h.Validate != nil {
 		errors, er1 := h.Validate(r.Context(), body)
-		if er1 != nil {
-			ErrorAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, h.Error, h.Resource, h.Config.Create, er1, h.Log)
-			return
-		}
-		if len(errors) > 0 {
-			//result0 := model.ResultInfo{Status: model.StatusError, Errors: MakeErrors(errors)}
-			result0 := sv.ResultInfo{Status: *h.Status.ValidationError, Errors: errors}
-			RespondAndLog(ctx, http.StatusUnprocessableEntity, result0, h.Log, false, h.Resource, h.Config.Create, "Data Validation Failed")
+		if HasError(ctx, errors, er1, *h.Status.ValidationError, h.Error, h.Log, h.Resource, h.Config.Update) {
 			return
 		}
 	}
@@ -188,28 +181,12 @@ func (h *GenericHandler) Update(ctx *gin.Context) {
 	}
 	if h.Validate != nil {
 		errors, er2 := h.Validate(r.Context(), body)
-		if er2 != nil {
-			ErrorAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, h.Error, h.Resource, h.Config.Update, er2, h.Log)
-			return
-		}
-		if len(errors) > 0 {
-			result0 := sv.ResultInfo{Status: *h.Status.ValidationError, Errors: errors}
-			RespondAndLog(ctx, http.StatusUnprocessableEntity, result0, h.Log, false, h.Resource, h.Config.Update, "Data Validation Failed")
+		if HasError(ctx, errors, er2, *h.Status.ValidationError, h.Error, h.Log, h.Resource, h.Config.Update) {
 			return
 		}
 	}
 	count, er3 := h.service.Update(r.Context(), body)
-	if er3 != nil {
-		ErrorAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, h.Error, h.Resource, h.Config.Update, er3, h.Log)
-		return
-	}
-	if count == -1 {
-		RespondAndLog(ctx, http.StatusConflict, sv.ReturnStatus(h.Status.VersionError), h.Log, false, h.Resource, h.Config.Update, "Data Version Error")
-	} else if count == 0 {
-		RespondAndLog(ctx, http.StatusNotFound, sv.ReturnStatus(h.Status.NotFound), h.Log, false, h.Resource, h.Config.Update, "Data Not Found")
-	} else {
-		Succeed(ctx, http.StatusOK, sv.SetStatus(body, h.Status.Success), h.Log, h.Resource, h.Config.Update)
-	}
+	HandleResult(ctx, body, count, er3, h.Status, h.Error, h.Log, h.Resource, h.Config.Update)
 }
 
 func (h *GenericHandler) Patch(ctx *gin.Context) {
@@ -221,9 +198,8 @@ func (h *GenericHandler) Patch(ctx *gin.Context) {
 		ctx.String(http.StatusBadRequest, "Invalid Data")
 		return
 	}
-	er1 := sv.MatchId(r, bodyStruct, h.Keys, h.mapIndex)
+	er1 := CheckId(ctx, bodyStruct, h.Keys, h.mapIndex)
 	if er1 != nil {
-		ctx.String(http.StatusBadRequest, er1.Error())
 		return
 	}
 	body, er2 := sv.BodyToJsonMap(r, bodyStruct, body0, h.Keys, h.mapIndex, h.modelBuilder.BuildToPatch)
@@ -233,30 +209,13 @@ func (h *GenericHandler) Patch(ctx *gin.Context) {
 	}
 	if h.Validate != nil {
 		errors, er3 := h.Validate(r.Context(), &bodyStruct)
-		if er3 != nil {
-			ErrorAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, h.Error, h.Resource, h.Config.Patch, er3, h.Log)
-			return
-		}
-		if len(errors) > 0 {
-			result0 := sv.ResultInfo{Status: *h.Status.ValidationError, Errors: errors}
-			RespondAndLog(ctx, http.StatusUnprocessableEntity, result0, h.Log, false, h.Resource, h.Config.Patch, "Data Validation Failed")
+		if HasError(ctx, errors, er3, *h.Status.ValidationError, h.Error, h.Log, h.Resource, h.Config.Patch) {
 			return
 		}
 	}
 	count, er4 := h.service.Patch(r.Context(), body)
-	if er4 != nil {
-		ErrorAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, h.Error, h.Resource, h.Config.Patch, er4, h.Log)
-		return
-	}
-	if count == -1 {
-		RespondAndLog(ctx, http.StatusConflict, sv.ReturnStatus(h.Status.VersionError), h.Log, false, h.Resource, h.Config.Patch, "Data Version Error")
-	} else if count == 0 {
-		RespondAndLog(ctx, http.StatusNotFound, sv.ReturnStatus(h.Status.NotFound), h.Log, false, h.Resource, h.Config.Patch, "Data Not Found")
-	} else {
-		Succeed(ctx, http.StatusOK, sv.SetStatus(body, h.Status.Success), h.Log, h.Resource, h.Config.Patch)
-	}
+	HandleResult(ctx, body, count, er4, h.Status, h.Error, h.Log, h.Resource, h.Config.Patch)
 }
-
 func (h *GenericHandler) Delete(ctx *gin.Context) {
 	r := ctx.Request
 	id, er1 := sv.BuildId(r, h.ModelType, h.Keys, h.Indexes)
@@ -265,22 +224,18 @@ func (h *GenericHandler) Delete(ctx *gin.Context) {
 		return
 	}
 	count, er2 := h.service.Delete(r.Context(), id)
-	if er2 != nil {
-		ErrorAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, h.Error, h.Resource, h.Config.Delete, er2, h.Log)
-		return
-	}
-	if count > 0 {
-		Succeed(ctx, http.StatusOK, count, h.Log, h.Resource, h.Config.Delete)
-	} else if count == 0 {
-		RespondAndLog(ctx, http.StatusNotFound, count, h.Log, false, h.Resource, h.Config.Delete, "Data Not Found")
-	} else {
-		RespondAndLog(ctx, http.StatusConflict, count, h.Log, false, h.Resource, h.Config.Delete, "Conflict")
-	}
+	HandleDelete(ctx, count, er2, h.Error, h.Log, h.Resource, h.Config.Delete)
 }
-/*
+func CheckId(ctx *gin.Context, body interface{}, keysJson []string, mapIndex map[string]int) error {
+	err := sv.MatchId(ctx.Request, body, keysJson, mapIndex)
+	if err != nil {
+		ctx.String(http.StatusBadRequest, err.Error())
+	}
+	return err
+}
 func HandleDelete(ctx *gin.Context, count int64, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
 	if err != nil {
-		Respond(ctx, http.StatusInternalServerError, internalServerError, err, logError, writeLog, resource, action)
+		Respond(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
 		return
 	}
 	if count > 0 {
@@ -292,36 +247,46 @@ func HandleDelete(ctx *gin.Context, count int64, err error, logError func(contex
 	}
 }
 func BodyToJson(ctx *gin.Context, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int, buildToPatch func(context.Context, interface{}) (interface{}, error), logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) (map[string]interface{}, error) {
-	body, err := BodyToJsonMap(ctx.Request, structBody, body, jsonIds, mapIndex, buildToPatch)
+	body, err := sv.BodyToJsonMap(ctx.Request, structBody, body, jsonIds, mapIndex, buildToPatch)
 	if err != nil {
 		// http.Error(w, "Invalid Data: "+err.Error(), http.StatusBadRequest)
-		Respond(ctx, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
+		Respond(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
 	}
 	return body, err
 }
-func HasError(ctx *gin.Context, errors []ErrorMessage, err error, status int, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) bool {
+func HasError(ctx *gin.Context, errors []sv.ErrorMessage, err error, status int, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) bool {
 	if err != nil {
-		Respond(ctx, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
+		Respond(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
 		return true
 	}
 	if len(errors) > 0 {
-		result0 := ResultInfo{Status: status, Errors: errors}
+		result0 := sv.ResultInfo{Status: status, Errors: errors}
 		RespondAndLog(ctx, http.StatusUnprocessableEntity, result0, writeLog, false, resource, action, "Data Validation Failed")
 		return true
 	}
 	return false
 }
-func HandleResult(ctx *gin.Context, body interface{}, count int64, err error, status StatusConfig, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
+func HandleResult(ctx *gin.Context, body interface{}, count int64, err error, status sv.StatusConfig, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
 	if err != nil {
-		Respond(ctx, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
+		Respond(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
 		return
 	}
 	if count == -1 {
-		RespondAndLog(ctx, http.StatusConflict, ReturnStatus(status.VersionError), writeLog, false, resource, action, "Data Version Error")
+		RespondAndLog(ctx, http.StatusConflict, sv.ReturnStatus(status.VersionError), writeLog, false, resource, action, "Data Version Error")
 	} else if count == 0 {
-		RespondAndLog(ctx, http.StatusNotFound, ReturnStatus(status.NotFound), writeLog, false, resource, action, "Data Not Found")
+		RespondAndLog(ctx, http.StatusNotFound, sv.ReturnStatus(status.NotFound), writeLog, false, resource, action, "Data Not Found")
 	} else {
-		Succeed(ctx, http.StatusOK, SetStatus(body, status.Success), writeLog, resource, action)
+		Succeed(ctx, http.StatusOK, sv.SetStatus(body, status.Success), writeLog, resource, action)
 	}
 }
-*/
+func AfterCreated(ctx *gin.Context, body interface{}, count int64, err error, status sv.StatusConfig, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
+	if err != nil {
+		Respond(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
+		return
+	}
+	if count <= 0 {
+		RespondAndLog(ctx, http.StatusConflict, sv.ReturnStatus(status.DuplicateKey), writeLog, false, resource, action, "Duplicate Key")
+	} else {
+		Succeed(ctx, http.StatusCreated, sv.SetStatus(body, status.Success), writeLog, resource, action)
+	}
+}

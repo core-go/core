@@ -14,12 +14,17 @@ type ViewRepository interface {
 	Exist(ctx context.Context, id interface{}) (bool, error)
 }
 type Repository interface {
-	ViewRepository
+	LoadAndDecode(ctx context.Context, id interface{}, result interface{}) (bool, error)
+	Exist(ctx context.Context, id interface{}) (bool, error)
 	Insert(ctx context.Context, model interface{}) (int64, error)
 	Update(ctx context.Context, model interface{}) (int64, error)
 	Patch(ctx context.Context, model map[string]interface{}) (int64, error)
 	Delete(ctx context.Context, id interface{}) (int64, error)
 }
 type GenericRepository interface {
-	Repository
+	ViewRepository
+	Insert(ctx context.Context, model interface{}) (int64, error)
+	Update(ctx context.Context, model interface{}) (int64, error)
+	Patch(ctx context.Context, model map[string]interface{}) (int64, error)
+	Delete(ctx context.Context, id interface{}) (int64, error)
 }
