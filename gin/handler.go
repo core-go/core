@@ -52,50 +52,12 @@ func NewHandlerWithKeysAndLog(genericService sv.HGenericService, keys []string, 
 	if len(resource) == 0 {
 		resource = sv.BuildResourceName(modelType.Name())
 	}
-	var c sv.ActionConfig
 	var writeLog2 func(context.Context, string, string, bool, string) error
-	if conf != nil {
-		if conf.Load != nil {
-			writeLog2 = writeLog
-		}
-		c.Load = conf.Load
-		c.Create = conf.Create
-		c.Update = conf.Update
-		c.Patch = conf.Patch
-		c.Delete = conf.Delete
+	if conf != nil && conf.Load != nil {
+		writeLog2 = writeLog
 	}
-	if c.Load == nil {
-		x := "load"
-		c.Load = &x
-	}
-	if len(c.Create) == 0 {
-		c.Create = "create"
-	}
-	if len(c.Update) == 0 {
-		c.Update = "update"
-	}
-	if len(c.Patch) == 0 {
-		c.Patch = "patch"
-	}
-	if len(c.Delete) == 0 {
-		c.Delete = "delete"
-	}
-	var s sv.StatusConfig
-	if status != nil {
-		s = *status
-	} else {
-		s.Error = 4
-		k := s.Error
-		s.DuplicateKey = 0
-		s.NotFound = 0
-		s.Success = 1
-		s.VersionError = 2
-		s.ValidationError = &k
-	}
-	if s.ValidationError == nil {
-		k := s.Error
-		s.ValidationError = &k
-	}
+	c := sv.InitializeAction(conf)
+	s := sv.InitializeStatus(status)
 	loadHandler := NewLoadHandlerWithKeysAndLog(genericService.Load, keys, modelType, logError, writeLog2, *c.Load, resource)
 	_, jsonMapIndex := sv.BuildMapField(modelType)
 

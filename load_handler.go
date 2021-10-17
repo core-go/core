@@ -68,7 +68,14 @@ func GetId(w http.ResponseWriter, r *http.Request, modelType reflect.Type, jsonI
 	}
 	return id, err
 }
-func RespondModel(w http.ResponseWriter, r *http.Request, model interface{}, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
+func RespondModel(w http.ResponseWriter, r *http.Request, model interface{}, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options... string) {
+	var resource, action string
+	if len(options) > 0 && len(options[0]) > 0 {
+		resource = options[0]
+	}
+	if len(options) > 1 && len(options[1]) > 0 {
+		action = options[1]
+	}
 	if err != nil {
 		Respond(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
 	} else {

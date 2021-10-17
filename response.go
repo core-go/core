@@ -55,8 +55,8 @@ func Succeed(w http.ResponseWriter, r *http.Request, code int, result interface{
 	return Respond(w, r, code, result, nil, nil, writeLog, options...)
 }
 func RespondAndLog(w http.ResponseWriter, r *http.Request, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, success bool, resource string, action string, desc string) error {
-	w.WriteHeader(code)
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
 	err := json.NewEncoder(w).Encode(result)
 	if writeLog != nil {
 		writeLog(r.Context(), resource, action, success, desc)
@@ -91,8 +91,8 @@ func Marshal(v interface{}) ([]byte, error) {
 	return json.Marshal(v)
 }
 func JSON(w http.ResponseWriter, code int, result interface{}) error {
-	w.WriteHeader(code)
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
 	err := json.NewEncoder(w).Encode(result)
 	return err
 }

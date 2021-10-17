@@ -72,6 +72,52 @@ type ActionConfig struct {
 	Patch  string  `mapstructure:"patch" json:"patch,omitempty" gorm:"column:patch" bson:"patch,omitempty" dynamodbav:"patch,omitempty" firestore:"patch,omitempty"`
 	Delete string  `mapstructure:"delete" json:"delete,omitempty" gorm:"column:delete" bson:"delete,omitempty" dynamodbav:"delete,omitempty" firestore:"delete,omitempty"`
 }
+func InitializeStatus(status *StatusConfig) StatusConfig {
+	var s StatusConfig
+	if status != nil {
+		s = *status
+	} else {
+		s.Error = 4
+		k := s.Error
+		s.DuplicateKey = 0
+		s.NotFound = 0
+		s.Success = 1
+		s.VersionError = 2
+		s.ValidationError = &k
+	}
+	if s.ValidationError == nil {
+		k := s.Error
+		s.ValidationError = &k
+	}
+	return s
+}
+func InitializeAction(conf *ActionConfig) ActionConfig {
+	var c ActionConfig
+	if conf != nil {
+		c.Load = conf.Load
+		c.Create = conf.Create
+		c.Update = conf.Update
+		c.Patch = conf.Patch
+		c.Delete = conf.Delete
+	}
+	if c.Load == nil {
+		x := "load"
+		c.Load = &x
+	}
+	if len(c.Create) == 0 {
+		c.Create = "create"
+	}
+	if len(c.Update) == 0 {
+		c.Update = "update"
+	}
+	if len(c.Patch) == 0 {
+		c.Patch = "patch"
+	}
+	if len(c.Delete) == 0 {
+		c.Delete = "delete"
+	}
+	return c
+}
 type GenericHandler struct {
 	*LoadHandler
 	Status       StatusConfig
@@ -110,50 +156,12 @@ func NewHandlerWithKeysAndLog(genericService HGenericService, keys []string, mod
 	if len(resource) == 0 {
 		resource = BuildResourceName(modelType.Name())
 	}
-	var c ActionConfig
 	var writeLog2 func(context.Context, string, string, bool, string) error
-	if conf != nil {
-		if conf.Load != nil {
-			writeLog2 = writeLog
-		}
-		c.Load = conf.Load
-		c.Create = conf.Create
-		c.Update = conf.Update
-		c.Patch = conf.Patch
-		c.Delete = conf.Delete
+	if conf != nil && conf.Load != nil {
+		writeLog2 = writeLog
 	}
-	if c.Load == nil {
-		x := "load"
-		c.Load = &x
-	}
-	if len(c.Create) == 0 {
-		c.Create = "create"
-	}
-	if len(c.Update) == 0 {
-		c.Update = "update"
-	}
-	if len(c.Patch) == 0 {
-		c.Patch = "patch"
-	}
-	if len(c.Delete) == 0 {
-		c.Delete = "delete"
-	}
-	var s StatusConfig
-	if status != nil {
-		s = *status
-	} else {
-		s.Error = 4
-		k := s.Error
-		s.DuplicateKey = 0
-		s.NotFound = 0
-		s.Success = 1
-		s.VersionError = 2
-		s.ValidationError = &k
-	}
-	if s.ValidationError == nil {
-		k := s.Error
-		s.ValidationError = &k
-	}
+	c := InitializeAction(conf)
+	s := InitializeStatus(status)
 	loadHandler := NewLoadHandlerWithKeysAndLog(genericService.Load, keys, modelType, logError, writeLog2, *c.Load, resource)
 	_, jsonMapIndex := BuildMapField(modelType)
 
@@ -277,7 +285,15 @@ func (h *GenericHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	count, er2 := h.service.Delete(r.Context(), id)
 	HandleDelete(w, r, count, er2, h.Error, h.Log, h.Resource, h.Config.Delete)
 }
-func HandleDelete(w http.ResponseWriter, r *http.Request, count int64, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
+
+func HandleDelete(w http.ResponseWriter, r *http.Request, count int64, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options...string) {
+	var resource, action string
+	if len(options) > 0 && len(options[0]) > 0 {
+		resource = options[0]
+	}
+	if len(options) > 1 && len(options[1]) > 0 {
+		action = options[1]
+	}
 	if err != nil {
 		Respond(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
 		return
@@ -290,15 +306,22 @@ func HandleDelete(w http.ResponseWriter, r *http.Request, count int64, err error
 		RespondAndLog(w, r, http.StatusConflict, count, writeLog, false, resource, action, "Conflict")
 	}
 }
-func BodyToJson(w http.ResponseWriter, r *http.Request, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int, buildToPatch func(context.Context, interface{}) (interface{}, error), logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) (map[string]interface{}, error) {
+func BodyToJson(w http.ResponseWriter, r *http.Request, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int, buildToPatch func(context.Context, interface{}) (interface{}, error), logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options...string) (map[string]interface{}, error) {
 	body, err := BodyToJsonMap(r, structBody, body, jsonIds, mapIndex, buildToPatch)
 	if err != nil {
 		// http.Error(w, "Invalid Data: "+err.Error(), http.StatusBadRequest)
-		Respond(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
+		Respond(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, options...)
 	}
 	return body, err
 }
-func HasError(w http.ResponseWriter, r *http.Request, errors []ErrorMessage, err error, status int, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) bool {
+func HasError(w http.ResponseWriter, r *http.Request, errors []ErrorMessage, err error, status int, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options...string) bool {
+	var resource, action string
+	if len(options) > 0 && len(options[0]) > 0 {
+		resource = options[0]
+	}
+	if len(options) > 1 && len(options[1]) > 0 {
+		action = options[1]
+	}
 	if err != nil {
 		Respond(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
 		return true
@@ -310,7 +333,14 @@ func HasError(w http.ResponseWriter, r *http.Request, errors []ErrorMessage, err
 	}
 	return false
 }
-func HandleResult(w http.ResponseWriter, r *http.Request, body interface{}, count int64, err error, status StatusConfig, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
+func HandleResult(w http.ResponseWriter, r *http.Request, body interface{}, count int64, err error, status StatusConfig, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options...string) {
+	var resource, action string
+	if len(options) > 0 && len(options[0]) > 0 {
+		resource = options[0]
+	}
+	if len(options) > 1 && len(options[1]) > 0 {
+		action = options[1]
+	}
 	if err != nil {
 		Respond(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
 		return
@@ -323,7 +353,14 @@ func HandleResult(w http.ResponseWriter, r *http.Request, body interface{}, coun
 		Succeed(w, r, http.StatusOK, SetStatus(body, status.Success), writeLog, resource, action)
 	}
 }
-func AfterCreated(w http.ResponseWriter, r *http.Request, body interface{}, count int64, err error, status StatusConfig, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
+func AfterCreated(w http.ResponseWriter, r *http.Request, body interface{}, count int64, err error, status StatusConfig, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options...string) {
+	var resource, action string
+	if len(options) > 0 && len(options[0]) > 0 {
+		resource = options[0]
+	}
+	if len(options) > 1 && len(options[1]) > 0 {
+		action = options[1]
+	}
 	if err != nil {
 		Respond(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
 		return
