@@ -268,7 +268,7 @@ func (h *GenericHandler) Patch(w http.ResponseWriter, r *http.Request) {
 	if er1 != nil {
 		return
 	}
-	body, er2 := BodyToJson(w, r, bodyStruct, body0, h.Keys, h.mapIndex, h.modelBuilder.BuildToPatch, h.Error, h.Log, h.Resource, h.Config.Patch)
+	body, er2 := BodyToJsonWithBuild(w, r, bodyStruct, body0, h.Keys, h.mapIndex, h.modelBuilder.BuildToPatch, h.Error, h.Log, h.Resource, h.Config.Patch)
 	if er2 != nil {
 		return
 	}
@@ -290,7 +290,20 @@ func (h *GenericHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	count, er2 := h.service.Delete(r.Context(), id)
 	HandleDelete(w, r, count, er2, h.Error, h.Log, h.Resource, h.Config.Delete)
 }
-
+func CheckId(w http.ResponseWriter, r *http.Request, body interface{}, keysJson []string, mapIndex map[string]int) error {
+	err := MatchId(r, body, keysJson, mapIndex)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+	return err
+}
+func DecodeAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int) error {
+	er1 := Decode(w, r, obj)
+	if er1 != nil {
+		return er1
+	}
+	return CheckId(w, r, obj, keysJson, mapIndex)
+}
 func HandleDelete(w http.ResponseWriter, r *http.Request, count int64, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options...string) {
 	var resource, action string
 	if len(options) > 0 && len(options[0]) > 0 {
@@ -311,13 +324,40 @@ func HandleDelete(w http.ResponseWriter, r *http.Request, count int64, err error
 		RespondAndLog(w, r, http.StatusConflict, count, writeLog, false, resource, action, "Conflict")
 	}
 }
-func BodyToJson(w http.ResponseWriter, r *http.Request, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int, buildToPatch func(context.Context, interface{}) (interface{}, error), logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options...string) (map[string]interface{}, error) {
+func BodyToJsonWithBuild(w http.ResponseWriter, r *http.Request, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int, buildToPatch func(context.Context, interface{}) (interface{}, error), logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options...string) (map[string]interface{}, error) {
 	body, err := BodyToJsonMap(r, structBody, body, jsonIds, mapIndex, buildToPatch)
 	if err != nil {
 		// http.Error(w, "Invalid Data: "+err.Error(), http.StatusBadRequest)
 		Respond(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, options...)
 	}
 	return body, err
+}
+func BodyToJson(w http.ResponseWriter, r *http.Request, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int) (map[string]interface{}, error) {
+	body, err := BodyToJsonMap(r, structBody, body, jsonIds, mapIndex)
+	if err != nil {
+		http.Error(w, "Invalid Data: "+err.Error(), http.StatusBadRequest)
+	}
+	return body, err
+}
+func BuildFieldMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int) (*http.Request, map[string]interface{}, error) {
+	r = r.WithContext(context.WithValue(r.Context(), Method, Patch))
+	body, er0 := BuildMapAndStruct(r, obj, w)
+	if er0 != nil {
+		return r, body, er0
+	}
+	er1 := CheckId(w, r, obj, keysJson, mapIndex)
+	return r, body, er1
+}
+func BuildMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int) (*http.Request, map[string]interface{}, error) {
+	r2, body, er0 := BuildFieldMapAndCheckId(w, r, obj, keysJson, mapIndex)
+	if er0 != nil {
+		return r2, body, er0
+	}
+	json, er1 := BodyToJsonMap(r, obj, body, keysJson, mapIndex)
+	if er1 != nil {
+		http.Error(w, er1.Error(), http.StatusBadRequest)
+	}
+	return r2, json, er1
 }
 func HasError(w http.ResponseWriter, r *http.Request, errors []ErrorMessage, err error, status int, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options...string) bool {
 	var resource, action string

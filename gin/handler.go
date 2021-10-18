@@ -208,13 +208,40 @@ func HandleDelete(ctx *gin.Context, count int64, err error, logError func(contex
 		RespondAndLog(ctx, http.StatusConflict, count, writeLog, false, resource, action, "Conflict")
 	}
 }
-func BodyToJson(ctx *gin.Context, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int, buildToPatch func(context.Context, interface{}) (interface{}, error), logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) (map[string]interface{}, error) {
+func BodyToJsonWithBuild(ctx *gin.Context, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int, buildToPatch func(context.Context, interface{}) (interface{}, error), logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) (map[string]interface{}, error) {
 	body, err := sv.BodyToJsonMap(ctx.Request, structBody, body, jsonIds, mapIndex, buildToPatch)
 	if err != nil {
 		// http.Error(w, "Invalid Data: "+err.Error(), http.StatusBadRequest)
 		Respond(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
 	}
 	return body, err
+}
+func BodyToJson(ctx *gin.Context, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int) (map[string]interface{}, error) {
+	body, err := sv.BodyToJsonMap(ctx.Request, structBody, body, jsonIds, mapIndex)
+	if err != nil {
+		ctx.String(http.StatusBadRequest, "Invalid Data: "+err.Error())
+	}
+	return body, err
+}
+func BuildFieldMapAndCheckId(ctx *gin.Context, obj interface{}, keysJson []string, mapIndex map[string]int) (map[string]interface{}, error) {
+	body, er0 := sv.BuildMapAndStruct(ctx.Request, obj)
+	if er0 != nil {
+		ctx.String(http.StatusBadRequest, er0.Error())
+		return body, er0
+	}
+	er1 := CheckId(ctx, obj, keysJson, mapIndex)
+	return body, er1
+}
+func BuildMapAndCheckId(ctx *gin.Context, obj interface{}, keysJson []string, mapIndex map[string]int) (map[string]interface{}, error) {
+	body, er0 := BuildFieldMapAndCheckId(ctx, obj, keysJson, mapIndex)
+	if er0 != nil {
+		return body, er0
+	}
+	json, er1 := sv.BodyToJsonMap(ctx.Request, obj, body, keysJson, mapIndex)
+	if er1 != nil {
+		ctx.String(http.StatusBadRequest, er1.Error())
+	}
+	return json, er1
 }
 func HasError(ctx *gin.Context, errors []sv.ErrorMessage, err error, status int, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) bool {
 	if err != nil {

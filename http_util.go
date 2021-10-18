@@ -65,13 +65,6 @@ func BuildResourceName(s string) string {
 	}
 	return s3
 }
-func CheckId(w http.ResponseWriter, r *http.Request, body interface{}, keysJson []string, mapIndex map[string]int) error {
-	err := MatchId(r, body, keysJson, mapIndex)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-	}
-	return err
-}
 func MatchId(r *http.Request, body interface{}, keysJson []string, mapIndex map[string]int) error {
 	var value reflect.Value
 	value = reflect.Indirect(reflect.ValueOf(body))//value must be struct

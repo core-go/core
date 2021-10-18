@@ -27,7 +27,7 @@ func BuildMapAndStruct(r *http.Request, interfaceBody interface{}, options...htt
 	er2 := json.NewDecoder(strings.NewReader(s)).Decode(interfaceBody)
 	if er2 != nil {
 		if len(options) > 0 && options[0] != nil {
-			http.Error(options[0], "Invalid Data", http.StatusBadRequest)
+			http.Error(options[0], er2.Error(), http.StatusBadRequest)
 		}
 		return nil, er2
 	}
