@@ -279,3 +279,17 @@ func AfterCreated(ctx *gin.Context, body interface{}, count int64, err error, st
 		Succeed(ctx, http.StatusCreated, sv.SetStatus(body, status.Success), writeLog, resource, action)
 	}
 }
+func Result(ctx *gin.Context, code int, result interface{}, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options...string) {
+	var resource, action string
+	if len(options) > 0 && len(options[0]) > 0 {
+		resource = options[0]
+	}
+	if len(options) > 1 && len(options[1]) > 0 {
+		action = options[1]
+	}
+	if err != nil {
+		Respond(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
+	} else {
+		Succeed(ctx, code, result, writeLog, resource, action)
+	}
+}

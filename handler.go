@@ -416,3 +416,17 @@ func AfterCreated(w http.ResponseWriter, r *http.Request, body interface{}, coun
 		Succeed(w, r, http.StatusCreated, SetStatus(body, status.Success), writeLog, resource, action)
 	}
 }
+func Result(w http.ResponseWriter, r *http.Request, code int, result interface{}, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options...string) {
+	var resource, action string
+	if len(options) > 0 && len(options[0]) > 0 {
+		resource = options[0]
+	}
+	if len(options) > 1 && len(options[1]) > 0 {
+		action = options[1]
+	}
+	if err != nil {
+		Respond(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
+	} else {
+		Succeed(w, r, code, result, writeLog, resource, action)
+	}
+}
