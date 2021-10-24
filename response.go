@@ -24,7 +24,7 @@ const (
 )
 
 func ErrorWithMessage(w http.ResponseWriter, r *http.Request, code int, err string, writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
-	RespondAndLog(w, r, code, err, writeLog, true, resource, action, err)
+	ReturnAndLog(w, r, code, err, writeLog, true, resource, action, err)
 }
 func Error(w http.ResponseWriter, r *http.Request, code int, result interface{}, logError func(context.Context, string), err error) error {
 	if logError != nil {
@@ -32,7 +32,7 @@ func Error(w http.ResponseWriter, r *http.Request, code int, result interface{},
 	}
 	return JSON(w, code, result)
 }
-func Respond(w http.ResponseWriter, r *http.Request, code int, result interface{}, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options... string) error {
+func RespondAndLog(w http.ResponseWriter, r *http.Request, code int, result interface{}, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options... string) error {
 	var resource, action string
 	if len(options) > 0 && len(options[0]) > 0 {
 		resource = options[0]
@@ -43,18 +43,18 @@ func Respond(w http.ResponseWriter, r *http.Request, code int, result interface{
 	if err != nil {
 		if logError != nil {
 			logError(r.Context(), err.Error())
-			return RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, writeLog, false, resource, action, err.Error())
+			return ReturnAndLog(w, r, http.StatusInternalServerError, InternalServerError, writeLog, false, resource, action, err.Error())
 		} else {
-			return RespondAndLog(w, r, http.StatusInternalServerError, err.Error(), writeLog, false, resource, action, err.Error())
+			return ReturnAndLog(w, r, http.StatusInternalServerError, err.Error(), writeLog, false, resource, action, err.Error())
 		}
 	} else {
-		return RespondAndLog(w, r, code, result, writeLog, true, resource, action, "")
+		return ReturnAndLog(w, r, code, result, writeLog, true, resource, action, "")
 	}
 }
 func Succeed(w http.ResponseWriter, r *http.Request, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, options... string) error {
-	return Respond(w, r, code, result, nil, nil, writeLog, options...)
+	return RespondAndLog(w, r, code, result, nil, nil, writeLog, options...)
 }
-func RespondAndLog(w http.ResponseWriter, r *http.Request, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, success bool, resource string, action string, desc string) error {
+func ReturnAndLog(w http.ResponseWriter, r *http.Request, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, success bool, resource string, action string, desc string) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	err := json.NewEncoder(w).Encode(result)

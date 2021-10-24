@@ -9,14 +9,14 @@ import (
 )
 
 type LoadHandler struct {
-	LoadData  func(ctx context.Context, id interface{}) (interface{}, error)
-	Keys      []string
-	ModelType reflect.Type
-	Indexes   map[string]int
-	Error     func(context.Context, string)
-	WriteLog  func(ctx context.Context, resource string, action string, success bool, desc string) error
-	Resource  string
-	Action    string
+	LoadData   func(ctx context.Context, id interface{}) (interface{}, error)
+	Keys       []string
+	ModelType  reflect.Type
+	KeyIndexes map[string]int
+	Error      func(context.Context, string)
+	WriteLog   func(ctx context.Context, resource string, action string, success bool, desc string) error
+	Resource   string
+	Activity   string
 }
 
 func NewLoadHandler(load func(context.Context, interface{}) (interface{}, error), modelType reflect.Type, logError func(context.Context, string), options ...func(context.Context, string, string, bool, string) error) *LoadHandler {
@@ -51,33 +51,33 @@ func NewLoadHandlerWithKeysAndLog(load func(context.Context, interface{}) (inter
 	} else {
 		resource = sv.BuildResourceName(modelType.Name())
 	}
-	indexes := sv.GetIndexes(modelType)
-	return &LoadHandler{WriteLog: writeLog, LoadData: load, Keys: keys, ModelType: modelType, Indexes: indexes, Error: logError, Resource: resource, Action: action}
+	indexes := sv.GetKeyIndexes(modelType)
+	return &LoadHandler{WriteLog: writeLog, LoadData: load, Keys: keys, ModelType: modelType, KeyIndexes: indexes, Error: logError, Resource: resource, Activity: action}
 }
 func (h *LoadHandler) Load(ctx *gin.Context) {
 	r := ctx.Request
-	id, er1 := sv.BuildId(r, h.ModelType, h.Keys, h.Indexes, 0)
+	id, er1 := sv.BuildId(r, h.ModelType, h.Keys, h.KeyIndexes, 0)
 	if er1 != nil {
 		ctx.String(http.StatusBadRequest, er1.Error())
 		return
 	} else {
 		model, er2 := h.LoadData(r.Context(), id)
-		RespondModel(ctx, model, er2, h.Error, h.WriteLog, h.Resource, h.Action)
+		RespondModel(ctx, model, er2, h.Error, h.WriteLog, h.Resource, h.Activity)
 	}
 }
 
 func RespondModel(ctx *gin.Context, model interface{}, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
 	if err != nil {
-		Respond(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
+		RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
 	} else {
 		if model == nil {
-			RespondAndLog(ctx, http.StatusNotFound, model, writeLog, false, resource, action, "Not found")
+			ReturnAndLog(ctx, http.StatusNotFound, model, writeLog, false, resource, action, "Not found")
 		} else {
 			Succeed(ctx, http.StatusOK, model, writeLog, resource, action)
 		}
 	}
 }
-func Respond(ctx *gin.Context, code int, result interface{}, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options... string) {
+func RespondAndLog(ctx *gin.Context, code int, result interface{}, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options... string) {
 	var resource, action string
 	if len(options) > 0 && len(options[0]) > 0 {
 		resource = options[0]
@@ -88,15 +88,15 @@ func Respond(ctx *gin.Context, code int, result interface{}, err error, logError
 	if err != nil {
 		if logError != nil {
 			logError(ctx.Request.Context(), err.Error())
-			RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, writeLog, false, resource, action, err.Error())
+			ReturnAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, writeLog, false, resource, action, err.Error())
 		} else {
-			RespondAndLog(ctx, http.StatusInternalServerError, err.Error(), writeLog, false, resource, action, err.Error())
+			ReturnAndLog(ctx, http.StatusInternalServerError, err.Error(), writeLog, false, resource, action, err.Error())
 		}
 	} else {
-		RespondAndLog(ctx, code, result, writeLog, true, resource, action, "")
+		ReturnAndLog(ctx, code, result, writeLog, true, resource, action, "")
 	}
 }
-func RespondAndLog(ctx *gin.Context, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, success bool, resource string, action string, desc string) {
+func ReturnAndLog(ctx *gin.Context, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, success bool, resource string, action string, desc string) {
 	ctx.JSON(code, result)
 	if writeLog != nil {
 		writeLog(ctx.Request.Context(), resource, action, success, desc)
@@ -106,8 +106,8 @@ func ErrorAndLog(ctx *gin.Context, code int, result interface{}, logError func(c
 	if logError != nil {
 		logError(ctx.Request.Context(), err.Error())
 	}
-	RespondAndLog(ctx, code, result, writeLog, false, resource, action, err.Error())
+	ReturnAndLog(ctx, code, result, writeLog, false, resource, action, err.Error())
 }
 func Succeed(ctx *gin.Context, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
-	RespondAndLog(ctx, code, result, writeLog, true, resource, action, "")
+	ReturnAndLog(ctx, code, result, writeLog, true, resource, action, "")
 }

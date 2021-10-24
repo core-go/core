@@ -7,14 +7,14 @@ import (
 )
 
 type LoadHandler struct {
-	LoadData  func(ctx context.Context, id interface{}) (interface{}, error)
-	Keys      []string
-	ModelType reflect.Type
-	Indexes   map[string]int
-	Error     func(context.Context, string)
-	WriteLog  func(ctx context.Context, resource string, action string, success bool, desc string) error
-	Resource  string
-	Action    string
+	LoadData   func(ctx context.Context, id interface{}) (interface{}, error)
+	Keys       []string
+	ModelType  reflect.Type
+	KeyIndexes map[string]int
+	Error      func(context.Context, string)
+	WriteLog   func(ctx context.Context, resource string, action string, success bool, desc string) error
+	Resource   string
+	Activity   string
 }
 
 func NewLoadHandler(load func(context.Context, interface{}) (interface{}, error), modelType reflect.Type, logError func(context.Context, string), options ...func(context.Context, string, string, bool, string) error) *LoadHandler {
@@ -49,16 +49,16 @@ func NewLoadHandlerWithKeysAndLog(load func(context.Context, interface{}) (inter
 	} else {
 		resource = BuildResourceName(modelType.Name())
 	}
-	indexes := GetIndexes(modelType)
-	return &LoadHandler{WriteLog: writeLog, LoadData: load, Keys: keys, ModelType: modelType, Indexes: indexes, Error: logError, Resource: resource, Action: action}
+	indexes := GetKeyIndexes(modelType)
+	return &LoadHandler{WriteLog: writeLog, LoadData: load, Keys: keys, ModelType: modelType, KeyIndexes: indexes, Error: logError, Resource: resource, Activity: action}
 }
 func (h *LoadHandler) Load(w http.ResponseWriter, r *http.Request) {
-	id, er1 := BuildId(r, h.ModelType, h.Keys, h.Indexes)
+	id, er1 := BuildId(r, h.ModelType, h.Keys, h.KeyIndexes)
 	if er1 != nil {
 		http.Error(w, er1.Error(), http.StatusBadRequest)
 	} else {
 		model, er2 := h.LoadData(r.Context(), id)
-		RespondModel(w, r, model, er2, h.Error, h.WriteLog, h.Resource, h.Action)
+		RespondModel(w, r, model, er2, h.Error, h.WriteLog, h.Resource, h.Activity)
 	}
 }
 func GetId(w http.ResponseWriter, r *http.Request, modelType reflect.Type, jsonId []string, indexes map[string]int, options... int) map[string]interface{} {
@@ -78,10 +78,10 @@ func RespondModel(w http.ResponseWriter, r *http.Request, model interface{}, err
 		action = options[1]
 	}
 	if err != nil {
-		Respond(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
+		RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
 	} else {
 		if model == nil {
-			RespondAndLog(w, r, http.StatusNotFound, model, writeLog, false, resource, action, "Not found")
+			ReturnAndLog(w, r, http.StatusNotFound, model, writeLog, false, resource, action, "Not found")
 		} else {
 			Succeed(w, r, http.StatusOK, model, writeLog, resource, action)
 		}

@@ -223,7 +223,7 @@ func NewModels(body interface{}, modelType reflect.Type) (out interface{}, err e
 	}
 	return nil, nil
 }
-func GetIndexes(modelType reflect.Type) map[string]int {
+func GetKeyIndexes(modelType reflect.Type) map[string]int {
 	numField := modelType.NumField()
 	mapJsonNameIndex := make(map[string]int, 0)
 	for i := 0; i < numField; i++ {
