@@ -18,34 +18,34 @@ type GenericHandler struct {
 	*LoadHandler
 	Status       sv.StatusConfig
 	Action       sv.ActionConfig
-	service      sv.HGenericService
+	service      sv.SimpleService
 	modelBuilder sv.ModelBuilder
 	Validate     func(ctx context.Context, model interface{}) ([]sv.ErrorMessage, error)
 	Log          func(ctx context.Context, resource string, action string, success bool, desc string) error
 	Indexes      map[string]int
 }
 
-func NewHandler(genericService sv.HGenericService, modelType reflect.Type, modelBuilder sv.ModelBuilder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
+func NewHandler(genericService sv.SimpleService, modelType reflect.Type, modelBuilder sv.ModelBuilder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
 	return NewHandlerWithConfig(genericService, modelType, nil, modelBuilder, logError, validate, options...)
 }
-func NewHandlerWithKeys(genericService sv.HGenericService, keys []string, modelType reflect.Type, modelBuilder sv.ModelBuilder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
+func NewHandlerWithKeys(genericService sv.SimpleService, keys []string, modelType reflect.Type, modelBuilder sv.ModelBuilder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 {
 		writeLog = options[0]
 	}
 	return NewHandlerWithKeysAndLog(genericService, keys, modelType, nil, modelBuilder, logError, validate, writeLog, "", nil)
 }
-func NewHandlerWithConfig(genericService sv.HGenericService, modelType reflect.Type, status *sv.StatusConfig, modelBuilder sv.ModelBuilder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
+func NewHandlerWithConfig(genericService sv.SimpleService, modelType reflect.Type, status *sv.StatusConfig, modelBuilder sv.ModelBuilder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 && options[0] != nil {
 		writeLog = options[0]
 	}
 	return NewHandlerWithKeysAndLog(genericService, nil, modelType, status, modelBuilder, logError, validate, writeLog, "", nil)
 }
-func NewHandlerWithLog(genericService sv.HGenericService, modelType reflect.Type, status *sv.StatusConfig, modelBuilder sv.ModelBuilder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), writeLog func(context.Context, string, string, bool, string) error, resource string, conf *sv.ActionConfig) *GenericHandler {
+func NewHandlerWithLog(genericService sv.SimpleService, modelType reflect.Type, status *sv.StatusConfig, modelBuilder sv.ModelBuilder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), writeLog func(context.Context, string, string, bool, string) error, resource string, conf *sv.ActionConfig) *GenericHandler {
 	return NewHandlerWithKeysAndLog(genericService, nil, modelType, status, modelBuilder, logError, validate, writeLog, resource, conf)
 }
-func NewHandlerWithKeysAndLog(genericService sv.HGenericService, keys []string, modelType reflect.Type, status *sv.StatusConfig, modelBuilder sv.ModelBuilder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), writeLog func(context.Context, string, string, bool, string) error, resource string, conf *sv.ActionConfig) *GenericHandler {
+func NewHandlerWithKeysAndLog(genericService sv.SimpleService, keys []string, modelType reflect.Type, status *sv.StatusConfig, modelBuilder sv.ModelBuilder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), writeLog func(context.Context, string, string, bool, string) error, resource string, conf *sv.ActionConfig) *GenericHandler {
 	if keys == nil || len(keys) == 0 {
 		keys = sv.GetJsonPrimaryKeys(modelType)
 	}
@@ -291,5 +291,33 @@ func Respond(ctx *gin.Context, code int, result interface{}, err error, logError
 		RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
 	} else {
 		Succeed(ctx, code, result, writeLog, resource, action)
+	}
+}
+func Return(ctx *gin.Context, code int, result sv.ResultInfo, status sv.StatusConfig, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
+	var resource, action string
+	if len(options) > 0 && len(options[0]) > 0 {
+		resource = options[0]
+	}
+	if len(options) > 1 && len(options[1]) > 0 {
+		action = options[1]
+	}
+	if err != nil {
+		RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
+	} else {
+		if code == http.StatusCreated {
+			if result.Status == status.DuplicateKey {
+				Succeed(ctx, http.StatusConflict, result, writeLog, resource, action)
+			} else {
+				Succeed(ctx, code, result, writeLog, resource, action)
+			}
+		} else {
+			if result.Status == status.NotFound {
+				Succeed(ctx, http.StatusNotFound, result, writeLog, resource, action)
+			} else if result.Status == status.VersionError {
+				Succeed(ctx, http.StatusConflict, result, writeLog, resource, action)
+			} else {
+				Succeed(ctx, code, result, writeLog, resource, action)
+			}
+		}
 	}
 }
