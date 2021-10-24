@@ -81,23 +81,37 @@ func GetField(value interface{}, jsonName string) (int, string) {
 	return -1, ""
 }
 
-func BuildMapField(modelType reflect.Type) (map[string]int, map[string]int) {
+func BuildMapField(modelType reflect.Type) ([]string, map[string]int, map[string]int) {
 	model := reflect.New(modelType).Interface()
 	val := reflect.Indirect(reflect.ValueOf(model))
+	var idFields []string
 	m1 := make(map[string]int)
 	m2 := make(map[string]int)
-	for i := 0; i < val.Type().NumField(); i++ {
-		field := val.Type().Field(i)
+	l := val.Type().NumField()
+	vt := val.Type()
+	for i := 0; i < l; i++ {
+		field := vt.Field(i)
 		tag1, ok1 := field.Tag.Lookup("json")
 		if ok1 {
 			jsonName := strings.Split(tag1, ",")[0]
-			m2[jsonName] = i
+			m1[jsonName] = i
 		} else {
-			m2[field.Name] = i
+			m1[field.Name] = i
 		}
-		m1[field.Name] = i
+		m2[field.Name] = i
+		ormTag := field.Tag.Get("gorm")
+		tags := strings.Split(ormTag, ";")
+		for _, tag := range tags {
+			if strings.Compare(strings.TrimSpace(tag), "primary_key") == 0 {
+				jsonTag := field.Tag.Get("json")
+				tags1 := strings.Split(jsonTag, ",")
+				if len(tags1) > 0 && tags1[0] != "-" {
+					idFields = append(idFields, tags1[0])
+				}
+			}
+		}
 	}
-	return m1, m2
+	return idFields, m1, m2
 }
 
 func ParseIntWithType(value string, idType string) (v interface{}, err error) {

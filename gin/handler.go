@@ -59,7 +59,7 @@ func NewHandlerWithKeysAndLog(genericService sv.HGenericService, keys []string, 
 	c := sv.InitializeAction(conf)
 	s := sv.InitializeStatus(status)
 	loadHandler := NewLoadHandlerWithKeysAndLog(genericService.Load, keys, modelType, logError, writeLog2, *c.Load, resource)
-	_, jsonMapIndex := sv.BuildMapField(modelType)
+	_, jsonMapIndex, _ := sv.BuildMapField(modelType)
 
 	return &GenericHandler{LoadHandler: loadHandler, service: genericService, Status: s, modelBuilder: modelBuilder, Validate: validate, Indexes: jsonMapIndex, Log: writeLog, Action: c}
 }
