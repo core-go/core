@@ -30,7 +30,6 @@ type Handler interface {
 	Search(w http.ResponseWriter, r *http.Request)
 	Load(w http.ResponseWriter, r *http.Request)
 	Create(w http.ResponseWriter, r *http.Request)
-	Insert(w http.ResponseWriter, r *http.Request)
 	Update(w http.ResponseWriter, r *http.Request)
 	Patch(w http.ResponseWriter, r *http.Request)
 	Delete(w http.ResponseWriter, r *http.Request)
@@ -130,9 +129,19 @@ type Params struct {
 	Action    ActionConfig
 	Error     func(context.Context, string)
 	Log       func(context.Context, string, string, bool, string) error
+	Validate  func(context.Context, interface{}) ([]ErrorMessage, error)
 }
-
-func CreateParams(modelType reflect.Type, logError func(context.Context, string), status *StatusConfig, action *ActionConfig, options...func(context.Context, string, string, bool, string) error) *Params {
+func MakeParams(modelType reflect.Type, status *StatusConfig, logError func(context.Context, string), action *ActionConfig, options ...func(context.Context, string, string, bool, string) error) *Params {
+	return CreateParams(modelType, status, logError, nil, action, options...)
+}
+func InitParams(modelType reflect.Type, status *StatusConfig, logError func(context.Context, string), options...func(context.Context, interface{}) ([]ErrorMessage, error)) *Params {
+	var validate func(context.Context, interface{}) ([]ErrorMessage, error)
+	if len(options) > 0 {
+		validate = options[0]
+	}
+	return CreateParams(modelType, status, logError, validate, nil)
+}
+func CreateParams(modelType reflect.Type, status *StatusConfig, logError func(context.Context, string), validate func(context.Context, interface{}) ([]ErrorMessage, error), action *ActionConfig, options ...func(context.Context, string, string, bool, string) error) *Params {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 {
 		writeLog = options[0]
@@ -141,7 +150,7 @@ func CreateParams(modelType reflect.Type, logError func(context.Context, string)
 	a := InitializeAction(action)
 	resource := BuildResourceName(modelType.Name())
 	keys, indexes, _ := BuildMapField(modelType)
-	return &Params{Keys: keys, Indexes: indexes, ModelType: modelType, Status: s, Resource: resource, Action: a, Error: logError, Log: writeLog}
+	return &Params{Keys: keys, Indexes: indexes, ModelType: modelType, Status: s, Resource: resource, Action: a, Error: logError, Log: writeLog, Validate: validate}
 }
 
 type GenericHandler struct {
@@ -303,7 +312,7 @@ func (h *GenericHandler) Patch(w http.ResponseWriter, r *http.Request) {
 	HandleResult(w, r, body, count, er4, h.Status, h.Error, h.Log, h.Resource, h.Action.Patch)
 }
 func (h *GenericHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	id, er1 := BuildId(r, h.ModelType, h.Keys, h.KeyIndexes)
+	id, er1 := BuildId(r, h.ModelType, h.Keys, h.LoadHandler.KeyIndexes)
 	if er1 != nil {
 		http.Error(w, er1.Error(), http.StatusBadRequest)
 		return
