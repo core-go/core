@@ -14,6 +14,70 @@ const (
 	Patch  = "patch"
 )
 
+func CreatePatchAndParams(modelType reflect.Type, status *sv.StatusConfig, logError func(context.Context, string), patch func(context.Context, map[string]interface{}) (int64, error), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), build func(context.Context, interface{}) (interface{}, error), action *sv.ActionConfig, options ...func(context.Context, string, string, bool, string) error) (*PatchHandler, *sv.Params) {
+	var writeLog func(context.Context, string, string, bool, string) error
+	if len(options) > 0 {
+		writeLog = options[0]
+	}
+	s := sv.InitializeStatus(status)
+	a := sv.InitializeAction(action)
+	resource := sv.BuildResourceName(modelType.Name())
+	keys, indexes, _ := sv.BuildMapField(modelType)
+	patchHandler := &PatchHandler{PrimaryKeys: keys, FieldIndexes: indexes, ObjectType: modelType, StatusConf: s, Save: patch, ValidateData: validate, Build: build, LogError: logError, WriteLog: writeLog, ResourceType: resource, Activity: a.Patch}
+	params := &sv.Params{Keys: keys, Indexes: indexes, ModelType: modelType, Status: s, Resource: resource, Action: a, Error: logError, Log: writeLog, Validate: validate}
+	return patchHandler, params
+}
+func NewPatchHandler(patch func(context.Context, map[string]interface{}) (int64, error), modelType reflect.Type, status *sv.StatusConfig, logError func(context.Context, string), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), build func(context.Context, interface{}) (interface{}, error), action string, options ...func(context.Context, string, string, bool, string) error) *PatchHandler {
+	var writeLog func(context.Context, string, string, bool, string) error
+	if len(options) > 0 {
+		writeLog = options[0]
+	}
+	s := sv.InitializeStatus(status)
+	resource := sv.BuildResourceName(modelType.Name())
+	keys, indexes, _ := sv.BuildMapField(modelType)
+	return &PatchHandler{PrimaryKeys: keys, FieldIndexes: indexes, ObjectType: modelType, StatusConf: s, Save: patch, ValidateData: validate, Build: build, LogError: logError, WriteLog: writeLog, ResourceType: resource, Activity: action}
+}
+
+type PatchHandler struct {
+	PrimaryKeys  []string
+	FieldIndexes map[string]int
+	ObjectType   reflect.Type
+	Save         func(ctx context.Context, user map[string]interface{}) (int64, error)
+	ValidateData func(ctx context.Context, model interface{}) ([]sv.ErrorMessage, error)
+	Build        func(ctx context.Context, model interface{}) (interface{}, error)
+	LogError     func(context.Context, string)
+	WriteLog     func(context.Context, string, string, bool, string) error
+	ResourceType string
+	Activity     string
+	StatusConf   sv.StatusConfig
+}
+func (h *PatchHandler) Patch(ctx *gin.Context) {
+	r := ctx.Request
+	r = r.WithContext(context.WithValue(r.Context(), Method, Patch))
+	bodyStruct := reflect.New(h.ObjectType).Interface()
+	body0, er0 := sv.BuildMapAndStruct(r, bodyStruct)
+	if er0 != nil {
+		ctx.String(http.StatusBadRequest, "Invalid Data")
+		return
+	}
+	er1 := CheckId(ctx, bodyStruct, h.PrimaryKeys, h.FieldIndexes)
+	if er1 != nil {
+		return
+	}
+	body, er2 := sv.BodyToJsonMap(r, bodyStruct, body0, h.PrimaryKeys, h.FieldIndexes, h.Build)
+	if er2 != nil {
+		ErrorAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, h.LogError, h.ResourceType, h.Activity, er2, h.WriteLog)
+		return
+	}
+	if h.ValidateData != nil {
+		errors, er3 := h.ValidateData(r.Context(), &bodyStruct)
+		if HasError(ctx, errors, er3, *h.StatusConf.ValidationError, h.LogError, h.WriteLog, h.ResourceType, h.Activity) {
+			return
+		}
+	}
+	count, er4 := h.Save(r.Context(), body)
+	HandleResult(ctx, body, count, er4, h.StatusConf, h.LogError, h.WriteLog, h.ResourceType, h.Activity)
+}
 type GenericHandler struct {
 	*LoadHandler
 	Status   sv.StatusConfig
