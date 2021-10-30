@@ -30,26 +30,26 @@ type ModelBuilder struct {
 	updatedAtIndex int
 }
 
-func NewDefaultModelBuilderByConfig(generateId func(context.Context) (string, error), modelType reflect.Type, c TrackingConfig) *ModelBuilder {
+func NewBuilderWithIdAndConfig(generateId func(context.Context) (string, error), modelType reflect.Type, c TrackingConfig) *ModelBuilder {
 	if generateId != nil {
 		idGenerator := NewIdGenerator(generateId)
-		return NewModelBuilderByConfig(idGenerator.Generate, modelType, c)
+		return NewBuilderByConfig(idGenerator.Generate, modelType, c)
 	} else {
-		return NewModelBuilderByConfig(nil, modelType, c)
+		return NewBuilderByConfig(nil, modelType, c)
 	}
 }
-func NewModelBuilderByConfig(generateId func(context.Context, interface{}) (int, error), modelType reflect.Type, c TrackingConfig) *ModelBuilder {
-	return NewModelBuilder(generateId, modelType, c.CreatedBy, c.CreatedAt, c.UpdatedBy, c.UpdatedAt, c.User, c.Authorization)
+func NewBuilderByConfig(generateId func(context.Context, interface{}) (int, error), modelType reflect.Type, c TrackingConfig) *ModelBuilder {
+	return NewBuilder(generateId, modelType, c.CreatedBy, c.CreatedAt, c.UpdatedBy, c.UpdatedAt, c.User, c.Authorization)
 }
-func NewDefaultModelBuilder(generateId func(context.Context) (string, error), modelType reflect.Type, options ...string) *ModelBuilder {
+func NewBuilderWithId(generateId func(context.Context) (string, error), modelType reflect.Type, options ...string) *ModelBuilder {
 	if generateId != nil {
 		idGenerator := NewIdGenerator(generateId)
-		return NewModelBuilder(idGenerator.Generate, modelType, options...)
+		return NewBuilder(idGenerator.Generate, modelType, options...)
 	} else {
-		return NewModelBuilder(nil, modelType, options...)
+		return NewBuilder(nil, modelType, options...)
 	}
 }
-func NewModelBuilder(generateId func(context.Context, interface{}) (int, error), modelType reflect.Type, options ...string) *ModelBuilder {
+func NewBuilder(generateId func(context.Context, interface{}) (int, error), modelType reflect.Type, options ...string) *ModelBuilder {
 	var createdByName, createdAtName, updatedByName, updatedAtName, key, authorization string
 	if len(options) > 0 {
 		createdByName = options[0]
@@ -92,7 +92,7 @@ func NewModelBuilder(generateId func(context.Context, interface{}) (int, error),
 	}
 }
 
-func (c *ModelBuilder) BuildToInsert(ctx context.Context, obj interface{}) (interface{}, error) {
+func (c *ModelBuilder) Create(ctx context.Context, obj interface{}) (interface{}, error) {
 	if c.GenerateId != nil {
 		_, er0 := c.GenerateId(ctx, obj)
 		if er0 != nil {
@@ -183,7 +183,7 @@ func (c *ModelBuilder) BuildToInsert(ctx context.Context, obj interface{}) (inte
 	return obj, nil
 }
 
-func (c *ModelBuilder) BuildToUpdate(ctx context.Context, obj interface{}) (interface{}, error) {
+func (c *ModelBuilder) Update(ctx context.Context, obj interface{}) (interface{}, error) {
 	v := reflect.Indirect(reflect.ValueOf(obj))
 	if v.Kind() == reflect.Ptr {
 		v = reflect.Indirect(v)
@@ -233,12 +233,12 @@ func (c *ModelBuilder) BuildToUpdate(ctx context.Context, obj interface{}) (inte
 	return obj, nil
 }
 
-func (c *ModelBuilder) BuildToPatch(ctx context.Context, obj interface{}) (interface{}, error) {
-	return c.BuildToUpdate(ctx, obj)
+func (c *ModelBuilder) Patch(ctx context.Context, obj interface{}) (interface{}, error) {
+	return c.Update(ctx, obj)
 }
 
-func (c *ModelBuilder) BuildToSave(ctx context.Context, obj interface{}) (interface{}, error) {
-	return c.BuildToUpdate(ctx, obj)
+func (c *ModelBuilder) Save(ctx context.Context, obj interface{}) (interface{}, error) {
+	return c.Update(ctx, obj)
 }
 func fromContext(ctx context.Context, key string, authorization string) string {
 	if len(authorization) > 0 {

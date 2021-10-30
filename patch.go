@@ -9,11 +9,10 @@ import (
 	"strings"
 )
 
-type ModelBuilder interface {
-	BuildToInsert(ctx context.Context, model interface{}) (interface{}, error)
-	BuildToUpdate(ctx context.Context, model interface{}) (interface{}, error)
-	BuildToPatch(ctx context.Context, model interface{}) (interface{}, error)
-	BuildToSave(ctx context.Context, model interface{}) (interface{}, error)
+type Builder interface {
+	Create(ctx context.Context, model interface{}) (interface{}, error)
+	Update(ctx context.Context, model interface{}) (interface{}, error)
+	Patch(ctx context.Context, model interface{}) (interface{}, error)
 }
 func BuildMapAndStruct(r *http.Request, interfaceBody interface{}, options...http.ResponseWriter) (map[string]interface{}, error) {
 	buf := new(bytes.Buffer)
