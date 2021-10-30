@@ -232,12 +232,12 @@ func BuildFieldMapAndCheckId(ctx *gin.Context, obj interface{}, keysJson []strin
 	er1 := CheckId(ctx, obj, keysJson, mapIndex)
 	return body, er1
 }
-func BuildMapAndCheckId(ctx *gin.Context, obj interface{}, keysJson []string, mapIndex map[string]int) (map[string]interface{}, error) {
+func BuildMapAndCheckId(ctx *gin.Context, obj interface{}, keysJson []string, mapIndex map[string]int, options...func(context.Context, interface{}) (interface{}, error)) (map[string]interface{}, error) {
 	body, er0 := BuildFieldMapAndCheckId(ctx, obj, keysJson, mapIndex)
 	if er0 != nil {
 		return body, er0
 	}
-	json, er1 := sv.BodyToJsonMap(ctx.Request, obj, body, keysJson, mapIndex)
+	json, er1 := sv.BodyToJsonMap(ctx.Request, obj, body, keysJson, mapIndex, options...)
 	if er1 != nil {
 		ctx.String(http.StatusBadRequest, er1.Error())
 	}

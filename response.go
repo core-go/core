@@ -97,13 +97,21 @@ func JSON(w http.ResponseWriter, code int, result interface{}) error {
 	return err
 }
 
-func Decode(w http.ResponseWriter, r *http.Request, obj interface{}) error {
-	err := json.NewDecoder(r.Body).Decode(obj)
+func Decode(w http.ResponseWriter, r *http.Request, obj interface{}, options...func(context.Context, interface{}) (interface{}, error)) error {
+	er1 := json.NewDecoder(r.Body).Decode(obj)
 	defer r.Body.Close()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if er1 != nil {
+		http.Error(w, er1.Error(), http.StatusBadRequest)
+		return er1
 	}
-	return err
+	if len(options) > 0 && options[0] != nil {
+		_ , er2 := options[0](r.Context(), obj)
+		if er2 != nil {
+			http.Error(w, er2.Error(), http.StatusInternalServerError)
+		}
+		return er2
+	}
+	return nil
 }
 func GetParam(r *http.Request, options... int) string {
 	offset := 0

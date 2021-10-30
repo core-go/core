@@ -320,19 +320,27 @@ func (h *GenericHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	count, er2 := h.service.Delete(r.Context(), id)
 	HandleDelete(w, r, count, er2, h.Error, h.Log, h.Resource, h.Action.Delete)
 }
-func CheckId(w http.ResponseWriter, r *http.Request, body interface{}, keysJson []string, mapIndex map[string]int) error {
+func CheckId(w http.ResponseWriter, r *http.Request, body interface{}, keysJson []string, mapIndex map[string]int, options...func(context.Context, interface{}) (interface{}, error)) error {
 	err := MatchId(r, body, keysJson, mapIndex)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return err
 	}
-	return err
+	if len(options) > 0 && options[0] != nil {
+		_ , er2 := options[0](r.Context(), body)
+		if er2 != nil {
+			http.Error(w, er2.Error(), http.StatusInternalServerError)
+		}
+		return er2
+	}
+	return nil
 }
-func DecodeAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int) error {
+func DecodeAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int, options...func(context.Context, interface{}) (interface{}, error)) error {
 	er1 := Decode(w, r, obj)
 	if er1 != nil {
 		return er1
 	}
-	return CheckId(w, r, obj, keysJson, mapIndex)
+	return CheckId(w, r, obj, keysJson, mapIndex, options...)
 }
 func HandleDelete(w http.ResponseWriter, r *http.Request, count int64, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
 	var resource, action string
@@ -378,17 +386,18 @@ func BuildFieldMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interfa
 	er1 := CheckId(w, r, obj, keysJson, mapIndex)
 	return r, body, er1
 }
-func BuildMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int) (*http.Request, map[string]interface{}, error) {
+func BuildMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int, options...func(context.Context, interface{}) (interface{}, error)) (*http.Request, map[string]interface{}, error) {
 	r2, body, er0 := BuildFieldMapAndCheckId(w, r, obj, keysJson, mapIndex)
 	if er0 != nil {
 		return r2, body, er0
 	}
-	json, er1 := BodyToJsonMap(r, obj, body, keysJson, mapIndex)
+	json, er1 := BodyToJsonMap(r, obj, body, keysJson, mapIndex, options...)
 	if er1 != nil {
 		http.Error(w, er1.Error(), http.StatusBadRequest)
 	}
 	return r2, json, er1
 }
+
 func HasError(w http.ResponseWriter, r *http.Request, errors []ErrorMessage, err error, status int, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options ...string) bool {
 	var resource, action string
 	if len(options) > 0 && len(options[0]) > 0 {
