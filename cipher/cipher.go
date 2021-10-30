@@ -16,7 +16,7 @@ import (
 
 const defaultKey = "xbmcZMpQoGiRXlTSbHSuYPXynluuNyYh"
 
-func GenerateRandom32BytesKey() (string, error) {
+func Random() (string, error) {
 	var output strings.Builder
 	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	for i := 0; i < 32; i++ {
@@ -29,8 +29,7 @@ func GenerateRandom32BytesKey() (string, error) {
 	}
 	return output.String(), nil
 }
-
-func encrypt(key, text []byte) ([]byte, error) {
+func Encrypt(key, text []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -45,8 +44,7 @@ func encrypt(key, text []byte) ([]byte, error) {
 	cfb.XORKeyStream(cipherText[aes.BlockSize:], []byte(b))
 	return cipherText, nil
 }
-
-func decrypt(key, text []byte) ([]byte, error) {
+func Decrypt(key, text []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -64,8 +62,7 @@ func decrypt(key, text []byte) ([]byte, error) {
 	}
 	return data, nil
 }
-
-func ReadCacheFile(filePath string, outer map[string]string, field string, key string) error {
+func Read(filePath string, outer map[string]string, field string, key string) error {
 	if key == "" {
 		key = defaultKey
 	}
@@ -78,7 +75,7 @@ func ReadCacheFile(filePath string, outer map[string]string, field string, key s
 	if err != nil {
 		return err
 	}
-	plain, err := decrypt([]byte(key), []byte(outer[field]))
+	plain, err := Decrypt([]byte(key), []byte(outer[field]))
 	if err != nil {
 		return err
 	}
@@ -86,13 +83,12 @@ func ReadCacheFile(filePath string, outer map[string]string, field string, key s
 	outer[field] = s.String()
 	return err
 }
-
-func WriteCacheFile(filePath string, inter map[string]string, field string, key string) error {
+func Write(filePath string, inter map[string]string, field string, key string) error {
 	if key == "" {
 		key = defaultKey
 	}
 	var s strings.Builder
-	ciphered, err := encrypt([]byte(key), []byte(inter[field]))
+	ciphered, err := Encrypt([]byte(key), []byte(inter[field]))
 	s.Write(ciphered)
 	if err != nil {
 		return err

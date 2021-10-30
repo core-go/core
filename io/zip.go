@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-func SaveToMemoryZip(fullName string, content string) (*bytes.Buffer, error) {
+func ToMemory(fullName string, content string) (*bytes.Buffer, error) {
 	// Create a buffer to write our archive to.
 	buf := new(bytes.Buffer)
 	// Create a new zip archive.
@@ -27,12 +27,12 @@ func SaveToMemoryZip(fullName string, content string) (*bytes.Buffer, error) {
 	}
 	return buf, nil
 }
-func SaveToZip(fullnamezipfile string, fileName, content string) error {
-	newZipFile, err := os.Create(fullnamezipfile)
+func Zip(fullname string, fileName, content string) error {
+	newZipFile, err := os.Create(fullname)
 	if err != nil {
 		return err
 	}
-	zipBuff, err := SaveToMemoryZip(fileName, content)
+	zipBuff, err := ToMemory(fileName, content)
 	if err != nil {
 		return err
 	}
@@ -46,7 +46,7 @@ func SaveToZip(fullnamezipfile string, fileName, content string) error {
 	}
 	return nil
 }
-func SaveFilesToMemoryZip(files []File) (*bytes.Buffer, error) {
+func FilesToMemory(files []File) (*bytes.Buffer, error) {
 	// Create a buffer to write our archive to.
 	buf := new(bytes.Buffer)
 
@@ -72,12 +72,12 @@ func SaveFilesToMemoryZip(files []File) (*bytes.Buffer, error) {
 	}
 	return buf, nil
 }
-func SaveFilesToZip(fullnamezipfile string, files []File) error {
-	newZipFile, err := os.Create(fullnamezipfile)
+func ToFiles(fullname string, files []File) error {
+	newZipFile, err := os.Create(fullname)
 	if err != nil {
 		return err
 	}
-	zipBuff, err := SaveFilesToMemoryZip(files)
+	zipBuff, err := FilesToMemory(files)
 	if err != nil {
 		return err
 	}
