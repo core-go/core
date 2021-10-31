@@ -21,10 +21,10 @@ type StructuredLogger struct {
 
 var fieldConfig FieldConfig
 
-func NewStructuredLogger() *StructuredLogger {
+func NewLogger() *StructuredLogger {
 	return &StructuredLogger{}
 }
-func NewStructuredLoggerWithProduce(send func(context.Context, []byte, map[string]string) (string, error), goroutines bool, options ...map[string]string) *StructuredLogger {
+func NewLoggerWithSending(send func(context.Context, []byte, map[string]string) (string, error), goroutines bool, options ...map[string]string) *StructuredLogger {
 	var keyMap map[string]string
 	if len(options) >= 1 {
 		keyMap = options[0]
