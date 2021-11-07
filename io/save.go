@@ -28,20 +28,20 @@ func List(path string) ([]string, error) {
 	}
 	return names, nil
 }
-func Load(directory string) (map[string]interface{}, error) {
-	templateMap := make(map[string]interface{}, 0)
-	names, err := List(directory)
-	if err != nil {
-		return nil, err
+func Load(directory string) (map[string]string, error) {
+	tm := make(map[string]string, 0)
+	names, er1 := List(directory)
+	if er1 != nil {
+		return nil, er1
 	}
-	for _, tName := range names {
-		content, err1 := ioutil.ReadFile(directory + string(os.PathSeparator) + tName)
-		if err1 != nil {
-			return nil, err1
+	for _, name := range names {
+		content, er2 := ioutil.ReadFile(directory + string(os.PathSeparator) + name)
+		if er2 != nil {
+			return nil, er2
 		}
-		templateMap[tName] = string(content)
+		tm[name] = string(content)
 	}
-	return templateMap, err
+	return tm, nil
 }
 func IsValidPath(path string) bool {
 	_, err := os.Stat(path)
