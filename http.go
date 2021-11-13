@@ -2,6 +2,7 @@ package service
 
 import (
 	"crypto/tls"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -11,10 +12,18 @@ import (
 func StartServer(conf ServerConf, handler http.Handler, options ...*tls.Config) {
 	log.Println(ServerInfo(conf))
 	srv := CreateServer(conf, handler, options...)
-	err := srv.ListenAndServe()
-	if err != nil {
-		log.Println(err.Error())
-		panic(err)
+	if conf.Secure && len(conf.Key) > 0 && len(conf.Cert) > 0 {
+		err := srv.ListenAndServeTLS(conf.Cert, conf.Key)
+		if err != nil {
+			fmt.Println(err.Error())
+			panic(err)
+		}
+	} else {
+		err := srv.ListenAndServe()
+		if err != nil {
+			fmt.Println(err.Error())
+			panic(err)
+		}
 	}
 }
 func Addr(port *int64) string {
