@@ -4,18 +4,21 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
 )
 
 type Config struct {
-	Insecure       *bool  `mapstructure:"insecure" json:"insecure,omitempty" gorm:"column:insecure" bson:"insecure,omitempty" dynamodbav:"insecure,omitempty" firestore:"insecure,omitempty"`
-	Timeout        int64  `mapstructure:"timeout" json:"timeout,omitempty" gorm:"column:timeout" bson:"timeout,omitempty" dynamodbav:"timeout,omitempty" firestore:"timeout,omitempty"`
-	CertFile       string `mapstructure:"cert_file" json:"certFile,omitempty" gorm:"column:certfile" bson:"certFile,omitempty" dynamodbav:"certFile,omitempty" firestore:"certFile,omitempty"`
-	KeyFile        string `mapstructure:"key_file" json:"keyFile,omitempty" gorm:"column:keyfile" bson:"keyFile,omitempty" dynamodbav:"keyFile,omitempty" firestore:"keyFile,omitempty"`
+	Insecure *bool  `mapstructure:"insecure" json:"insecure,omitempty" gorm:"column:insecure" bson:"insecure,omitempty" dynamodbav:"insecure,omitempty" firestore:"insecure,omitempty"`
+	Timeout  int64  `mapstructure:"timeout" json:"timeout,omitempty" gorm:"column:timeout" bson:"timeout,omitempty" dynamodbav:"timeout,omitempty" firestore:"timeout,omitempty"`
+	CertFile string `mapstructure:"cert_file" json:"certFile,omitempty" gorm:"column:certfile" bson:"certFile,omitempty" dynamodbav:"certFile,omitempty" firestore:"certFile,omitempty"`
+	KeyFile  string `mapstructure:"key_file" json:"keyFile,omitempty" gorm:"column:keyfile" bson:"keyFile,omitempty" dynamodbav:"keyFile,omitempty" firestore:"keyFile,omitempty"`
+	PEMFile  bool   `mapstructure:"pem_file" json:"pemFile,omitempty" gorm:"column:pemFile" bson:"pemFile,omitempty" dynamodbav:"pemFile,omitempty" firestore:"pemFile,omitempty"`
 }
 type LogConfig struct {
 	Separate       bool   `mapstructure:"separate" json:"separate,omitempty" gorm:"column:separate" bson:"separate,omitempty" dynamodbav:"separate,omitempty" firestore:"separate,omitempty"`
@@ -81,56 +84,58 @@ func NewClient(c Config) (*http.Client, error) {
 			} else {
 				transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: *c.Insecure}}
 				client0 := &http.Client{Transport: transport}
-				// sClient = client0
 				return client0, nil
 			}
 		} else {
 			if c.Timeout > 0 {
 				client0 := &http.Client{Timeout: time.Duration(c.Timeout) * time.Millisecond}
-				// sClient = client0
 				return client0, nil
 			} else {
 				client0 := &http.Client{}
-				// sClient = client0
 				return client0, nil
 			}
 		}
 	}
 }
-func NewTLSClient(certFile, keyFile string, timeout time.Duration) (*http.Client, error) {
-	clientCert, err := tls.LoadX509KeyPair(certFile, keyFile)
-	if err != nil {
-		return nil, err
+func NewTLSClient(certFile, keyFile string, timeout time.Duration, options ...string) (*http.Client, error) {
+	clientCert, er1 := tls.LoadX509KeyPair(certFile, keyFile)
+	if er1 != nil {
+		return nil, er1
+	}
+	conf, er2 := GetTLSClientConfig(clientCert, options...)
+	if er2 != nil {
+		return nil, er2
 	}
 	if timeout <= 0 {
-		client0 := &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-					Certificates:       []tls.Certificate{clientCert},
-					MinVersion:         tls.VersionTLS10,
-					MaxVersion:         tls.VersionTLS10,
-				},
-			},
-		}
-		// sClient = client0
+		client0 := &http.Client{Transport: &http.Transport{TLSClientConfig: conf}}
 		return client0, nil
 	} else {
 		client0 := &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-					Certificates:       []tls.Certificate{clientCert},
-					MinVersion:         tls.VersionTLS10,
-					MaxVersion:         tls.VersionTLS10,
-				},
-			},
-			Timeout: timeout * time.Second,
+			Transport: &http.Transport{TLSClientConfig: conf},
+			Timeout:   timeout * time.Second,
 		}
-		// sClient = client0
 		return client0, nil
 	}
 }
+func GetTLSClientConfig(clientCert tls.Certificate, options ...string) (*tls.Config, error) {
+	c := &tls.Config{
+		InsecureSkipVerify: true,
+		Certificates:       []tls.Certificate{clientCert},
+		MinVersion:         tls.VersionTLS10,
+		MaxVersion:         tls.VersionTLS13,
+	}
+	if len(options) > 0 && len(options[0]) > 0 {
+		pem, err := ioutil.ReadFile(options[0])
+		if err != nil {
+			return nil, err
+		}
+		roots := x509.NewCertPool()
+		roots.AppendCertsFromPEM(pem)
+		c.RootCAs = roots
+	}
+	return c, nil
+}
+
 func DoJSON(ctx context.Context, client *http.Client, url string, method string, body []byte, headers map[string]string) (*http.Response, error) {
 	if body != nil {
 		b := body
