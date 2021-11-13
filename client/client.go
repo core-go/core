@@ -108,12 +108,14 @@ func NewTLSClient(certFile, keyFile string, timeout time.Duration, options ...st
 	}
 	if timeout <= 0 {
 		client0 := &http.Client{Transport: &http.Transport{TLSClientConfig: conf}}
+		// sClient = client0
 		return client0, nil
 	} else {
 		client0 := &http.Client{
 			Transport: &http.Transport{TLSClientConfig: conf},
 			Timeout:   timeout * time.Second,
 		}
+		// sClient = client0
 		return client0, nil
 	}
 }
@@ -335,26 +337,36 @@ func DoAndBuildDecoder(ctx context.Context, client *http.Client, url string, met
 		if len(conf.Size) > 0 {
 			fs3[conf.Size] = res.ContentLength
 		}
-		buf := new(bytes.Buffer)
-		_, er3 := buf.ReadFrom(res.Body)
-		if er3 != nil {
-			if len(conf.Error) > 0 {
-				fs3[conf.Error] = er3.Error()
+		if len(conf.Response) > 0 {
+			buf := new(bytes.Buffer)
+			_, er3 := buf.ReadFrom(res.Body)
+			if er3 != nil {
+				if len(conf.Error) > 0 {
+					fs3[conf.Error] = er3.Error()
+				}
+				logInfo(ctx, method+" "+url, fs3)
+				return nil, er3
+			}
+			s := buf.String()
+			if len(conf.Response) > 0 {
+				fs3[conf.Response] = s
+			}
+			if res.StatusCode == 503 {
+				logInfo(ctx, method+" "+url, fs3)
+				er2 := errors.New("503 Service Unavailable")
+				return nil, er2
 			}
 			logInfo(ctx, method+" "+url, fs3)
-			return nil, er3
-		}
-		s := buf.String()
-		if len(conf.Response) > 0 {
-			fs3[conf.Response] = s
-		}
-		if res.StatusCode == 503 {
+			return json.NewDecoder(strings.NewReader(s)), nil
+		} else {
+			if res.StatusCode == 503 {
+				logInfo(ctx, method+" "+url, fs3)
+				er2 := errors.New("503 Service Unavailable")
+				return nil, er2
+			}
 			logInfo(ctx, method+" "+url, fs3)
-			er2 := errors.New("503 Service Unavailable")
-			return nil, er2
+			return json.NewDecoder(res.Body), nil
 		}
-		logInfo(ctx, method+" "+url, fs3)
-		return json.NewDecoder(strings.NewReader(s)), nil
 	} else {
 		res, er1 := DoJSON(ctx, client, url, method, body, headers)
 		if er1 != nil {
