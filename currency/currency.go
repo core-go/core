@@ -3,9 +3,7 @@ package currency
 import (
 	"database/sql/driver"
 	"encoding/json"
-	"errors"
 	"math/big"
-	"reflect"
 )
 
 type Currency struct {
@@ -29,22 +27,16 @@ func (c Currency) Value() (driver.Value, error) {
 }
 
 func (c *Currency) Scan(value interface{}) error {
-	valType := reflect.TypeOf(value)
-	if valType.Kind() == reflect.Slice {
-		b, ok := value.([]byte)
-		if !ok {
-			return errors.New("type assertion to []byte failed")
-		}
+	b, ok := value.([]byte)
+	if ok {
 		return json.Unmarshal(b, &c)
-	} else if valType.Kind() == reflect.String {
-		b, ok := value.(string)
-		if !ok {
-			return errors.New("type assertion to string failed")
-		}
-		if b == "" {
+	}
+	b2, ok2 := value.(string)
+	if ok2 {
+		if b2 == "" {
 			return nil
 		}
-		return json.Unmarshal([]byte(b), &c)
+		return json.Unmarshal([]byte(b2), &c)
 	}
 	return nil
 }
