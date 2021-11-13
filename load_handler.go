@@ -87,3 +87,10 @@ func RespondModel(w http.ResponseWriter, r *http.Request, model interface{}, err
 		}
 	}
 }
+func RespondIfFound(w http.ResponseWriter, r *http.Request, model interface{}, found bool, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options... string) {
+	if err == nil && !found {
+		JSON(w, http.StatusNotFound, nil)
+	} else {
+		RespondModel(w, r, model, err, logError, writeLog, options...)
+	}
+}
