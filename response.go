@@ -135,6 +135,46 @@ func GetRequiredParam(w http.ResponseWriter,r *http.Request, options ...int) str
 	}
 	return p
 }
+func GetRequiredInt(w http.ResponseWriter,r *http.Request, options ...int) *int {
+	p := GetParam(r, options...)
+	if len(p) == 0 {
+		http.Error(w, "parameter is required", http.StatusBadRequest)
+		return nil
+	}
+	i, err := strconv.Atoi(p)
+	if err != nil {
+		http.Error(w, "parameter must be an integer", http.StatusBadRequest)
+		return nil
+	}
+	return &i
+}
+func GetRequiredInt64(w http.ResponseWriter,r *http.Request, options ...int) *int64 {
+	p := GetParam(r, options...)
+	if len(p) == 0 {
+		http.Error(w, "parameter is required", http.StatusBadRequest)
+		return nil
+	}
+	i, err := strconv.ParseInt(p, 10, 64)
+	if err != nil {
+		http.Error(w, "parameter must be an integer", http.StatusBadRequest)
+		return nil
+	}
+	return &i
+}
+func GetRequiredInt32(w http.ResponseWriter,r *http.Request, options ...int) *int32 {
+	p := GetParam(r, options...)
+	if len(p) == 0 {
+		http.Error(w, "parameter is required", http.StatusBadRequest)
+		return nil
+	}
+	i, err := strconv.ParseInt(p, 10, 64)
+	if err != nil {
+		http.Error(w, "parameter must be an integer", http.StatusBadRequest)
+		return nil
+	}
+	j := int32(i)
+	return &j
+}
 func GetRequiredParams(w http.ResponseWriter,r *http.Request, options ...int) []string {
 	p := GetParam(r, options...)
 	if len(p) == 0 {
