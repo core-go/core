@@ -14,14 +14,36 @@ import (
 	"time"
 )
 
+type ClientConfig struct {
+	Endpoint Config     `mapstructure:"endpoint" json:"endpoint,omitempty" gorm:"column:endpoint" bson:"endpoint,omitempty" dynamodbav:"endpoint,omitempty" firestore:"endpoint,omitempty"`
+	Log      *LogConfig `mapstructure:"log" json:"log,omitempty" gorm:"column:log" bson:"log,omitempty" dynamodbav:"log,omitempty" firestore:"log,omitempty"`
+}
+type ClientConf struct {
+	Config   Conf       `mapstructure:"config" json:"config,omitempty" gorm:"column:config" bson:"config,omitempty" dynamodbav:"config,omitempty" firestore:"config,omitempty"`
+	Endpoint Endpoint   `mapstructure:"endpoint" json:"endpoint,omitempty" gorm:"column:endpoint" bson:"endpoint,omitempty" dynamodbav:"endpoint,omitempty" firestore:"endpoint,omitempty"`
+	Log      *LogConfig `mapstructure:"log" json:"log,omitempty" gorm:"column:log" bson:"log,omitempty" dynamodbav:"log,omitempty" firestore:"log,omitempty"`
+}
+type Endpoint struct {
+	Url      string  `mapstructure:"url" json:"url,omitempty" gorm:"column:url" bson:"url,omitempty" dynamodbav:"url,omitempty" firestore:"url,omitempty"`
+	Username *string `mapstructure:"username" json:"username,omitempty" gorm:"column:username" bson:"username,omitempty" dynamodbav:"username,omitempty" firestore:"username,omitempty"`
+	Password *string `mapstructure:"password" json:"password,omitempty" gorm:"column:password" bson:"password,omitempty" dynamodbav:"password,omitempty" firestore:"password,omitempty"`
+}
 type Config struct {
 	Insecure *bool   `mapstructure:"insecure" json:"insecure,omitempty" gorm:"column:insecure" bson:"insecure,omitempty" dynamodbav:"insecure,omitempty" firestore:"insecure,omitempty"`
 	Timeout  int64   `mapstructure:"timeout" json:"timeout,omitempty" gorm:"column:timeout" bson:"timeout,omitempty" dynamodbav:"timeout,omitempty" firestore:"timeout,omitempty"`
-	Username *string `mapstructure:"username" json:"username,omitempty" gorm:"column:username" bson:"username,omitempty" dynamodbav:"username,omitempty" firestore:"username,omitempty"`
-	Password *string `mapstructure:"password" json:"password,omitempty" gorm:"column:password" bson:"password,omitempty" dynamodbav:"password,omitempty" firestore:"password,omitempty"`
 	CertFile string  `mapstructure:"cert_file" json:"certFile,omitempty" gorm:"column:certfile" bson:"certFile,omitempty" dynamodbav:"certFile,omitempty" firestore:"certFile,omitempty"`
 	KeyFile  string  `mapstructure:"key_file" json:"keyFile,omitempty" gorm:"column:keyfile" bson:"keyFile,omitempty" dynamodbav:"keyFile,omitempty" firestore:"keyFile,omitempty"`
 	PEMFile  bool    `mapstructure:"pem_file" json:"pemFile,omitempty" gorm:"column:pemFile" bson:"pemFile,omitempty" dynamodbav:"pemFile,omitempty" firestore:"pemFile,omitempty"`
+	Url      string  `mapstructure:"url" json:"url,omitempty" gorm:"column:url" bson:"url,omitempty" dynamodbav:"url,omitempty" firestore:"url,omitempty"`
+	Username *string `mapstructure:"username" json:"username,omitempty" gorm:"column:username" bson:"username,omitempty" dynamodbav:"username,omitempty" firestore:"username,omitempty"`
+	Password *string `mapstructure:"password" json:"password,omitempty" gorm:"column:password" bson:"password,omitempty" dynamodbav:"password,omitempty" firestore:"password,omitempty"`
+}
+type Conf struct {
+	Insecure *bool  `mapstructure:"insecure" json:"insecure,omitempty" gorm:"column:insecure" bson:"insecure,omitempty" dynamodbav:"insecure,omitempty" firestore:"insecure,omitempty"`
+	Timeout  int64  `mapstructure:"timeout" json:"timeout,omitempty" gorm:"column:timeout" bson:"timeout,omitempty" dynamodbav:"timeout,omitempty" firestore:"timeout,omitempty"`
+	CertFile string `mapstructure:"cert_file" json:"certFile,omitempty" gorm:"column:certfile" bson:"certFile,omitempty" dynamodbav:"certFile,omitempty" firestore:"certFile,omitempty"`
+	KeyFile  string `mapstructure:"key_file" json:"keyFile,omitempty" gorm:"column:keyfile" bson:"keyFile,omitempty" dynamodbav:"keyFile,omitempty" firestore:"keyFile,omitempty"`
+	PEMFile  bool   `mapstructure:"pem_file" json:"pemFile,omitempty" gorm:"column:pemFile" bson:"pemFile,omitempty" dynamodbav:"pemFile,omitempty" firestore:"pemFile,omitempty"`
 }
 type LogConfig struct {
 	Separate       bool   `mapstructure:"separate" json:"separate,omitempty" gorm:"column:separate" bson:"separate,omitempty" dynamodbav:"separate,omitempty" firestore:"separate,omitempty"`
@@ -33,6 +55,13 @@ type LogConfig struct {
 	Response       string `mapstructure:"response" json:"response,omitempty" gorm:"column:response" bson:"response,omitempty" dynamodbav:"response,omitempty" firestore:"response,omitempty"`
 	Error          string `mapstructure:"error" json:"error,omitempty" gorm:"column:error" bson:"error,omitempty" dynamodbav:"error,omitempty" firestore:"error,omitempty"`
 }
+type Params struct {
+	Client *http.Client
+	Url    string
+	Header map[string]string
+	Config *LogConfig
+	Log    func(context.Context, string, map[string]interface{})
+}
 
 const (
 	post   = "POST"
@@ -42,39 +71,89 @@ const (
 	delete = "DELETE"
 )
 
-var conf LogConfig
+// var conf3 LogConfig
 var sClient *http.Client
 
 func SetClient(c *http.Client) {
 	sClient = c
 }
-func InitializeLog(c LogConfig) {
-	conf.Log = c.Log
-	conf.Separate = c.Separate
-	conf.ResponseStatus = c.ResponseStatus
-	conf.Size = c.Size
+func InitializeLog(c *LogConfig) *LogConfig {
+	var c2 LogConfig
+	if c == nil {
+		c2.Log = true
+		c2.ResponseStatus = "status"
+		c2.Size = "size"
+		c2.Duration = "duration"
+		c2.Error = "error"
+		return &c2
+	}
+	c2.Log = c.Log
+	c2.Separate = c.Separate
+	c2.ResponseStatus = c.ResponseStatus
+	c2.Size = c.Size
 	if len(c.Duration) > 0 {
-		conf.Duration = c.Duration
+		c2.Duration = c.Duration
 	} else {
-		conf.Duration = "duration"
-	}
-	if len(c.Request) > 0 {
-		conf.Request = c.Request
-	} else {
-		conf.Request = "request"
-	}
-	if len(c.Response) > 0 {
-		conf.Response = c.Response
-	} else {
-		conf.Response = "response"
+		c2.Duration = "duration"
 	}
 	if len(c.Error) > 0 {
-		conf.Error = c.Error
+		c2.Error = c.Error
 	} else {
-		conf.Error = "error"
+		c2.Error = "error"
 	}
+	c2.Request = c.Request
+	c2.Response = c.Response
+	return &c2
 }
-func NewClient(c Config) (*http.Client, error) {
+func InitializeParams(config ClientConfig, opts ...func(context.Context, string, map[string]interface{})) (*Params, error) {
+	c, header, conf, err := InitializeClient(config)
+	if err != nil {
+		return nil, err
+	}
+	var log func(context.Context, string, map[string]interface{})
+	if len(opts) > 0 && opts[0] != nil {
+		log = opts[0]
+	}
+	return &Params{Client: c, Url: config.Endpoint.Url, Header: header, Config: conf, Log: log}, nil
+}
+func InitParams(config ClientConf, opts ...func(context.Context, string, map[string]interface{})) (*Params, error) {
+	c, header, conf, err := InitClient(config)
+	if err != nil {
+		return nil, err
+	}
+	var log func(context.Context, string, map[string]interface{})
+	if len(opts) > 0 && opts[0] != nil {
+		log = opts[0]
+	}
+	return &Params{Client: c, Url: config.Endpoint.Url, Header: header, Config: conf, Log: log}, nil
+}
+func InitializeClient(config ClientConfig) (*http.Client, map[string]string, *LogConfig, error) {
+	e := config.Endpoint
+	conf := Conf {
+		Insecure: e.Insecure,
+		Timeout: e.Timeout,
+		CertFile: e.CertFile,
+		KeyFile: e.KeyFile,
+		PEMFile: e.PEMFile,
+	}
+	c, err := NewClient(conf)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	header := CreateHeaderFromConfig(config.Endpoint)
+	l := InitializeLog(config.Log)
+	return c, header, l, nil
+}
+func InitClient(config ClientConf) (*http.Client, map[string]string, *LogConfig, error) {
+	c, err := NewClient(config.Config)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	header := CreateHeaderFromConf(config.Endpoint)
+	l := InitializeLog(config.Log)
+	return c, header, l, nil
+}
+func NewClient(c Conf) (*http.Client, error) {
 	if len(c.CertFile) > 0 && len(c.KeyFile) > 0 {
 		return NewTLSClient(c.CertFile, c.KeyFile, time.Duration(c.Timeout)*time.Millisecond)
 	} else {
@@ -129,6 +208,14 @@ func BasicAuth(username, password string) string {
 func CreateHeader(username, password string) map[string]string {
 	h := make(map[string]string, 0)
 	h["Authorization"] = "Basic " + BasicAuth(username, password)
+	return h
+}
+func CreateHeaderFromConf(c Endpoint) map[string]string {
+	if c.Username == nil || c.Password == nil || len(*c.Username) == 0 {
+		return nil
+	}
+	h := make(map[string]string, 0)
+	h["Authorization"] = "Basic " + BasicAuth(*c.Username, *c.Password)
 	return h
 }
 func CreateHeaderFromConfig(c Config) map[string]string {
@@ -208,85 +295,85 @@ func DoPut(ctx context.Context, client *http.Client, url string, body []byte, he
 func DoPatch(ctx context.Context, client *http.Client, url string, body []byte, headers map[string]string) (*http.Response, error) {
 	return DoJSON(ctx, client, url, patch, body, headers)
 }
-func GetDecoder(ctx context.Context, client *http.Client, url string, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
-	return DoWithClient(ctx, client, get, url, nil, nil, options...)
+func GetDecoder(ctx context.Context, client *http.Client, url string, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
+	return DoWithClient(ctx, client, get, url, nil, nil, conf, options...)
 }
-func GetDecoderWithHeader(ctx context.Context, client *http.Client, url string, headers map[string]string, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
-	return DoWithClient(ctx, client, get, url, nil, headers, options...)
+func GetDecoderWithHeader(ctx context.Context, client *http.Client, url string, headers map[string]string, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
+	return DoWithClient(ctx, client, get, url, nil, headers, conf, options...)
 }
-func Get(ctx context.Context, client *http.Client, url string, result interface{}, options ...func(context.Context, string, map[string]interface{})) error {
-	return GetWithHeader(ctx, client, url, nil, nil, result, options...)
+func Get(ctx context.Context, client *http.Client, url string, result interface{}, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) error {
+	return GetWithHeader(ctx, client, url, nil, result, conf, options...)
 }
-func GetWithHeader(ctx context.Context, client *http.Client, url string, obj interface{}, headers map[string]string, result interface{}, options ...func(context.Context, string, map[string]interface{})) error {
-	decoder, er1 := DoWithClient(ctx, client, get, url, obj, headers, options...)
+func GetWithHeader(ctx context.Context, client *http.Client, url string, headers map[string]string, result interface{}, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) error {
+	decoder, er1 := DoWithClient(ctx, client, get, url, nil, headers, conf, options...)
 	if er1 != nil {
 		return er1
 	}
 	er2 := decoder.Decode(result)
 	return er2
 }
-func DeleteDecoder(ctx context.Context, client *http.Client, url string, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
-	return DoWithClient(ctx, client, delete, url, nil, nil, options...)
+func DeleteDecoder(ctx context.Context, client *http.Client, url string, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
+	return DoWithClient(ctx, client, delete, url, nil, nil, conf, options...)
 }
-func DeleteDecoderWithHeader(ctx context.Context, client *http.Client, url string, headers map[string]string, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
-	return DoWithClient(ctx, client, delete, url, nil, headers, options...)
+func DeleteDecoderWithHeader(ctx context.Context, client *http.Client, url string, headers map[string]string, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
+	return DoWithClient(ctx, client, delete, url, nil, headers, conf, options...)
 }
-func Delete(ctx context.Context, client *http.Client, url string, result interface{}, options ...func(context.Context, string, map[string]interface{})) error {
-	return DeleteWithHeader(ctx, client, url, nil, nil, result, options...)
+func Delete(ctx context.Context, client *http.Client, url string, result interface{}, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) error {
+	return DeleteWithHeader(ctx, client, url, nil, result, conf, options...)
 }
-func DeleteWithHeader(ctx context.Context, client *http.Client, url string, obj interface{}, headers map[string]string, result interface{}, options ...func(context.Context, string, map[string]interface{})) error {
-	decoder, er1 := DoWithClient(ctx, client, delete, url, obj, headers, options...)
+func DeleteWithHeader(ctx context.Context, client *http.Client, url string, headers map[string]string, result interface{}, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) error {
+	decoder, er1 := DoWithClient(ctx, client, delete, url, nil, headers, conf, options...)
 	if er1 != nil {
 		return er1
 	}
 	er2 := decoder.Decode(result)
 	return er2
 }
-func PostDecoder(ctx context.Context, client *http.Client, url string, obj interface{}, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
-	return DoWithClient(ctx, client, post, url, obj, nil, options...)
+func PostDecoder(ctx context.Context, client *http.Client, url string, obj interface{}, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
+	return DoWithClient(ctx, client, post, url, obj, nil, conf, options...)
 }
-func PostDecoderWithHeader(ctx context.Context, client *http.Client, url string, obj interface{}, headers map[string]string, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
-	return DoWithClient(ctx, client, post, url, obj, headers, options...)
+func PostDecoderWithHeader(ctx context.Context, client *http.Client, url string, obj interface{}, headers map[string]string, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
+	return DoWithClient(ctx, client, post, url, obj, headers, conf, options...)
 }
-func Post(ctx context.Context, client *http.Client, url string, obj interface{}, result interface{}, options ...func(context.Context, string, map[string]interface{})) error {
-	return PostWithHeader(ctx, client, url, obj, nil, result, options...)
+func Post(ctx context.Context, client *http.Client, url string, obj interface{}, result interface{}, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) error {
+	return PostWithHeader(ctx, client, url, obj, nil, result, conf, options...)
 }
-func PostWithHeader(ctx context.Context, client *http.Client, url string, obj interface{}, headers map[string]string, result interface{}, options ...func(context.Context, string, map[string]interface{})) error {
-	decoder, er1 := DoWithClient(ctx, client, post, url, obj, headers, options...)
+func PostWithHeader(ctx context.Context, client *http.Client, url string, obj interface{}, headers map[string]string, result interface{}, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) error {
+	decoder, er1 := DoWithClient(ctx, client, post, url, obj, headers, conf, options...)
 	if er1 != nil {
 		return er1
 	}
 	er2 := decoder.Decode(result)
 	return er2
 }
-func PutDecoder(ctx context.Context, client *http.Client, url string, obj interface{}, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
-	return DoWithClient(ctx, client, put, url, obj, nil, options...)
+func PutDecoder(ctx context.Context, client *http.Client, url string, obj interface{}, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
+	return DoWithClient(ctx, client, put, url, obj, nil, conf, options...)
 }
-func PutDecoderWithHeader(ctx context.Context, client *http.Client, url string, obj interface{}, headers map[string]string, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
-	return DoWithClient(ctx, client, put, url, obj, headers, options...)
+func PutDecoderWithHeader(ctx context.Context, client *http.Client, url string, obj interface{}, headers map[string]string, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
+	return DoWithClient(ctx, client, put, url, obj, headers, conf, options...)
 }
-func Put(ctx context.Context, client *http.Client, url string, obj interface{}, result interface{}, options ...func(context.Context, string, map[string]interface{})) error {
-	return PutWithHeader(ctx, client, url, obj, nil, result, options...)
+func Put(ctx context.Context, client *http.Client, url string, obj interface{}, result interface{}, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) error {
+	return PutWithHeader(ctx, client, url, obj, nil, result, conf, options...)
 }
-func PutWithHeader(ctx context.Context, client *http.Client, url string, obj interface{}, headers map[string]string, result interface{}, options ...func(context.Context, string, map[string]interface{})) error {
-	decoder, er1 := DoWithClient(ctx, client, put, url, obj, headers, options...)
+func PutWithHeader(ctx context.Context, client *http.Client, url string, obj interface{}, headers map[string]string, result interface{}, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) error {
+	decoder, er1 := DoWithClient(ctx, client, put, url, obj, headers, conf, options...)
 	if er1 != nil {
 		return er1
 	}
 	er2 := decoder.Decode(result)
 	return er2
 }
-func PatchDecoder(ctx context.Context, client *http.Client, url string, obj interface{}, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
-	return DoWithClient(ctx, client, patch, url, obj, nil, options...)
+func PatchDecoder(ctx context.Context, client *http.Client, url string, obj interface{}, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
+	return DoWithClient(ctx, client, patch, url, obj, nil, conf, options...)
 }
-func PatchDecoderWithHeader(ctx context.Context, client *http.Client, url string, obj interface{}, headers map[string]string, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
-	return DoWithClient(ctx, client, patch, url, obj, headers, options...)
+func PatchDecoderWithHeader(ctx context.Context, client *http.Client, url string, obj interface{}, headers map[string]string, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
+	return DoWithClient(ctx, client, patch, url, obj, headers, conf, options...)
 }
-func Patch(ctx context.Context, client *http.Client, url string, obj interface{}, result interface{}, options ...func(context.Context, string, map[string]interface{})) error {
-	return PatchWithHeader(ctx, client, url, obj, nil, result, options...)
+func Patch(ctx context.Context, client *http.Client, url string, obj interface{}, result interface{}, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) error {
+	return PatchWithHeader(ctx, client, url, obj, nil, result, conf, options...)
 }
-func PatchWithHeader(ctx context.Context, client *http.Client, url string, obj interface{}, headers map[string]string, result interface{}, options ...func(context.Context, string, map[string]interface{})) error {
-	decoder, er1 := DoWithClient(ctx, client, patch, url, obj, headers, options...)
+func PatchWithHeader(ctx context.Context, client *http.Client, url string, obj interface{}, headers map[string]string, result interface{}, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) error {
+	decoder, er1 := DoWithClient(ctx, client, patch, url, obj, headers, conf, options...)
 	if er1 != nil {
 		return er1
 	}
@@ -309,7 +396,7 @@ func Marshal(obj interface{}) ([]byte, error) {
 	}
 	return v, nil
 }
-func DoWithClient(ctx context.Context, client *http.Client, method string, url string, obj interface{}, headers map[string]string, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
+func DoWithClient(ctx context.Context, client *http.Client, method string, url string, obj interface{}, headers map[string]string, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
 	if client == nil {
 		client = sClient
 	}
@@ -317,15 +404,19 @@ func DoWithClient(ctx context.Context, client *http.Client, method string, url s
 	if err != nil {
 		return nil, err
 	}
-	return DoAndBuildDecoder(ctx, client, url, method, rq, headers, options...)
+	return DoAndBuildDecoder(ctx, client, url, method, rq, headers, conf, options...)
 }
-func DoAndBuildDecoder(ctx context.Context, client *http.Client, url string, method string, body []byte, headers map[string]string, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
+func DoAndBuildDecoder(ctx context.Context, client *http.Client, url string, method string, body []byte, headers map[string]string, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
 	var logInfo func(context.Context, string, map[string]interface{})
 	if len(options) > 0 {
 		logInfo = options[0]
 	}
-	if conf.Log == true && logInfo != nil {
-		if conf.Separate && len(conf.Request) > 0 && body != nil {
+	if conf != nil && conf.Log == true && logInfo != nil {
+		canRequest := false
+		if method != "GET" && method != "DELETE" && method != "OPTIONS" {
+			canRequest = true
+		}
+		if conf.Separate && len(conf.Request) > 0 && body != nil && canRequest {
 			fs1 := make(map[string]interface{}, 0)
 			rq := string(body)
 			if len(rq) > 0 {
@@ -338,7 +429,7 @@ func DoAndBuildDecoder(ctx context.Context, client *http.Client, url string, met
 		end := time.Now()
 		fs3 := make(map[string]interface{}, 0)
 		fs3[conf.Duration] = end.Sub(start).Milliseconds()
-		if !conf.Separate && len(conf.Request) > 0 && body != nil {
+		if !conf.Separate && len(conf.Request) > 0 && body != nil && canRequest {
 			rq := string(body)
 			if len(rq) > 0 {
 				fs3[conf.Request] = rq
@@ -354,7 +445,7 @@ func DoAndBuildDecoder(ctx context.Context, client *http.Client, url string, met
 		if len(conf.ResponseStatus) > 0 {
 			fs3[conf.ResponseStatus] = res.StatusCode
 		}
-		if len(conf.Size) > 0 {
+		if len(conf.Size) > 0 && res.ContentLength > 0 {
 			fs3[conf.Size] = res.ContentLength
 		}
 		if len(conf.Response) > 0 {
@@ -368,6 +459,9 @@ func DoAndBuildDecoder(ctx context.Context, client *http.Client, url string, met
 				return nil, er3
 			}
 			s := buf.String()
+			if len(conf.Size) > 0 {
+				fs3[conf.Size] = len(s)
+			}
 			if len(conf.Response) > 0 {
 				fs3[conf.Response] = s
 			}
