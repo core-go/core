@@ -1,37 +1,41 @@
-package service
+package authorization
 
 import (
 	"context"
-	"net"
 	"net/http"
 )
 
-type AuthorizationHandler struct {
+type CookieHandler struct {
 	GetAndVerifyToken func(authorization string, secret string) (bool, string, map[string]interface{}, int64, int64, error)
+	Token             string
 	Secret            string
 	Ip                string
 	Authorization     string
 }
 
-func NewAuthorizationHandler(verifyToken func(string, string) (bool, string, map[string]interface{}, int64, int64, error), secret string, options ...string) *AuthorizationHandler {
-	return NewAuthorizationHandlerWithIp(verifyToken, secret, "", options...)
+func NewCookieHandler(verifyToken func(string, string) (bool, string, map[string]interface{}, int64, int64, error), secret string, options ...string) *CookieHandler {
+	return NewCookieHandlerWithIp(verifyToken, secret, "", options...)
 }
 
-func NewAuthorizationHandlerWithIp(verifyToken func(string, string) (bool, string, map[string]interface{}, int64, int64, error), secret string, ip string, options ...string) *AuthorizationHandler {
+func NewCookieHandlerWithIp(verifyToken func(string, string) (bool, string, map[string]interface{}, int64, int64, error), secret string, ip string, options ...string) *CookieHandler {
 	var authorization string
-	if len(options) >= 1 {
+	token := "token"
+	if len(options) > 0 {
 		authorization = options[0]
 	}
-	return &AuthorizationHandler{Authorization: authorization, GetAndVerifyToken: verifyToken, Secret: secret, Ip: ip}
+	if len(options) > 1 {
+		token = options[1]
+	}
+	return &CookieHandler{Authorization: authorization, GetAndVerifyToken: verifyToken, Secret: secret, Token: token, Ip: ip}
 }
 
-func (c *AuthorizationHandler) HandleAuthorization(next http.Handler) http.Handler {
+func (c *CookieHandler) Handle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		au := r.Header["Authorization"]
-		if au == nil || len(au) == 0 {
+		tokenCookie, err := r.Cookie(c.Token)
+		if err != nil || tokenCookie == nil {
 			next.ServeHTTP(w, r)
 		} else {
-			authorization := au[0]
+			authorization := tokenCookie.Value
 			isToken, _, data, _, _, err := c.GetAndVerifyToken(authorization, c.Secret)
 			var ctx context.Context
 			ctx = r.Context()
@@ -68,12 +72,4 @@ func (c *AuthorizationHandler) HandleAuthorization(next http.Handler) http.Handl
 			}
 		}
 	})
-}
-
-func GetRemoteIp(r *http.Request) string {
-	remoteIP, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		remoteIP = r.RemoteAddr
-	}
-	return remoteIP
 }

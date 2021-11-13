@@ -3,38 +3,42 @@ package echo
 import (
 	"context"
 	sv "github.com/core-go/service"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo"
 )
 
-type AuthorizationHandler struct {
+type CookieHandler struct {
 	GetAndVerifyToken func(authorization string, secret string) (bool, string, map[string]interface{}, int64, int64, error)
+	Token             string
 	Secret            string
 	Ip                string
 	Authorization     string
 }
 
-func NewAuthorizationHandler(verifyToken func(string, string) (bool, string, map[string]interface{}, int64, int64, error), secret string, options ...string) *AuthorizationHandler {
-	return NewAuthorizationHandlerWithIp(verifyToken, secret, "", options...)
+func NewCookieHandler(verifyToken func(string, string) (bool, string, map[string]interface{}, int64, int64, error), secret string, options ...string) *CookieHandler {
+	return NewCookieHandlerWithIp(verifyToken, secret, "", options...)
 }
 
-func NewAuthorizationHandlerWithIp(verifyToken func(string, string) (bool, string, map[string]interface{}, int64, int64, error), secret string, ip string, options ...string) *AuthorizationHandler {
+func NewCookieHandlerWithIp(verifyToken func(string, string) (bool, string, map[string]interface{}, int64, int64, error), secret string, ip string, options ...string) *CookieHandler {
 	var authorization string
-	if len(options) >= 1 {
+	token := "token"
+	if len(options) > 0 {
 		authorization = options[0]
 	}
-	return &AuthorizationHandler{Authorization: authorization, GetAndVerifyToken: verifyToken, Secret: secret, Ip: ip}
+	if len(options) > 1 {
+		token = options[1]
+	}
+	return &CookieHandler{Authorization: authorization, GetAndVerifyToken: verifyToken, Secret: secret, Token: token, Ip: ip}
 }
 
-func (c *AuthorizationHandler) HandleAuthorization() echo.MiddlewareFunc {
+func (c *CookieHandler) HandleAuthorization() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(ctx echo.Context) error {
 			r := ctx.Request()
-
-			au := r.Header["Authorization"]
-			if au == nil || len(au) == 0 {
+			tokenCookie, err := r.Cookie(c.Token)
+			if err != nil || tokenCookie == nil {
 				return next(ctx)
 			} else {
-				authorization := au[0]
+				authorization := tokenCookie.Value
 				isToken, _, data, _, _, err := c.GetAndVerifyToken(authorization, c.Secret)
 				var ctx2 context.Context
 				ctx2 = r.Context()
