@@ -11,30 +11,30 @@ type LoadHandler struct {
 	Keys       []string
 	ModelType  reflect.Type
 	KeyIndexes map[string]int
-	Error      func(context.Context, string)
+	Error      func(context.Context, string, ...map[string]interface{})
 	WriteLog   func(ctx context.Context, resource string, action string, success bool, desc string) error
 	Resource   string
 	Activity   string
 }
 
-func NewLoadHandler(load func(context.Context, interface{}) (interface{}, error), modelType reflect.Type, logError func(context.Context, string), options ...func(context.Context, string, string, bool, string) error) *LoadHandler {
+func NewLoadHandler(load func(context.Context, interface{}) (interface{}, error), modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), options ...func(context.Context, string, string, bool, string) error) *LoadHandler {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) >= 1 {
 		writeLog = options[0]
 	}
 	return NewLoadHandlerWithLog(load, modelType, logError, writeLog)
 }
-func NewLoadHandlerWithKeys(load func(context.Context, interface{}) (interface{}, error), keys []string, modelType reflect.Type, logError func(context.Context, string), options ...func(context.Context, string, string, bool, string) error) *LoadHandler {
+func NewLoadHandlerWithKeys(load func(context.Context, interface{}) (interface{}, error), keys []string, modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), options ...func(context.Context, string, string, bool, string) error) *LoadHandler {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) >= 1 {
 		writeLog = options[0]
 	}
 	return NewLoadHandlerWithKeysAndLog(load, keys, modelType, logError, writeLog)
 }
-func NewLoadHandlerWithLog(load func(context.Context, interface{}) (interface{}, error), modelType reflect.Type, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options ...string) *LoadHandler {
+func NewLoadHandlerWithLog(load func(context.Context, interface{}) (interface{}, error), modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) *LoadHandler {
 	return NewLoadHandlerWithKeysAndLog(load, nil, modelType, logError, writeLog, options...)
 }
-func NewLoadHandlerWithKeysAndLog(load func(context.Context, interface{}) (interface{}, error), keys []string, modelType reflect.Type, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options ...string) *LoadHandler {
+func NewLoadHandlerWithKeysAndLog(load func(context.Context, interface{}) (interface{}, error), keys []string, modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) *LoadHandler {
 	if keys == nil || len(keys) == 0 {
 		keys = GetJsonPrimaryKeys(modelType)
 	}
@@ -69,7 +69,7 @@ func GetId(w http.ResponseWriter, r *http.Request, modelType reflect.Type, jsonI
 	}
 	return id
 }
-func RespondModel(w http.ResponseWriter, r *http.Request, model interface{}, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options... string) {
+func RespondModel(w http.ResponseWriter, r *http.Request, model interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options... string) {
 	var resource, action string
 	if len(options) > 0 && len(options[0]) > 0 {
 		resource = options[0]
@@ -87,7 +87,7 @@ func RespondModel(w http.ResponseWriter, r *http.Request, model interface{}, err
 		}
 	}
 }
-func RespondIfFound(w http.ResponseWriter, r *http.Request, model interface{}, found bool, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options... string) {
+func RespondIfFound(w http.ResponseWriter, r *http.Request, model interface{}, found bool, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options... string) {
 	if err == nil && !found {
 		JSON(w, http.StatusNotFound, nil)
 	} else {

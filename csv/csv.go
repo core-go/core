@@ -38,24 +38,26 @@ func BuildCsv(rows []string, fields []string, valueOfmodels reflect.Value, embed
 }
 
 func AppendColumns(value reflect.Value, cols []string) []string {
-	const e = ""
 	const s = "string"
 	const in = "int"
 	const f = "float64"
-	const x = "\""
-	const y = "\"\""
 	var v = fmt.Sprintf("%v", value)
 	if v == "" || v == "0" || v == "<nil>" {
 		cols = append(cols, "")
 	} else {
-		if fmt.Sprintf("%v", value.Kind()) == s {
-			if strings.Contains(v, ",") {
-				//a := "\"" + string(strings.ReplaceAll(v, x, y)) + "\""
-				cols = append(cols, "")
+		skind := fmt.Sprintf("%v", value.Kind())
+		if skind == s {
+			c := strings.Contains(v, `"`)
+			if c || strings.Contains(v, ",") {
+				if c {
+					v = strings.ReplaceAll(v, `"`, `""`)
+				}
+				v = "\"" + v + "\""
+				cols = append(cols, v)
 			} else {
-				cols = append(cols, fmt.Sprintf("%v", v))
+				cols = append(cols, v)
 			}
-		} else if fmt.Sprintf("%v", value.Kind()) == "ptr" || fmt.Sprintf("%v", value.Kind()) == "struct" {
+		} else if skind == "ptr" || skind == "struct" {
 			fieldDate, err := time.Parse(layoutDate, v)
 			if err != nil {
 				fmt.Println("err", fmt.Sprintf("%v", err))
@@ -63,7 +65,7 @@ func AppendColumns(value reflect.Value, cols []string) []string {
 			} else {
 				cols = append(cols, fmt.Sprintf("%v", fieldDate.UTC().Format(layout)))
 			}
-		} else if fmt.Sprintf("%v", value.Kind()) == in || fmt.Sprintf("%v", value.Kind()) == f {
+		} else if skind == in || skind == f {
 			cols = append(cols, fmt.Sprintf("%v", v))
 		} else {
 			cols = append(cols, fmt.Sprintf("%v", ""))

@@ -2,6 +2,7 @@ package gin
 
 import (
 	"context"
+	"encoding/json"
 	sv "github.com/core-go/service"
 	"github.com/gin-gonic/gin"
 	"net/http"
@@ -14,7 +15,7 @@ const (
 	Patch  = "patch"
 )
 
-func CreatePatchAndParams(modelType reflect.Type, status *sv.StatusConfig, logError func(context.Context, string), patch func(context.Context, map[string]interface{}) (int64, error), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), build func(context.Context, interface{}) (interface{}, error), action *sv.ActionConfig, options ...func(context.Context, string, string, bool, string) error) (*PatchHandler, *sv.Params) {
+func CreatePatchAndParams(modelType reflect.Type, status *sv.StatusConfig, logError func(context.Context, string, ...map[string]interface{}), patch func(context.Context, map[string]interface{}) (int64, error), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), build func(context.Context, interface{}) (interface{}, error), action *sv.ActionConfig, options ...func(context.Context, string, string, bool, string) error) (*PatchHandler, *sv.Params) {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 {
 		writeLog = options[0]
@@ -27,7 +28,7 @@ func CreatePatchAndParams(modelType reflect.Type, status *sv.StatusConfig, logEr
 	params := &sv.Params{Keys: keys, Indexes: indexes, ModelType: modelType, Status: s, Resource: resource, Action: a, Error: logError, Log: writeLog, Validate: validate}
 	return patchHandler, params
 }
-func NewPatchHandler(patch func(context.Context, map[string]interface{}) (int64, error), modelType reflect.Type, status *sv.StatusConfig, logError func(context.Context, string), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), build func(context.Context, interface{}) (interface{}, error), action string, options ...func(context.Context, string, string, bool, string) error) *PatchHandler {
+func NewPatchHandler(patch func(context.Context, map[string]interface{}) (int64, error), modelType reflect.Type, status *sv.StatusConfig, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), build func(context.Context, interface{}) (interface{}, error), action string, options ...func(context.Context, string, string, bool, string) error) *PatchHandler {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 {
 		writeLog = options[0]
@@ -45,7 +46,7 @@ type PatchHandler struct {
 	Save         func(ctx context.Context, user map[string]interface{}) (int64, error)
 	ValidateData func(ctx context.Context, model interface{}) ([]sv.ErrorMessage, error)
 	Build        func(ctx context.Context, model interface{}) (interface{}, error)
-	LogError     func(context.Context, string)
+	LogError     func(context.Context, string, ...map[string]interface{})
 	WriteLog     func(context.Context, string, string, bool, string) error
 	ResourceType string
 	Activity     string
@@ -89,27 +90,27 @@ type GenericHandler struct {
 	Indexes  map[string]int
 }
 
-func NewHandler(genericService sv.SimpleService, modelType reflect.Type, modelBuilder sv.Builder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
+func NewHandler(genericService sv.SimpleService, modelType reflect.Type, modelBuilder sv.Builder, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
 	return NewHandlerWithConfig(genericService, modelType, nil, modelBuilder, logError, validate, options...)
 }
-func NewHandlerWithKeys(genericService sv.SimpleService, keys []string, modelType reflect.Type, modelBuilder sv.Builder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
+func NewHandlerWithKeys(genericService sv.SimpleService, keys []string, modelType reflect.Type, modelBuilder sv.Builder, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 {
 		writeLog = options[0]
 	}
 	return NewHandlerWithKeysAndLog(genericService, keys, modelType, nil, modelBuilder, logError, validate, writeLog, "", nil)
 }
-func NewHandlerWithConfig(genericService sv.SimpleService, modelType reflect.Type, status *sv.StatusConfig, modelBuilder sv.Builder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
+func NewHandlerWithConfig(genericService sv.SimpleService, modelType reflect.Type, status *sv.StatusConfig, modelBuilder sv.Builder, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 && options[0] != nil {
 		writeLog = options[0]
 	}
 	return NewHandlerWithKeysAndLog(genericService, nil, modelType, status, modelBuilder, logError, validate, writeLog, "", nil)
 }
-func NewHandlerWithLog(genericService sv.SimpleService, modelType reflect.Type, status *sv.StatusConfig, modelBuilder sv.Builder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), writeLog func(context.Context, string, string, bool, string) error, resource string, conf *sv.ActionConfig) *GenericHandler {
+func NewHandlerWithLog(genericService sv.SimpleService, modelType reflect.Type, status *sv.StatusConfig, modelBuilder sv.Builder, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), writeLog func(context.Context, string, string, bool, string) error, resource string, conf *sv.ActionConfig) *GenericHandler {
 	return NewHandlerWithKeysAndLog(genericService, nil, modelType, status, modelBuilder, logError, validate, writeLog, resource, conf)
 }
-func NewHandlerWithKeysAndLog(genericService sv.SimpleService, keys []string, modelType reflect.Type, status *sv.StatusConfig, modelBuilder sv.Builder, logError func(context.Context, string), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), writeLog func(context.Context, string, string, bool, string) error, resource string, conf *sv.ActionConfig) *GenericHandler {
+func NewHandlerWithKeysAndLog(genericService sv.SimpleService, keys []string, modelType reflect.Type, status *sv.StatusConfig, modelBuilder sv.Builder, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), writeLog func(context.Context, string, string, bool, string) error, resource string, conf *sv.ActionConfig) *GenericHandler {
 	if keys == nil || len(keys) == 0 {
 		keys = sv.GetJsonPrimaryKeys(modelType)
 	}
@@ -259,7 +260,7 @@ func CheckId(ctx *gin.Context, body interface{}, keysJson []string, mapIndex map
 	}
 	return err
 }
-func HandleDelete(ctx *gin.Context, count int64, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
+func HandleDelete(ctx *gin.Context, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
 	if err != nil {
 		RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
 		return
@@ -272,7 +273,7 @@ func HandleDelete(ctx *gin.Context, count int64, err error, logError func(contex
 		ReturnAndLog(ctx, http.StatusConflict, count, writeLog, false, resource, action, "Conflict")
 	}
 }
-func BodyToJsonWithBuild(ctx *gin.Context, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int, buildToPatch func(context.Context, interface{}) (interface{}, error), logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) (map[string]interface{}, error) {
+func BodyToJsonWithBuild(ctx *gin.Context, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int, buildToPatch func(context.Context, interface{}) (interface{}, error), logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) (map[string]interface{}, error) {
 	body, err := sv.BodyToJsonMap(ctx.Request, structBody, body, jsonIds, mapIndex, buildToPatch)
 	if err != nil {
 		// http.Error(w, "Invalid Data: "+err.Error(), http.StatusBadRequest)
@@ -307,7 +308,7 @@ func BuildMapAndCheckId(ctx *gin.Context, obj interface{}, keysJson []string, ma
 	}
 	return json, er1
 }
-func HasError(ctx *gin.Context, errors []sv.ErrorMessage, err error, status int, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) bool {
+func HasError(ctx *gin.Context, errors []sv.ErrorMessage, err error, status int, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) bool {
 	if err != nil {
 		RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
 		return true
@@ -319,7 +320,7 @@ func HasError(ctx *gin.Context, errors []sv.ErrorMessage, err error, status int,
 	}
 	return false
 }
-func HandleResult(ctx *gin.Context, body interface{}, count int64, err error, status sv.StatusConfig, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
+func HandleResult(ctx *gin.Context, body interface{}, count int64, err error, status sv.StatusConfig, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
 	if err != nil {
 		RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
 		return
@@ -332,7 +333,7 @@ func HandleResult(ctx *gin.Context, body interface{}, count int64, err error, st
 		Succeed(ctx, http.StatusOK, sv.SetStatus(body, status.Success), writeLog, resource, action)
 	}
 }
-func AfterCreated(ctx *gin.Context, body interface{}, count int64, err error, status sv.StatusConfig, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
+func AfterCreated(ctx *gin.Context, body interface{}, count int64, err error, status sv.StatusConfig, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
 	if err != nil {
 		RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
 		return
@@ -343,7 +344,7 @@ func AfterCreated(ctx *gin.Context, body interface{}, count int64, err error, st
 		Succeed(ctx, http.StatusCreated, sv.SetStatus(body, status.Success), writeLog, resource, action)
 	}
 }
-func Respond(ctx *gin.Context, code int, result interface{}, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
+func Respond(ctx *gin.Context, code int, result interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
 	var resource, action string
 	if len(options) > 0 && len(options[0]) > 0 {
 		resource = options[0]
@@ -357,7 +358,7 @@ func Respond(ctx *gin.Context, code int, result interface{}, err error, logError
 		Succeed(ctx, code, result, writeLog, resource, action)
 	}
 }
-func Return(ctx *gin.Context, code int, result sv.ResultInfo, status sv.StatusConfig, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
+func Return(ctx *gin.Context, code int, result sv.ResultInfo, status sv.StatusConfig, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
 	var resource, action string
 	if len(options) > 0 && len(options[0]) > 0 {
 		resource = options[0]
@@ -383,5 +384,21 @@ func Return(ctx *gin.Context, code int, result sv.ResultInfo, status sv.StatusCo
 				Succeed(ctx, code, result, writeLog, resource, action)
 			}
 		}
+	}
+}
+func Result(ctx *gin.Context, code int, result interface{}, err error, logError func(context.Context, string, map[string]interface{}), opts...interface{}) {
+	if err != nil {
+		if len(opts) > 0 && opts[0] != nil {
+			m := make(map[string]interface{})
+			b, err := json.Marshal(opts[0])
+			m["request"] = string(b)
+			logError(ctx.Request.Context(), err.Error(), m)
+			ctx.String(http.StatusInternalServerError, sv.InternalServerError)
+		} else {
+			logError(ctx.Request.Context(), err.Error(), nil)
+			ctx.String(http.StatusInternalServerError, sv.InternalServerError)
+		}
+	} else {
+		ctx.JSON(code, result)
 	}
 }

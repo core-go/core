@@ -222,6 +222,9 @@ func Panicf(ctx context.Context, format string, args ...interface{}) {
 
 func BuildLogFields(m map[string]interface{}) logrus.Fields {
 	logFields := logrus.Fields{}
+	if m == nil || len(m) == 0 {
+		return logFields
+	}
 	for k, v := range m {
 		logFields[k] = v
 	}
@@ -257,6 +260,15 @@ func LogfWithFields(ctx context.Context, level logrus.Level, fields map[string]i
 	}
 }
 
+func TraceWithFields(ctx context.Context, msg interface{}, fields map[string]interface{}) {
+	LogWithFields(ctx, logrus.TraceLevel, msg, fields)
+}
+func TracefWithFields(ctx context.Context, fields map[string]interface{}, format string, args ...interface{}) {
+	if logrus.IsLevelEnabled(logrus.TraceLevel) {
+		msg := fmt.Sprintf(format, args...)
+		LogWithFields(ctx, logrus.TraceLevel, msg, fields)
+	}
+}
 func DebugWithFields(ctx context.Context, msg interface{}, fields map[string]interface{}) {
 	LogWithFields(ctx, logrus.DebugLevel, msg, fields)
 }
@@ -326,4 +338,54 @@ func FatalFields(ctx context.Context, msg string, fields map[string]interface{})
 }
 func PanicFields(ctx context.Context, msg string, fields map[string]interface{}) {
 	LogWithFields(ctx, logrus.PanicLevel, msg, fields)
+}
+
+func LogTrace(ctx context.Context, msg string, opts...map[string]interface{}) {
+	if len(opts) > 0 {
+		TraceWithFields(ctx, msg, opts[0])
+	} else {
+		TraceWithFields(ctx, msg, nil)
+	}
+}
+func LogDebug(ctx context.Context, msg string, opts...map[string]interface{}) {
+	if len(opts) > 0 {
+		DebugWithFields(ctx, msg, opts[0])
+	} else {
+		DebugWithFields(ctx, msg, nil)
+	}
+}
+func LogInfo(ctx context.Context, msg string, opts... map[string]interface{}) {
+	if len(opts) > 0 {
+		InfoWithFields(ctx, msg, opts[0])
+	} else {
+		InfoWithFields(ctx, msg, nil)
+	}
+}
+func LogWarn(ctx context.Context, msg string, opts...map[string]interface{}) {
+	if len(opts) > 0 {
+		WarnWithFields(ctx, msg, opts[0])
+	} else {
+		WarnWithFields(ctx, msg, nil)
+	}
+}
+func LogError(ctx context.Context, msg string, opts...map[string]interface{}) {
+	if len(opts) > 0 {
+		ErrorWithFields(ctx, msg, opts[0])
+	} else {
+		ErrorWithFields(ctx, msg, nil)
+	}
+}
+func LogFatal(ctx context.Context, msg string, opts...map[string]interface{}) {
+	if len(opts) > 0 {
+		FatalWithFields(ctx, msg, opts[0])
+	} else {
+		FatalWithFields(ctx, msg, nil)
+	}
+}
+func LogPanic(ctx context.Context, msg string, opts...map[string]interface{}) {
+	if len(opts) > 0 {
+		PanicWithFields(ctx, msg, opts[0])
+	} else {
+		PanicWithFields(ctx, msg, nil)
+	}
 }

@@ -32,7 +32,7 @@ func Error(w http.ResponseWriter, r *http.Request, code int, result interface{},
 	}
 	return JSON(w, code, result)
 }
-func RespondAndLog(w http.ResponseWriter, r *http.Request, code int, result interface{}, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options... string) error {
+func RespondAndLog(w http.ResponseWriter, r *http.Request, code int, result interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options... string) error {
 	var resource, action string
 	if len(options) > 0 && len(options[0]) > 0 {
 		resource = options[0]
@@ -96,7 +96,24 @@ func JSON(w http.ResponseWriter, code int, result interface{}) error {
 	err := json.NewEncoder(w).Encode(result)
 	return err
 }
-
+func Result(w http.ResponseWriter, r *http.Request, code int, result interface{}, err error, logError func(context.Context, string, map[string]interface{}), opts...interface{}) error {
+	if err != nil {
+		if len(opts) > 0 && opts[0] != nil {
+			m := make(map[string]interface{})
+			b, err := json.Marshal(opts[0])
+			m["request"] = string(b)
+			logError(r.Context(), err.Error(), m)
+			http.Error(w, InternalServerError, http.StatusInternalServerError)
+			return err
+		} else {
+			logError(r.Context(), err.Error(), nil)
+			http.Error(w, InternalServerError, http.StatusInternalServerError)
+			return err
+		}
+	} else {
+		return JSON(w, code, result)
+	}
+}
 func Decode(w http.ResponseWriter, r *http.Request, obj interface{}, options...func(context.Context, interface{}) (interface{}, error)) error {
 	er1 := json.NewDecoder(r.Body).Decode(obj)
 	defer r.Body.Close()

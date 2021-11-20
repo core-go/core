@@ -13,30 +13,30 @@ type LoadHandler struct {
 	Keys       []string
 	ModelType  reflect.Type
 	KeyIndexes map[string]int
-	Error      func(context.Context, string)
+	Error      func(context.Context, string, ...map[string]interface{})
 	WriteLog   func(ctx context.Context, resource string, action string, success bool, desc string) error
 	Resource   string
 	Activity   string
 }
 
-func NewLoadHandler(load func(context.Context, interface{}) (interface{}, error), modelType reflect.Type, logError func(context.Context, string), options ...func(context.Context, string, string, bool, string) error) *LoadHandler {
+func NewLoadHandler(load func(context.Context, interface{}) (interface{}, error), modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), options ...func(context.Context, string, string, bool, string) error) *LoadHandler {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) >= 1 {
 		writeLog = options[0]
 	}
 	return NewLoadHandlerWithLog(load, modelType, logError, writeLog)
 }
-func NewLoadHandlerWithKeys(load func(context.Context, interface{}) (interface{}, error), keys []string, modelType reflect.Type, logError func(context.Context, string), options ...func(context.Context, string, string, bool, string) error) *LoadHandler {
+func NewLoadHandlerWithKeys(load func(context.Context, interface{}) (interface{}, error), keys []string, modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), options ...func(context.Context, string, string, bool, string) error) *LoadHandler {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) >= 1 {
 		writeLog = options[0]
 	}
 	return NewLoadHandlerWithKeysAndLog(load, keys, modelType, logError, writeLog)
 }
-func NewLoadHandlerWithLog(load func(context.Context, interface{}) (interface{}, error), modelType reflect.Type, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options ...string) *LoadHandler {
+func NewLoadHandlerWithLog(load func(context.Context, interface{}) (interface{}, error), modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) *LoadHandler {
 	return NewLoadHandlerWithKeysAndLog(load, nil, modelType, logError, writeLog, options...)
 }
-func NewLoadHandlerWithKeysAndLog(load func(context.Context, interface{}) (interface{}, error), keys []string, modelType reflect.Type, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options ...string) *LoadHandler {
+func NewLoadHandlerWithKeysAndLog(load func(context.Context, interface{}) (interface{}, error), keys []string, modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) *LoadHandler {
 	if keys == nil || len(keys) == 0 {
 		keys = sv.GetJsonPrimaryKeys(modelType)
 	}
@@ -66,7 +66,7 @@ func (h *LoadHandler) Load(ctx echo.Context) error {
 	}
 }
 
-func RespondModel(ctx echo.Context, model interface{}, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
+func RespondModel(ctx echo.Context, model interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
 	if err != nil {
 		return RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
 	} else {
@@ -77,7 +77,7 @@ func RespondModel(ctx echo.Context, model interface{}, err error, logError func(
 		}
 	}
 }
-func RespondAndLog(ctx echo.Context, code int, result interface{}, err error, logError func(context.Context, string), writeLog func(context.Context, string, string, bool, string) error, options... string) error {
+func RespondAndLog(ctx echo.Context, code int, result interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options... string) error {
 	var resource, action string
 	if len(options) > 0 && len(options[0]) > 0 {
 		resource = options[0]
@@ -104,7 +104,7 @@ func ReturnAndLog(ctx echo.Context, code int, result interface{}, writeLog func(
 	return err
 }
 
-func ErrorAndLog(ctx echo.Context, code int, result interface{}, logError func(context.Context, string), resource string, action string, err error, writeLog func(context.Context, string, string, bool, string) error) error {
+func ErrorAndLog(ctx echo.Context, code int, result interface{}, logError func(context.Context, string, ...map[string]interface{}), resource string, action string, err error, writeLog func(context.Context, string, string, bool, string) error) error {
 	if logError != nil {
 		logError(ctx.Request().Context(), err.Error())
 	}
