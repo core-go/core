@@ -96,13 +96,17 @@ func JSON(w http.ResponseWriter, code int, result interface{}) error {
 	err := json.NewEncoder(w).Encode(result)
 	return err
 }
-func Result(w http.ResponseWriter, r *http.Request, code int, result interface{}, err error, logError func(context.Context, string, map[string]interface{}), opts...interface{}) error {
+func Result(w http.ResponseWriter, r *http.Request, code int, result interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), opts...interface{}) error {
 	if err != nil {
 		if len(opts) > 0 && opts[0] != nil {
-			m := make(map[string]interface{})
-			b, err := json.Marshal(opts[0])
-			m["request"] = string(b)
-			logError(r.Context(), err.Error(), m)
+			b, er2 := json.Marshal(opts[0])
+			if er2 == nil {
+				m := make(map[string]interface{})
+				m["request"] = string(b)
+				logError(r.Context(), err.Error(), m)
+			} else {
+				logError(r.Context(), err.Error())
+			}
 			http.Error(w, InternalServerError, http.StatusInternalServerError)
 			return err
 		} else {

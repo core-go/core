@@ -379,13 +379,17 @@ func Return(ctx echo.Context, code int, result sv.ResultInfo, status sv.StatusCo
 	}
 }
 
-func Result(ctx echo.Context, code int, result interface{}, err error, logError func(context.Context, string, map[string]interface{}), opts...interface{}) error {
+func Result(ctx echo.Context, code int, result interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), opts...interface{}) error {
 	if err != nil {
 		if len(opts) > 0 && opts[0] != nil {
-			m := make(map[string]interface{})
-			b, err := json.Marshal(opts[0])
-			m["request"] = string(b)
-			logError(ctx.Request().Context(), err.Error(), m)
+			b, er2 := json.Marshal(opts[0])
+			if er2 == nil {
+				m := make(map[string]interface{})
+				m["request"] = string(b)
+				logError(ctx.Request().Context(), err.Error(), m)
+			} else {
+				logError(ctx.Request().Context(), err.Error())
+			}
 			ctx.String(http.StatusInternalServerError, sv.InternalServerError)
 			return err
 		} else {

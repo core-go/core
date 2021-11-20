@@ -2,15 +2,13 @@ package csv
 
 import (
 	"fmt"
+	"math/big"
 	"reflect"
 	"strings"
 	"time"
 )
 
-const (
-	layoutDate string = "2006-01-02 15:04:05 +0700 +07"
-	layout     string = "2006-01-02T15:04:05"
-)
+const DateLayout string = "2006-01-02 15:04:05 +0700 +07"
 
 func BuildCsv(rows []string, fields []string, valueOfmodels reflect.Value, embedFieldName string) []string {
 	if lengthResult := valueOfmodels.Len(); lengthResult > 0 {
@@ -38,15 +36,16 @@ func BuildCsv(rows []string, fields []string, valueOfmodels reflect.Value, embed
 }
 
 func AppendColumns(value reflect.Value, cols []string) []string {
-	const s = "string"
-	const in = "int"
-	const f = "float64"
-	var v = fmt.Sprintf("%v", value)
-	if v == "" || v == "0" || v == "<nil>" {
+	kind := value.Kind()
+	if kind == reflect.Ptr && value.IsNil() {
 		cols = append(cols, "")
 	} else {
-		skind := fmt.Sprintf("%v", value.Kind())
-		if skind == s {
+		i := value.Interface()
+		if kind == reflect.Ptr {
+			i = reflect.Indirect(reflect.ValueOf(i)).Interface()
+		}
+		v, okS := i.(string)
+		if okS {
 			c := strings.Contains(v, `"`)
 			if c || strings.Contains(v, ",") {
 				if c {
@@ -57,18 +56,24 @@ func AppendColumns(value reflect.Value, cols []string) []string {
 			} else {
 				cols = append(cols, v)
 			}
-		} else if skind == "ptr" || skind == "struct" {
-			fieldDate, err := time.Parse(layoutDate, v)
-			if err != nil {
-				fmt.Println("err", fmt.Sprintf("%v", err))
-				cols = append(cols, fmt.Sprintf("%v", fmt.Sprintf("%v", v)))
-			} else {
-				cols = append(cols, fmt.Sprintf("%v", fieldDate.UTC().Format(layout)))
-			}
-		} else if skind == in || skind == f {
-			cols = append(cols, fmt.Sprintf("%v", v))
 		} else {
-			cols = append(cols, fmt.Sprintf("%v", ""))
+			d, okD := i.(time.Time)
+			if okD {
+				v := d.Format(DateLayout)
+				cols = append(cols, v)
+			} else {
+				f, okBF := i.(big.Float)
+				if okBF {
+					cols = append(cols, f.String())
+				} else {
+					bi, okBI := i.(big.Int)
+					if okBI {
+						cols = append(cols, fmt.Sprintf("%v", bi.String()))
+					} else {
+						cols = append(cols, fmt.Sprintf("%v", i))
+					}
+				}
+			}
 		}
 	}
 	return cols
