@@ -17,6 +17,26 @@ type LoadHandler struct {
 	Activity   string
 }
 
+func NewQueryHandler(load func(context.Context, interface{}) (interface{}, error), modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), options ...func(context.Context, string, string, bool, string) error) *LoadHandler {
+	var writeLog func(context.Context, string, string, bool, string) error
+	if len(options) >= 1 {
+		writeLog = options[0]
+	}
+	return NewQueryHandlerWithLog(load, modelType, logError, writeLog)
+}
+func NewQueryHandlerWithKeys(load func(context.Context, interface{}) (interface{}, error), keys []string, modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), options ...func(context.Context, string, string, bool, string) error) *LoadHandler {
+	var writeLog func(context.Context, string, string, bool, string) error
+	if len(options) >= 1 {
+		writeLog = options[0]
+	}
+	return NewQueryHandlerWithKeysAndLog(load, keys, modelType, logError, writeLog)
+}
+func NewQueryHandlerWithLog(load func(context.Context, interface{}) (interface{}, error), modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) *LoadHandler {
+	return NewQueryHandlerWithKeysAndLog(load, nil, modelType, logError, writeLog, options...)
+}
+func NewQueryHandlerWithKeysAndLog(load func(context.Context, interface{}) (interface{}, error), keys []string, modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) *LoadHandler {
+	return NewLoadHandlerWithKeysAndLog(load, keys, modelType, logError, writeLog, options...)
+}
 func NewLoadHandler(load func(context.Context, interface{}) (interface{}, error), modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), options ...func(context.Context, string, string, bool, string) error) *LoadHandler {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) >= 1 {
