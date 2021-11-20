@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"reflect"
 	"strconv"
 	"strings"
@@ -25,7 +26,9 @@ type FixedLengthFormatter struct {
 type FixedLength struct {
 	Format string
 	Length int
+	Scale  int
 }
+
 func GetIndexes(modelType reflect.Type, tagName string) (map[int]*FixedLength, error) {
 	ma := make(map[int]*FixedLength, 0)
 	if modelType.Kind() != reflect.Struct {
@@ -41,7 +44,24 @@ func GetIndexes(modelType reflect.Type, tagName string) (map[int]*FixedLength, e
 				return ma, err
 			}
 			v := &FixedLength{Length: length}
+			tagScale, sOk := field.Tag.Lookup("scale")
+			if sOk {
+				scale, err := strconv.Atoi(tagScale)
+				if err == nil {
+					v.Scale = scale
+				}
+			}
 			if len(tagValue) > 0 {
+				if strings.Contains(tagValue, "dateFormat:") {
+					tagValue = strings.ReplaceAll(tagValue, "dateFormat:", "")
+				} else if sOk == false && strings.Contains(tagValue, "scale:") {
+					tagValue = strings.ReplaceAll(tagValue, "scale:", "")
+					scale, err1 := strconv.Atoi(tagValue)
+					if err1 != nil {
+						return ma, err1
+					}
+					v.Scale = scale
+				}
 				v.Format = tagValue
 			}
 			ma[i] = v
@@ -120,8 +140,9 @@ func ScanLineFixLength(line string, modelType reflect.Type, record interface{}, 
 							var fieldDate time.Time
 							var err error
 							if len(format.Format) > 0 {
+								fieldDate, err = time.Parse(format.Format, value)
 							} else {
-								fieldDate, err = time.Parse(DateLayout, line)
+								fieldDate, err = time.Parse(DateLayout, value)
 							}
 							if err != nil {
 								return err
@@ -132,6 +153,37 @@ func ScanLineFixLength(line string, modelType reflect.Type, record interface{}, 
 								f.Set(reflect.ValueOf(fieldDate))
 							}
 						}
+					case "big.Float", "*big.Float":
+						if formatf, ok := formatCols[j]; ok {
+							bf := new(big.Float)
+							if bfv, ok1 := bf.SetString(value); ok1 {
+								if formatf.Scale >= 0 && bfv != nil {
+									k := Round(*bf, formatf.Scale)
+									bf = &k
+								}
+								if f.Kind() == reflect.Ptr {
+									f.Set(reflect.ValueOf(bf))
+								} else {
+									if bf != nil {
+										f.Set(reflect.ValueOf(*bf))
+									}
+								}
+							}
+
+						}
+					case "big.Int", "*big.Int":
+						if _, ok := formatCols[j]; ok {
+							bf := new(big.Int)
+							if bfv, oki := bf.SetString(value, 10); oki {
+								if f.Kind() == reflect.Ptr {
+									f.Set(reflect.ValueOf(bfv))
+								} else {
+									if bfv != nil {
+										f.Set(reflect.ValueOf(*bfv))
+									}
+								}
+							}
+						}
 					}
 				}
 			}
@@ -139,4 +191,31 @@ func ScanLineFixLength(line string, modelType reflect.Type, record interface{}, 
 		}
 	}
 	return nil
+}
+
+func Round(num big.Float, scale int) big.Float {
+	marshal, _ := num.MarshalText()
+	if strings.IndexRune(string(marshal), '.') == -1 {
+		return num
+	}
+	fmt.Println(marshal)
+	var dot int
+	for i, v := range marshal {
+		if v == 46 {
+			dot = i + 1
+			break
+		}
+	}
+	a := marshal[:dot]
+	b := marshal[dot : dot+scale+1]
+	c := b[:len(b)-1]
+
+	if b[len(b)-1] >= 53 {
+		c[len(c)-1] += 1
+	}
+	var r []byte
+	r = append(r, a...)
+	r = append(r, c...)
+	num.UnmarshalText(r)
+	return num
 }

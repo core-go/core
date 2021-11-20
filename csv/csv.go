@@ -10,16 +10,31 @@ import (
 
 const DateLayout string = "2006-01-02 15:04:05 +0700 +07"
 
-func BuildCsv(rows []string, fields []string, valueOfmodels reflect.Value, embedFieldName string) []string {
+func BuildCsv(rows []string, fields []string, valueOfmodels reflect.Value, embedFieldName string, opts...map[string]int) []string {
 	if lengthResult := valueOfmodels.Len(); lengthResult > 0 {
 		model := valueOfmodels.Index(0).Interface()
 
-		firstLayerIndexes, secondLayerIndexes := findIndexByTagJsonOrEmbededFieldName(model, fields, embedFieldName)
+		var firstLayerIndexes map[string]int
+		var secondLayerIndexes map[string]int
+		if len(opts) > 0 && opts[0] != nil {
+			firstLayerIndexes = opts[0]
+			if len(opts) > 1 && opts[1] != nil {
+				secondLayerIndexes = opts[1]
+			}
+		} else {
+			firstLayerIndexes, secondLayerIndexes = BuildJsonMap(model, fields, embedFieldName)
+		}
 
 		for i := 0; i < lengthResult; i++ {
 			var cols []string
 			valueOfmodel := valueOfmodels.Index(i)
 			for _, fieldName := range fields {
+				index0, exist0 := secondLayerIndexes[fieldName]
+				if exist0 {
+					fmt.Sprintf("%d ", index0)
+				} else {
+					fmt.Sprintf("not exist")
+				}
 				if index, exist := firstLayerIndexes[fieldName]; exist {
 					valueOfFieldName := valueOfmodel.Field(index)
 					cols = AppendColumns(valueOfFieldName, cols)
@@ -70,7 +85,27 @@ func AppendColumns(value reflect.Value, cols []string) []string {
 					if okBI {
 						cols = append(cols, fmt.Sprintf("%v", bi.String()))
 					} else {
-						cols = append(cols, fmt.Sprintf("%v", i))
+						if kind == reflect.Struct {
+							if v2 := reflect.Indirect(reflect.ValueOf(i)); v2.NumField() == 1 {
+								field := v2.Field(0)
+								fv := field.Interface()
+								k := field.Kind()
+								if k == reflect.Ptr {
+									fv = reflect.Indirect(reflect.ValueOf(fv)).Interface()
+								}
+								if sv, ok := fv.(big.Float); ok {
+									cols = append(cols, sv.String())
+								} else if svi, ok := fv.(big.Int); ok {
+									cols = append(cols, svi.Text(10))
+								} else {
+									cols = append(cols, fmt.Sprintf("%v", fv))
+								}
+							} else {
+								cols = append(cols, fmt.Sprintf("%v", i))
+							}
+						} else {
+							cols = append(cols, fmt.Sprintf("%v", i))
+						}
 					}
 				}
 			}
@@ -79,7 +114,7 @@ func AppendColumns(value reflect.Value, cols []string) []string {
 	return cols
 }
 
-func findIndexByTagJsonOrEmbededFieldName(model interface{}, jsonNames []string, embedFieldName string) (firstLayerIndex map[string]int, secondLayerIndexes map[string]int) {
+func BuildJsonMap(model interface{}, jsonNames []string, embedFieldName string) (firstLayerIndex map[string]int, secondLayerIndexes map[string]int) {
 	tmp := make([]string, len(jsonNames))
 	copy(tmp, jsonNames)
 
@@ -87,9 +122,9 @@ func findIndexByTagJsonOrEmbededFieldName(model interface{}, jsonNames []string,
 	secondLayerIndexes = map[string]int{}
 	modelValue := reflect.Indirect(reflect.ValueOf(model))
 	numField := modelValue.NumField()
-
+	modelType := modelValue.Type()
 	for i := 0; i < numField; i++ {
-		if jsonTag, exist := modelValue.Type().Field(i).Tag.Lookup("json"); exist {
+		if jsonTag, exist := modelType.Field(i).Tag.Lookup("json"); exist {
 			for j, name := range tmp {
 				tags := strings.Split(jsonTag, ",")
 				for _, tag := range tags {
@@ -101,7 +136,7 @@ func findIndexByTagJsonOrEmbededFieldName(model interface{}, jsonNames []string,
 				}
 			}
 		}
-		if modelValue.Type().Field(i).Name == embedFieldName {
+		if modelType.Field(i).Name == embedFieldName {
 			firstLayerIndex[embedFieldName] = i
 			for j, name := range tmp {
 				embedValue := reflect.Indirect(modelValue.Field(i))

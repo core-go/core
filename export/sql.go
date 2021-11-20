@@ -21,7 +21,7 @@ func GetColumnsSelect(modelType reflect.Type) []string {
 				str2 := strings.Split(str1[i], ":")
 				for j := 0; j < len(str2); j++ {
 					if str2[j] == "column" {
-						columnName := str2[j+1]
+						columnName := strings.ToLower(str2[j+1])
 						columnNameKeys = append(columnNameKeys, columnName)
 					}
 				}

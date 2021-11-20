@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -16,7 +18,12 @@ const (
 type DelimiterFormatter struct {
 	Delimiter  string
 	modelType  reflect.Type
-	formatCols map[int]string
+	formatCols map[int]Delimiter
+}
+
+type Delimiter struct {
+	Format string
+	Scale  int
 }
 
 func NewDelimiterFormatter(modelType reflect.Type, opts ...string) (*DelimiterFormatter, error) {
@@ -38,7 +45,7 @@ func NewDelimiterFormatter(modelType reflect.Type, opts ...string) (*DelimiterFo
 func (f *DelimiterFormatter) Format(ctx context.Context, model interface{}) string {
 	return ToTextWithDelimiter(ctx, model, f.Delimiter, f.formatCols)
 }
-func ToTextWithDelimiter(ctx context.Context, model interface{}, delimiter string, formatCols map[int]string) string {
+func ToTextWithDelimiter(ctx context.Context, model interface{}, delimiter string, formatCols map[int]Delimiter) string {
 	arr := make([]string, 0)
 	sumValue := reflect.Indirect(reflect.ValueOf(model))
 	for i := 0; i < sumValue.NumField(); i++ {
@@ -50,26 +57,49 @@ func ToTextWithDelimiter(ctx context.Context, model interface{}, delimiter strin
 			if kind == reflect.Ptr && field.IsNil() {
 				value = ""
 			} else {
-				value = fmt.Sprint(field.Interface())
 				v := field.Interface()
 				if kind == reflect.Ptr {
 					v = reflect.Indirect(reflect.ValueOf(v)).Interface()
 				}
-				d, okD := v.(time.Time)
-				if okD {
-					if len(format) > 0 {
-						value = d.Format(format)
+				if s, okS := v.(string); okS {
+					if strings.Contains(value, `"`) || strings.Contains(s, delimiter) {
+						s = strings.ReplaceAll(s, `"`, `""`)
+						value = "\"" + s + "\""
+					} else {
+						value = s
+					}
+				} else if d, okD := v.(time.Time); okD {
+					if len(format.Format) > 0 {
+						value = d.Format(format.Format)
 					} else {
 						value = d.Format(DateLayout)
 					}
 				} else {
-					s, okS := v.(string)
-					if okS {
-						if strings.Contains(value, `"`) || strings.Contains(s, delimiter) {
-							s = strings.ReplaceAll(s, `"`, `""`)
-							value = "\"" + s + "\""
+					kind = reflect.Indirect(field).Kind()
+					if kind == reflect.Struct {
+						if v2 := reflect.Indirect(reflect.ValueOf(v)); v2.NumField() == 1 {
+							f := v2.Field(0)
+							fv := f.Interface()
+							k := f.Kind()
+							if k == reflect.Ptr {
+								fv = reflect.Indirect(reflect.ValueOf(fv)).Interface()
+							}
+							if sv, ok := fv.(big.Float); ok {
+								prec := 2
+								if format.Scale >= 0 {
+									prec = format.Scale
+								}
+								value = sv.Text('f', prec)
+							} else if svi, ok := fv.(big.Int); ok {
+								value = svi.Text(10)
+							} else {
+								value = fmt.Sprint(v)
+							}
+						} else {
+							value = fmt.Sprint(v)
 						}
-
+					} else {
+						value = fmt.Sprint(v)
 					}
 				}
 			}
@@ -78,8 +108,8 @@ func ToTextWithDelimiter(ctx context.Context, model interface{}, delimiter strin
 	}
 	return strings.Join(arr, delimiter) + "\n"
 }
-func GetIndexesByTag(modelType reflect.Type, tagName string, skipTag string) (map[int]string, error) {
-	ma := make(map[int]string, 0)
+func GetIndexesByTag(modelType reflect.Type, tagName string, skipTag string) (map[int]Delimiter, error) {
+	ma := make(map[int]Delimiter, 0)
 	if modelType.Kind() != reflect.Struct {
 		return ma, errors.New("bad type")
 	}
@@ -87,23 +117,40 @@ func GetIndexesByTag(modelType reflect.Type, tagName string, skipTag string) (ma
 		field := modelType.Field(i)
 		tagValue := field.Tag.Get(tagName)
 		skipValue := field.Tag.Get(skipTag)
+		v := Delimiter{}
+		tagScale, sOk := field.Tag.Lookup("scale")
+		if sOk {
+			scale, err := strconv.Atoi(tagScale)
+			if err == nil {
+				v.Scale = scale
+			}
+		}
 		if len(skipValue) > 0 {
 			if len(tagValue) > 0 {
 				if strings.Contains(tagValue, "dateFormat:") {
 					tagValue = strings.ReplaceAll(tagValue, "dateFormat:", "")
+					v.Format = tagValue
 				}
-				ma[i] = tagValue
+				
 			}
 		} else {
 			if len(tagValue) > 0 {
 				if strings.Contains(tagValue, "dateFormat:") {
 					tagValue = strings.ReplaceAll(tagValue, "dateFormat:", "")
+					v.Format = tagValue
+				} else if sOk == false && strings.Contains(tagValue, "scale:") {
+					tagValue = strings.ReplaceAll(tagValue, "scale:", "")
+					scale, err1 := strconv.Atoi(tagValue)
+					if err1 != nil {
+						return ma, err1
+					}
+					v.Scale = scale
 				}
-				ma[i] = tagValue
 			} else {
-				ma[i] = ""
+				
 			}
 		}
+		ma[i] = v
 	}
 	return ma, nil
 }
