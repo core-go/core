@@ -23,7 +23,7 @@ func NewWriter(ws zapcore.WriteSyncer, conf zap.Config) zap.Option {
 	})
 }
 
-func getWriteSyncer(path string) zapcore.WriteSyncer {
+func GetWriteSyncer(path string) zapcore.WriteSyncer {
 	dir := filepath.Dir(path)
 	if _, err := os.Stat(dir); errors.Is(err, os.ErrNotExist) {
 		err2 := os.Mkdir(dir, os.ModePerm)
