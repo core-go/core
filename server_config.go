@@ -1,4 +1,4 @@
-package service
+package core
 
 type ServerConf struct {
 	Name              string `mapstructure:"name" json:"name,omitempty" gorm:"column:name" bson:"name,omitempty" dynamodbav:"name,omitempty" firestore:"name,omitempty"`

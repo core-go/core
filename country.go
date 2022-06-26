@@ -1,4 +1,4 @@
-package service
+package core
 
 func IsCountryCode(v string) bool {
 	_, ok := CountryCodes[v]
