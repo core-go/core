@@ -1,12 +1,12 @@
 # service
 ## Installation
-Please make sure to initialize a Go module before installing core-go/service:
+Please make sure to initialize a Go module before installing core-go/core:
 
 ```shell
-go get -u github.com/core-go/service
+go get -u github.com/core-go/core
 ```
 
 Import:
 ```go
-import "github.com/core-go/service"
+import "github.com/core-go/core"
 ```

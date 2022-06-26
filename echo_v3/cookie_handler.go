@@ -2,7 +2,7 @@ package echo
 
 import (
 	"context"
-	sv "github.com/core-go/service"
+	sv "github.com/core-go/core"
 	"github.com/labstack/echo"
 )
 

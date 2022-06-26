@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	sv "github.com/core-go/service"
+	sv "github.com/core-go/core"
 	"reflect"
 	"strconv"
 	"strings"

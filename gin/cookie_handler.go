@@ -2,7 +2,7 @@ package gin
 
 import (
 	"context"
-	sv "github.com/core-go/service"
+	sv "github.com/core-go/core"
 	"github.com/gin-gonic/gin"
 )
 
