@@ -6,7 +6,7 @@
 // and html/template. Clients should use those packages to construct templates
 // rather than this one, which provides shared internal data structures not
 // intended for general use.
-package parse
+package template
 
 import (
 	"bytes"
@@ -50,7 +50,7 @@ func (t *Tree) Copy() *Tree {
 // empty map is returned with the error.
 func Parse(name, text, leftDelim, rightDelim string, funcs ...map[string]interface{}) (map[string]*Tree, error) {
 	treeSet := make(map[string]*Tree)
-	t := New(name)
+	t := NewTree(name)
 	t.text = text
 	_, err := t.Parse(text, leftDelim, rightDelim, treeSet, funcs...)
 	return treeSet, err
@@ -122,7 +122,7 @@ func (t *Tree) peekNonSpace() (token item) {
 // Parsing.
 
 // New allocates a new parse tree with the given name.
-func New(name string, funcs ...map[string]interface{}) *Tree {
+func NewTree(name string, funcs ...map[string]interface{}) *Tree {
 	return &Tree{
 		Name:  name,
 		funcs: funcs,
@@ -279,7 +279,7 @@ func (t *Tree) parse() {
 		if t.peek().typ == itemLeftDelim {
 			delim := t.next()
 			if t.nextNonSpace().typ == itemDefine {
-				newT := New("definition") // name will be updated once we know it.
+				newT := NewTree("definition") // name will be updated once we know it.
 				newT.text = t.text
 				newT.ParseName = t.ParseName
 				newT.startParse(t.funcs, t.lex, t.treeSet)
@@ -542,7 +542,7 @@ func (t *Tree) blockControl() Node {
 	name := t.parseTemplateName(token, context)
 	pipe := t.pipeline(context)
 
-	block := New(name) // name will be updated once we know it.
+	block := NewTree(name) // name will be updated once we know it.
 	block.text = t.text
 	block.ParseName = t.ParseName
 	block.startParse(t.funcs, t.lex, t.treeSet)

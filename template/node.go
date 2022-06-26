@@ -4,7 +4,7 @@
 
 // Parse nodes.
 
-package parse
+package template
 
 import (
 	"bytes"

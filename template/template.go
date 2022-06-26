@@ -7,8 +7,6 @@ package template
 import (
 	"reflect"
 	"sync"
-
-	"github.com/core-go/core/template/parse"
 )
 
 // common holds the information shared by related templates.
@@ -28,7 +26,7 @@ type common struct {
 // as unexported by all other clients.
 type Template struct {
 	name string
-	*parse.Tree
+	*Tree
 	*common
 	leftDelim  string
 	rightDelim string
@@ -122,7 +120,7 @@ func (t *Template) copy(c *common) *Template {
 // AddParseTree adds parse tree for template with given name and associates it with t.
 // If the template does not already exist, it will create a new one.
 // If the template does exist, it will be replaced.
-func (t *Template) AddParseTree(name string, tree *parse.Tree) (*Template, error) {
+func (t *Template) AddParseTree(name string, tree *Tree) (*Template, error) {
 	t.init()
 	// If the name is the name of this template, overwrite this template.
 	nt := t
@@ -198,7 +196,7 @@ func (t *Template) Lookup(name string) *Template {
 func (t *Template) Parse(text string) (*Template, error) {
 	t.init()
 	t.muFuncs.RLock()
-	trees, err := parse.Parse(t.name, text, t.leftDelim, t.rightDelim, t.parseFuncs, builtins)
+	trees, err := Parse(t.name, text, t.leftDelim, t.rightDelim, t.parseFuncs, builtins)
 	t.muFuncs.RUnlock()
 	if err != nil {
 		return nil, err
@@ -215,11 +213,11 @@ func (t *Template) Parse(text string) (*Template, error) {
 // associate installs the new template into the group of templates associated
 // with t. The two are already known to share the common structure.
 // The boolean return value reports whether to store this tree as t.Tree.
-func (t *Template) associate(new *Template, tree *parse.Tree) bool {
+func (t *Template) associate(new *Template, tree *Tree) bool {
 	if new.common != t.common {
 		panic("internal error: associate not common")
 	}
-	if old := t.tmpl[new.name]; old != nil && parse.IsEmptyTree(tree.Root) && old.Tree != nil {
+	if old := t.tmpl[new.name]; old != nil && IsEmptyTree(tree.Root) && old.Tree != nil {
 		// If a template by that name exists,
 		// don't replace it with an empty template.
 		return false

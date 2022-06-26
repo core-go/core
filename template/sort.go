@@ -6,7 +6,7 @@
 // for maps, on behalf of the fmt and text/template packages.
 // It is not guaranteed to be efficient and works only for types
 // that are valid map keys.
-package fmtsort
+package template
 
 import (
 	"reflect"
