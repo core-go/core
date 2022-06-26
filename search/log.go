@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-func respondError(w http.ResponseWriter, r *http.Request, code int, result interface{}, logError func(context.Context, string), resource string, action string, err error, writeLog func(ctx context.Context, resource string, action string, success bool, desc string) error) {
+func respondError(w http.ResponseWriter, r *http.Request, code int, result interface{}, logError func(context.Context, string,...map[string]interface{}), resource string, action string, err error, writeLog func(ctx context.Context, resource string, action string, success bool, desc string) error) {
 	if logError != nil {
 		logError(r.Context(), err.Error())
 	}

@@ -9,6 +9,12 @@ type RedisService struct {
 	Pool *redis.Pool
 }
 
+func NewRedisAdapterByConfig(c Config) (*RedisService, error) {
+	return NewRedisServiceByConfig(c)
+}
+func NewRedisAdapter(redisUrl string) (*RedisService, error) {
+	return NewRedisService(redisUrl)
+}
 func NewRedisServiceByConfig(c Config) (*RedisService, error) {
 	pool, err := NewRedisPoolByConfig(c)
 	if err != nil {

@@ -8,7 +8,12 @@ import (
 type RedisService struct {
 	Client *redis.Client
 }
-
+func NewRedisAdapterByConfig(c Config) (*RedisService, error) {
+	return NewRedisServiceByConfig(c)
+}
+func NewRedisAdapter(redisUrl string) (*RedisService, error) {
+	return NewRedisService(redisUrl)
+}
 func NewRedisServiceByConfig(c Config) (*RedisService, error) {
 	client, err := NewRedisClientByConfig(c)
 	if err != nil {

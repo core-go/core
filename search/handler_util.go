@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func BuildResourceName(s string) string {
@@ -31,6 +32,22 @@ func UrlToModel(filter interface{}, params url.Values, paramIndex map[string]int
 	if value.Kind() == reflect.Ptr {
 		value = reflect.Indirect(value)
 	}
+
+	//TimeRange
+	timeType := reflect.TypeOf(TimeRange{})
+	tRange := reflect.New(timeType)
+	psTime := tRange.Elem()
+
+	//Int64Range
+	int64Type := reflect.TypeOf(Int64Range{})
+	i64 := reflect.New(int64Type)
+	psI64 := i64.Elem()
+
+	//NumRange
+	nRangeType := reflect.TypeOf(NumberRange{})
+	nRange := reflect.New(nRangeType)
+	psNRange := nRange.Elem()
+
 	for paramKey, valueArr := range params {
 		paramValue := ""
 		if len(valueArr) > 0 {
@@ -41,12 +58,16 @@ func UrlToModel(filter interface{}, params url.Values, paramIndex map[string]int
 
 			var v interface{}
 			// Need handle more case of kind
-			if kind == reflect.Int {
+			if kind == reflect.String {
+				v = paramValue
+			} else if kind == reflect.Int {
 				v, _ = strconv.Atoi(paramValue)
 			} else if kind == reflect.Int64 {
 				v, _ = strconv.ParseInt(paramValue, 10, 64)
-			} else if kind == reflect.String {
-				v = paramValue
+			} else if kind == reflect.Float64 {
+				v, _ = strconv.ParseFloat(paramValue, 64)
+			} else if kind == reflect.Bool{
+				v, _ = strconv.ParseBool(paramValue)
 			} else if kind == reflect.Slice {
 				sliceKind := reflect.TypeOf(field.Interface()).Elem().Kind()
 				if sliceKind == reflect.String {
@@ -61,6 +82,58 @@ func UrlToModel(filter interface{}, params url.Values, paramIndex map[string]int
 					panic(errDecode)
 				}
 				v = newModel
+			} else if kind == reflect.Ptr {
+				ptrKind := field.Interface()
+				switch ptrKind.(type) {
+				case *string:
+					field.Set(reflect.ValueOf(&paramValue))
+					continue
+				case *int:
+					iv, er := strconv.Atoi(paramValue)
+					if er == nil {
+						field.Set(reflect.ValueOf(&iv))
+					}
+					continue
+				case *int64:
+					iv, er := strconv.ParseInt(paramValue, 10, 64)
+					if er == nil {
+						field.Set(reflect.ValueOf(&iv))
+					}
+					continue
+				case *float64:
+					iv, er := strconv.ParseFloat(paramValue, 64)
+					if er == nil {
+						field.Set(reflect.ValueOf(&iv))
+					}
+					continue
+				case *bool:
+					iv, er := strconv.ParseBool(paramValue)
+					if er == nil {
+						field.Set(reflect.ValueOf(&iv))
+					}
+					continue
+				case *TimeRange:
+					keys := strings.Split(paramKey,".")
+					f := psTime.FieldByName(strings.Title(keys[1]))
+					tValue, _ := time.Parse(time.RFC3339, paramValue)
+					f.Set(reflect.ValueOf(&tValue))
+					field.Set(reflect.ValueOf(tRange.Interface()))
+					continue
+				case *Int64Range:
+					keys := strings.Split(paramKey, ".")
+					f := psI64.FieldByName(strings.Title(keys[1]))
+					i64Value, _ := strconv.ParseInt(paramValue, 10, 64)
+					f.Set(reflect.ValueOf(&i64Value))
+					field.Set(reflect.ValueOf(i64.Interface()))
+					continue
+				case *NumberRange:
+					keys := strings.Split(paramKey, ".")
+					f := psNRange.FieldByName(strings.Title(keys[1]))
+					nValue, _ := strconv.ParseFloat(paramValue, 64)
+					f.Set(reflect.ValueOf(&nValue))
+					field.Set(reflect.ValueOf(nRange.Interface()))
+					continue
+				}
 			} else {
 				log.Println("Unhandled kind:", kind)
 				continue
@@ -73,6 +146,9 @@ func UrlToModel(filter interface{}, params url.Values, paramIndex map[string]int
 	return filter
 }
 func FindField(value reflect.Value, paramKey string, paramIndex map[string]int, options...int) (reflect.Value, error) {
+	if keys :=strings.Split(paramKey,"."); len(keys) > 0 {
+		paramKey = keys[0]
+	}
 	if index, ok := paramIndex[paramKey]; ok {
 		return value.Field(index), nil
 	}
@@ -105,7 +181,11 @@ func BuildParamIndex(filterType reflect.Type) map[string]int {
 	}
 	return params
 }
-
+func BuildParams(filterType reflect.Type) (map[string]int, int) {
+	paramIndex := BuildParamIndex(filterType)
+	filterIndex := FindFilterIndex(filterType)
+	return paramIndex, filterIndex
+}
 func BuildFilter(r *http.Request, filterType reflect.Type, paramIndex map[string]int, userIdName string, options...int) (interface{}, int, error) {
 	var filter = CreateFilter(filterType, options...)
 	method := r.Method
@@ -135,9 +215,44 @@ func BuildFilter(r *http.Request, filterType reflect.Type, paramIndex map[string
 	SetUserId(filter, userId)
 	return filter, x, nil
 }
-func ResultToCsv(fields []string, models interface{}, count int64, nextPageToken string, embedField string) (string, bool) {
+func GetUser(r *http.Request, opt...string) string {
+	user := "userId"
+	if len(opt) > 0 && len(opt[0]) > 0 {
+		user = opt[0]
+	}
+	u := r.Context().Value(user)
+	if u != nil {
+		u2, ok2 := u.(string)
+		if ok2 {
+			return u2
+		}
+	}
+	return ""
+}
+func Decode(r *http.Request, filter interface{}, paramIndex map[string]int, options...int) error {
+	method := r.Method
+	if method == http.MethodGet {
+		ps := r.URL.Query()
+		UrlToModel(filter, ps, paramIndex, options...)
+		return nil
+	} else {
+		err := json.NewDecoder(r.Body).Decode(&filter)
+		return err
+	}
+}
+func ToFilter(w http.ResponseWriter, r *http.Request, filter interface{}, paramIndex map[string]int, options...int) error {
+	err := Decode(r, &filter, paramIndex, options...)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+	return err
+}
+func DecodeAndCheck(w http.ResponseWriter, r *http.Request, filter interface{}, paramIndex map[string]int, options...int) error {
+	return ToFilter(w, r, filter, paramIndex, options...)
+}
+func ResultToCsv(fields []string, models interface{}, count int64, nextPageToken string, embedField string, opts...map[string]int) (string, bool) {
 	if len(fields) > 0 {
-		result1 := ToCsv(fields, models, count, nextPageToken, embedField)
+		result1 := ToCsv(fields, models, count, nextPageToken, embedField, opts...)
 		return result1, true
 	} else {
 		return "", false

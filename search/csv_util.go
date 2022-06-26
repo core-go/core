@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func ToCsv(fields []string, r interface{}, total int64, nextPageToken string, embedField string) (out string) {
+func ToCsv(fields []string, r interface{}, total int64, nextPageToken string, embedField string, opts...map[string]int) (out string) {
 	val := reflect.ValueOf(r)
 	models := reflect.Indirect(val)
 
@@ -15,7 +15,7 @@ func ToCsv(fields []string, r interface{}, total int64, nextPageToken string, em
 	}
 	var rows []string
 	rows = append(rows, strconv.FormatInt(total, 10)+","+nextPageToken)
-	rows = BuildCsv(rows, fields, models, embedField)
+	rows = BuildCsv(rows, fields, models, embedField, opts...)
 	return strings.Join(rows, "\n")
 	return out
 }

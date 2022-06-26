@@ -9,7 +9,12 @@ import (
 type ContextRedisService struct {
 	Client *redis.Client
 }
-
+func NewContextRedisAdapterByConfig(c Config) (*ContextRedisService, error) {
+	return NewContextRedisServiceByConfig(c)
+}
+func NewContextRedisAdapter(redisUrl string) (*ContextRedisService, error) {
+	return NewContextRedisService(redisUrl)
+}
 func NewContextRedisServiceByConfig(c Config) (*ContextRedisService, error) {
 	client, err := NewRedisClientByConfig(c)
 	if err != nil {

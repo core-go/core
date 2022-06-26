@@ -8,6 +8,7 @@ type Config struct {
 	Map         *FieldMap `yaml:"map" mapstructure:"map" json:"map,omitempty" gorm:"column:map" bson:"map,omitempty" dynamodbav:"map,omitempty" firestore:"map,omitempty"`
 	CallerLevel string    `yaml:"caller_level" mapstructure:"caller_level" json:"callerLevel,omitempty" gorm:"column:callerlevel" bson:"callerLevel,omitempty" dynamodbav:"callerLevel,omitempty" firestore:"callerLevel,omitempty"`
 	CallerSkip  int       `yaml:"caller_skip" mapstructure:"caller_skip" json:"callerSkip,omitempty" gorm:"column:callerskip" bson:"callerSkip,omitempty" dynamodbav:"callerSkip,omitempty" firestore:"callerSkip,omitempty"`
+	Output      string    `yaml:"output" mapstructure:"output" json:"output,omitempty" gorm:"column:output" bson:"output,omitempty" dynamodbav:"output,omitempty" firestore:"output,omitempty"`
 }
 
 type FieldMap struct {

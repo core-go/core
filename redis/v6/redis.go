@@ -9,20 +9,20 @@ import (
 )
 
 type Config struct {
-	Url                string `mapstructure:"url" json:"url,omitempty" gorm:"column:url" bson:"url,omitempty" dynamodbav:"url,omitempty" firestore:"url,omitempty"`
-	MaxRetries         int    `mapstructure:"max_retries" json:"maxRetries,omitempty" gorm:"column:maxretries" bson:"maxRetries,omitempty" dynamodbav:"maxRetries,omitempty" firestore:"maxRetries,omitempty"`
-	PoolSize           int    `mapstructure:"pool_size" json:"poolSize,omitempty" gorm:"column:poolsize" bson:"poolSize,omitempty" dynamodbav:"poolSize,omitempty" firestore:"poolSize,omitempty"`
-	IdleTimeout        int64  `mapstructure:"idle_timeout" json:"idleTimeout,omitempty" gorm:"column:idletimeout" bson:"idleTimeout,omitempty" dynamodbav:"idleTimeout,omitempty" firestore:"idleTimeout,omitempty"`
-	DialTimeout        int64  `mapstructure:"dial_timeout" json:"dialTimeout,omitempty" gorm:"column:dialtimeout" bson:"dialTimeout,omitempty" dynamodbav:"dialTimeout,omitempty" firestore:"dialTimeout,omitempty"`
-	PoolTimeout        int64  `mapstructure:"pool_timeout" json:"poolTimeout,omitempty" gorm:"column:pooltimeout" bson:"poolTimeout,omitempty" dynamodbav:"poolTimeout,omitempty" firestore:"poolTimeout,omitempty"`
-	ReadTimeout        int64  `mapstructure:"read_timeout" json:"readTimeout,omitempty" gorm:"column:readtimeout" bson:"readTimeout,omitempty" dynamodbav:"readTimeout,omitempty" firestore:"readTimeout,omitempty"`
-	WriteTimeout       int64  `mapstructure:"write_timeout" json:"writeTimeout,omitempty" gorm:"column:writetimeout" bson:"writeTimeout,omitempty" dynamodbav:"writeTimeout,omitempty" firestore:"writeTimeout,omitempty"`
-	MaxConnAge         int64  `mapstructure:"max_conn_age" json:"maxConnAge,omitempty" gorm:"column:maxconnage" bson:"maxConnAge,omitempty" dynamodbav:"maxConnAge,omitempty" firestore:"maxConnAge,omitempty"`
-	IdleCheckFrequency int64  `mapstructure:"idle_check_frequency" json:"idleCheckFrequency,omitempty" gorm:"column:idlecheckfrequency" bson:"idleCheckFrequency,omitempty" dynamodbav:"idleCheckFrequency,omitempty" firestore:"idleCheckFrequency,omitempty"`
-	MaxRetryBackoff    int64  `mapstructure:"max_retry_backoff" json:"maxRetryBackoff,omitempty" gorm:"column:maxretrybackoff" bson:"maxRetryBackoff,omitempty" dynamodbav:"maxRetryBackoff,omitempty" firestore:"maxRetryBackoff,omitempty"`
-	MinRetryBackoff    int64  `mapstructure:"min_retry_backoff" json:"minRetryBackoff,omitempty" gorm:"column:minretrybackoff" bson:"minRetryBackoff,omitempty" dynamodbav:"minRetryBackoff,omitempty" firestore:"minRetryBackoff,omitempty"`
-	MinIdleConns       int    `mapstructure:"min_idle_conns" json:"minIdleConns,omitempty" gorm:"column:minidleconns" bson:"minIdleConns,omitempty" dynamodbav:"minIdleConns,omitempty" firestore:"minIdleConns,omitempty"`
-	DB                 int    `mapstructure:"db" json:"db,omitempty" gorm:"column:db" bson:"db,omitempty" dynamodbav:"db,omitempty" firestore:"db,omitempty"`
+	Url                string `yaml:"url" mapstructure:"url" json:"url,omitempty" gorm:"column:url" bson:"url,omitempty" dynamodbav:"url,omitempty" firestore:"url,omitempty"`
+	MaxRetries         int    `yaml:"max_retries" mapstructure:"max_retries" json:"maxRetries,omitempty" gorm:"column:maxretries" bson:"maxRetries,omitempty" dynamodbav:"maxRetries,omitempty" firestore:"maxRetries,omitempty"`
+	PoolSize           int    `yaml:"pool_size" mapstructure:"pool_size" json:"poolSize,omitempty" gorm:"column:poolsize" bson:"poolSize,omitempty" dynamodbav:"poolSize,omitempty" firestore:"poolSize,omitempty"`
+	IdleTimeout        *time.Duration  `yaml:"idle_timeout" mapstructure:"idle_timeout" json:"idleTimeout,omitempty" gorm:"column:idletimeout" bson:"idleTimeout,omitempty" dynamodbav:"idleTimeout,omitempty" firestore:"idleTimeout,omitempty"`
+	DialTimeout        *time.Duration  `yaml:"dial_timeout" mapstructure:"dial_timeout" json:"dialTimeout,omitempty" gorm:"column:dialtimeout" bson:"dialTimeout,omitempty" dynamodbav:"dialTimeout,omitempty" firestore:"dialTimeout,omitempty"`
+	PoolTimeout        *time.Duration  `yaml:"pool_timeout" mapstructure:"pool_timeout" json:"poolTimeout,omitempty" gorm:"column:pooltimeout" bson:"poolTimeout,omitempty" dynamodbav:"poolTimeout,omitempty" firestore:"poolTimeout,omitempty"`
+	ReadTimeout        *time.Duration  `yaml:"read_timeout" mapstructure:"read_timeout" json:"readTimeout,omitempty" gorm:"column:readtimeout" bson:"readTimeout,omitempty" dynamodbav:"readTimeout,omitempty" firestore:"readTimeout,omitempty"`
+	WriteTimeout       *time.Duration  `yaml:"write_timeout" mapstructure:"write_timeout" json:"writeTimeout,omitempty" gorm:"column:writetimeout" bson:"writeTimeout,omitempty" dynamodbav:"writeTimeout,omitempty" firestore:"writeTimeout,omitempty"`
+	MaxConnAge         *time.Duration  `yaml:"max_conn_age" mapstructure:"max_conn_age" json:"maxConnAge,omitempty" gorm:"column:maxconnage" bson:"maxConnAge,omitempty" dynamodbav:"maxConnAge,omitempty" firestore:"maxConnAge,omitempty"`
+	IdleCheckFrequency *time.Duration  `yaml:"idle_check_frequency" mapstructure:"idle_check_frequency" json:"idleCheckFrequency,omitempty" gorm:"column:idlecheckfrequency" bson:"idleCheckFrequency,omitempty" dynamodbav:"idleCheckFrequency,omitempty" firestore:"idleCheckFrequency,omitempty"`
+	MaxRetryBackoff    *time.Duration  `yaml:"max_retry_backoff" mapstructure:"max_retry_backoff" json:"maxRetryBackoff,omitempty" gorm:"column:maxretrybackoff" bson:"maxRetryBackoff,omitempty" dynamodbav:"maxRetryBackoff,omitempty" firestore:"maxRetryBackoff,omitempty"`
+	MinRetryBackoff    *time.Duration  `yaml:"min_retry_backoff" mapstructure:"min_retry_backoff" json:"minRetryBackoff,omitempty" gorm:"column:minretrybackoff" bson:"minRetryBackoff,omitempty" dynamodbav:"minRetryBackoff,omitempty" firestore:"minRetryBackoff,omitempty"`
+	MinIdleConns       int    `yaml:"min_idle_conns" mapstructure:"min_idle_conns" json:"minIdleConns,omitempty" gorm:"column:minidleconns" bson:"minIdleConns,omitempty" dynamodbav:"minIdleConns,omitempty" firestore:"minIdleConns,omitempty"`
+	DB                 int    `yaml:"db" mapstructure:"db" json:"db,omitempty" gorm:"column:db" bson:"db,omitempty" dynamodbav:"db,omitempty" firestore:"db,omitempty"`
 }
 
 func NewRedisClientByConfig(c Config) (*redis.Client, error) {
@@ -44,32 +44,32 @@ func NewRedisClientByConfig(c Config) (*redis.Client, error) {
 	if c.PoolSize > 0 {
 		options.PoolSize = c.PoolSize
 	}
-	if c.IdleTimeout > 0 {
-		options.IdleTimeout = time.Duration(c.IdleTimeout) * time.Millisecond
+	if c.IdleTimeout != nil {
+		options.IdleTimeout = *c.IdleTimeout
 	}
-	if c.DialTimeout > 0 {
-		options.DialTimeout = time.Duration(c.DialTimeout) * time.Millisecond
+	if c.DialTimeout != nil {
+		options.DialTimeout = *c.DialTimeout
 	}
-	if c.PoolTimeout > 0 {
-		options.PoolTimeout = time.Duration(c.PoolTimeout) * time.Millisecond
+	if c.PoolTimeout != nil {
+		options.PoolTimeout = *c.PoolTimeout
 	}
-	if c.ReadTimeout > 0 {
-		options.ReadTimeout = time.Duration(c.ReadTimeout) * time.Millisecond
+	if c.ReadTimeout != nil {
+		options.ReadTimeout = *c.ReadTimeout
 	}
-	if c.WriteTimeout > 0 {
-		options.WriteTimeout = time.Duration(c.WriteTimeout) * time.Millisecond
+	if c.WriteTimeout != nil {
+		options.WriteTimeout = *c.WriteTimeout
 	}
-	if c.MaxConnAge > 0 {
-		options.MaxConnAge = time.Duration(c.MaxConnAge) * time.Millisecond
+	if c.MaxConnAge != nil {
+		options.MaxConnAge = *c.MaxConnAge
 	}
-	if c.IdleCheckFrequency > 0 {
-		options.IdleCheckFrequency = time.Duration(c.IdleCheckFrequency) * time.Millisecond
+	if c.IdleCheckFrequency != nil {
+		options.IdleCheckFrequency = *c.IdleCheckFrequency
 	}
-	if c.MaxRetryBackoff > 0 {
-		options.MaxRetryBackoff = time.Duration(c.MaxRetryBackoff) * time.Millisecond
+	if c.MaxRetryBackoff != nil {
+		options.MaxRetryBackoff = *c.MaxRetryBackoff
 	}
-	if c.MinRetryBackoff > 0 {
-		options.MinRetryBackoff = time.Duration(c.MinRetryBackoff) * time.Millisecond
+	if c.MinRetryBackoff != nil {
+		options.MinRetryBackoff = *c.MinRetryBackoff
 	}
 	if c.MinIdleConns > 0 {
 		options.MinIdleConns = c.MinIdleConns

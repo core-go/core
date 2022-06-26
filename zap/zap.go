@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"os"
 	"strings"
 	"time"
 )
@@ -17,7 +18,7 @@ func SetLogger(logger0 *zap.Logger) {
 	logger = logger0
 }
 
-func Initialize(c Config, opts...zapcore.Core) (*zap.Logger, error) {
+func Initialize(c Config, opts ...zapcore.Core) (*zap.Logger, error) {
 	fieldConfig.FieldMap = c.FieldMap
 	if len(c.Duration) > 0 {
 		fieldConfig.Duration = c.Duration
@@ -45,8 +46,10 @@ func Initialize(c Config, opts...zapcore.Core) (*zap.Logger, error) {
 	if err := level.Set(c.Level); err != nil {
 		return nil, err
 	}
-
-	l, err := NewConfig(c).Build(zap.WrapCore(func(core zapcore.Core) zapcore.Core {
+	logfileName := c.Output
+	syncer := zap.CombineWriteSyncers(os.Stdout, getWriteSyncer(logfileName))
+	cfg := NewConfig(c)
+	l, err := cfg.Build(NewWriter(syncer, cfg), zap.WrapCore(func(core zapcore.Core) zapcore.Core {
 		if len(opts) > 0 && opts[0] != nil {
 			return opts[0]
 		} else {
@@ -591,21 +594,21 @@ func LogError(ctx context.Context, msg string, opts...map[string]interface{}) {
 		ErrorWithFields(ctx, msg, nil)
 	}
 }
-func LogFatal(ctx context.Context, msg string, opts...map[string]interface{}) {
+func LogFatal(ctx context.Context, msg string, opts ...map[string]interface{}) {
 	if len(opts) > 0 {
 		FatalWithFields(ctx, msg, opts[0])
 	} else {
 		FatalWithFields(ctx, msg, nil)
 	}
 }
-func LogPanic(ctx context.Context, msg string, opts...map[string]interface{}) {
+func LogPanic(ctx context.Context, msg string, opts ...map[string]interface{}) {
 	if len(opts) > 0 {
 		PanicWithFields(ctx, msg, opts[0])
 	} else {
 		PanicWithFields(ctx, msg, nil)
 	}
 }
-func LogDPanic(ctx context.Context, msg string, opts...map[string]interface{}) {
+func LogDPanic(ctx context.Context, msg string, opts ...map[string]interface{}) {
 	if len(opts) > 0 {
 		DPanicWithFields(ctx, msg, opts[0])
 	} else {

@@ -92,7 +92,7 @@ func Extract(m interface{}) (int64, int64, []string, string, string, error) {
 			if sModel1, ok := value.Field(i).Interface().(*Filter); ok {
 				var limit1, offset1 int64
 				if sModel1.FirstLimit > 0 {
-					if sModel1.Page == 1 {
+					if sModel1.Page <= 1 {
 						limit1 = sModel1.FirstLimit
 						offset1 = 0
 					} else {
@@ -107,6 +107,23 @@ func Extract(m interface{}) (int64, int64, []string, string, string, error) {
 			}
 		}
 		return 0, 0, nil, "", "", errors.New("cannot extract sort, pageIndex, pageSize, firstPageSize from model")
+	}
+}
+func GetOffset(limit int64, page int64, opts...int64) int64 {
+	var firstLimit int64 = 0
+	if len(opts) > 0 && opts[0] > 0 {
+		firstLimit = opts[0]
+	}
+	if firstLimit > 0 {
+		if page <= 1 {
+			return 0
+		} else {
+			offset := limit*(page-2) + firstLimit
+			return offset
+		}
+	} else {
+		offset := limit * (page - 1)
+		return offset
 	}
 }
 func GetFieldsAndSort(m interface{}) ([]string, string) {
