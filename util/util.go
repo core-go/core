@@ -50,11 +50,28 @@ func Unmarshal(t *template.Template, param interface{}, op interface{}) error {
 	}
 	return json.NewDecoder(strings.NewReader(buf.String())).Decode(op)
 }
-func PtrToBool(s *string, v string) bool {
-	if s != nil && *s == v {
-		return true
+func Skip(v interface{}) interface{} {
+	return v
+}
+func FormatTime(timeValue time.Time) string {
+	return timeValue.Format(time.RFC3339)
+}
+func ParseFloat(s *string, v string) float64 {
+	if s != nil && *s != v {
+		min, err := strconv.ParseFloat(*s, 64)
+		if err != nil {
+			return 0
+		}
+		return min
 	}
-	return false
+	return 0
+}
+func ToFloatPtr(s *string, v string) *float64 {
+	if s != nil && *s != v {
+		min, _ := strconv.ParseFloat(*s, 64)
+		return &min
+	}
+	return nil
 }
 func ToBool(s string, v string) bool {
 	if s == v {
@@ -62,14 +79,20 @@ func ToBool(s string, v string) bool {
 	}
 	return false
 }
-func PtrToYesNo(s *string, v string) string {
+func PtrToBool(s *string, v string) bool {
 	if s != nil && *s == v {
+		return true
+	}
+	return false
+}
+func ToYesNo(s string, v string) string {
+	if s == v {
 		return "Y"
 	}
 	return "N"
 }
-func ToYesNo(s string, v string) string {
-	if s == v {
+func PtrToYesNo(s *string, v string) string {
+	if s != nil && *s == v {
 		return "Y"
 	}
 	return "N"
@@ -86,20 +109,6 @@ func ToString(s *string, v string) string {
 	}
 	return ""
 }
-func ParseFloat(s *string, v string) float64 {
-	if s != nil && *s != v {
-		min, _ := strconv.ParseFloat(*s, 64)
-		return min
-	}
-	return 0
-}
-func ToFloatPtr(s *string, v string) *float64 {
-	if s != nil && *s != v {
-		min, _ := strconv.ParseFloat(*s, 64)
-		return &min
-	}
-	return nil
-}
 func CheckCase(i, c, t, e string) string {
 	if i == c {
 		return t
@@ -112,8 +121,8 @@ func CheckStrings(s []string, v string, r int) *int {
 		return nil
 	}
 	count := 0
-	for _, v := range s {
-		if v != v {
+	for _, x := range s {
+		if x != v {
 			count++
 		}
 	}
@@ -121,10 +130,4 @@ func CheckStrings(s []string, v string, r int) *int {
 		return &r
 	}
 	return nil
-}
-func Skip(v interface{}) interface{} {
-	return v
-}
-func FormatTime(timeValue time.Time) string {
-	return timeValue.Format(time.RFC3339)
 }
