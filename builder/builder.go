@@ -8,12 +8,12 @@ import (
 )
 
 type TrackingConfig struct {
-	Authorization string `mapstructure:"authorization" json:"authorization,omitempty" gorm:"column:authorization" bson:"authorization,omitempty" dynamodbav:"authorization,omitempty" firestore:"authorization,omitempty"`
-	User          string `mapstructure:"user" json:"user,omitempty" gorm:"column:user" bson:"user,omitempty" dynamodbav:"user,omitempty" firestore:"user,omitempty"`
-	CreatedBy     string `mapstructure:"created_by" json:"createdBy,omitempty" gorm:"column:createdby" bson:"createdBy,omitempty" dynamodbav:"createdBy,omitempty" firestore:"createdBy,omitempty"`
-	CreatedAt     string `mapstructure:"created_at" json:"createdAt,omitempty" gorm:"column:createdat" bson:"createdAt,omitempty" dynamodbav:"createdAt,omitempty" firestore:"createdAt,omitempty"`
-	UpdatedBy     string `mapstructure:"updated_by" json:"updatedBy,omitempty" gorm:"column:updatedby" bson:"updatedBy,omitempty" dynamodbav:"updatedBy,omitempty" firestore:"updatedBy,omitempty"`
-	UpdatedAt     string `mapstructure:"updated_at" json:"updatedAt,omitempty" gorm:"column:updatedat" bson:"updatedAt,omitempty" dynamodbav:"updatedAt,omitempty" firestore:"updatedAt,omitempty"`
+	Authorization string `yaml:"authorization" mapstructure:"authorization" json:"authorization,omitempty" gorm:"column:authorization" bson:"authorization,omitempty" dynamodbav:"authorization,omitempty" firestore:"authorization,omitempty"`
+	User          string `yaml:"user" mapstructure:"user" json:"user,omitempty" gorm:"column:user" bson:"user,omitempty" dynamodbav:"user,omitempty" firestore:"user,omitempty"`
+	CreatedBy     string `yaml:"created_by" mapstructure:"created_by" json:"createdBy,omitempty" gorm:"column:createdby" bson:"createdBy,omitempty" dynamodbav:"createdBy,omitempty" firestore:"createdBy,omitempty"`
+	CreatedAt     string `yaml:"created_at" mapstructure:"created_at" json:"createdAt,omitempty" gorm:"column:createdat" bson:"createdAt,omitempty" dynamodbav:"createdAt,omitempty" firestore:"createdAt,omitempty"`
+	UpdatedBy     string `yaml:"updated_by" mapstructure:"updated_by" json:"updatedBy,omitempty" gorm:"column:updatedby" bson:"updatedBy,omitempty" dynamodbav:"updatedBy,omitempty" firestore:"updatedBy,omitempty"`
+	UpdatedAt     string `yaml:"updated_at" mapstructure:"updated_at" json:"updatedAt,omitempty" gorm:"column:updatedat" bson:"updatedAt,omitempty" dynamodbav:"updatedAt,omitempty" firestore:"updatedAt,omitempty"`
 }
 type Builder struct {
 	GenerateId     func(ctx context.Context, model interface{}) (int, error)

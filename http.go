@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"time"
 )
 
 func StartServer(conf ServerConf, handler http.Handler, options ...*tls.Config) {
@@ -58,17 +57,17 @@ func CreateServer(conf ServerConf, handler http.Handler, options ...*tls.Config)
 	if len(options) > 0 && options[0] != nil {
 		srv.TLSConfig = options[0]
 	}
-	if conf.ReadTimeout != nil && *conf.ReadTimeout > 0 {
-		srv.ReadTimeout = time.Duration(*conf.ReadTimeout) * time.Second
+	if conf.ReadTimeout != nil {
+		srv.ReadTimeout = *conf.ReadTimeout
 	}
-	if conf.ReadHeaderTimeout != nil && *conf.ReadHeaderTimeout > 0 {
-		srv.ReadHeaderTimeout = time.Duration(*conf.ReadHeaderTimeout) * time.Second
+	if conf.ReadHeaderTimeout != nil {
+		srv.ReadHeaderTimeout = *conf.ReadHeaderTimeout
 	}
-	if conf.WriteTimeout != nil && *conf.WriteTimeout > 0 {
-		srv.WriteTimeout = time.Duration(*conf.WriteTimeout) * time.Second
+	if conf.WriteTimeout != nil {
+		srv.WriteTimeout = *conf.WriteTimeout
 	}
-	if conf.IdleTimeout != nil && *conf.IdleTimeout > 0 {
-		srv.IdleTimeout = time.Duration(*conf.IdleTimeout) * time.Second
+	if conf.IdleTimeout != nil  {
+		srv.IdleTimeout = *conf.IdleTimeout
 	}
 	if conf.MaxHeaderBytes != nil && *conf.MaxHeaderBytes > 0 {
 		srv.MaxHeaderBytes = *conf.MaxHeaderBytes

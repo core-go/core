@@ -81,24 +81,24 @@ func SetStatus(obj interface{}, status int) ResultInfo {
 }
 
 type WriterConfig struct {
-	Status *StatusConfig `mapstructure:"status" json:"status,omitempty" gorm:"column:status" bson:"status,omitempty" dynamodbav:"status,omitempty" firestore:"status,omitempty"`
-	Action *ActionConfig `mapstructure:"action" json:"action,omitempty" gorm:"column:action" bson:"action,omitempty" dynamodbav:"action,omitempty" firestore:"action,omitempty"`
+	Status *StatusConfig `yaml:"status" mapstructure:"status" json:"status,omitempty" gorm:"column:status" bson:"status,omitempty" dynamodbav:"status,omitempty" firestore:"status,omitempty"`
+	Action *ActionConfig `yaml:"action" mapstructure:"action" json:"action,omitempty" gorm:"column:action" bson:"action,omitempty" dynamodbav:"action,omitempty" firestore:"action,omitempty"`
 }
 
 type StatusConfig struct {
-	DuplicateKey    int  `mapstructure:"duplicate_key" json:"duplicateKey" gorm:"column:duplicatekey" bson:"duplicateKey" dynamodbav:"duplicateKey" firestore:"duplicateKey"`
-	NotFound        int  `mapstructure:"not_found" json:"notFound" gorm:"column:notfound" bson:"notFound" dynamodbav:"notFound" firestore:"notFound"`
-	Success         int  `mapstructure:"success" json:"success" gorm:"column:success" bson:"success" dynamodbav:"success" firestore:"success"`
-	VersionError    int  `mapstructure:"version_error" json:"versionError" gorm:"column:versionerror" bson:"versionError" dynamodbav:"versionError" firestore:"versionError"`
-	ValidationError *int `mapstructure:"validation_error" json:"validationError" gorm:"column:validationerror" bson:"validationError" dynamodbav:"validationError" firestore:"validationError"`
-	Error           int  `mapstructure:"error" json:"error" gorm:"column:error" bson:"error" dynamodbav:"error" firestore:"error"`
+	DuplicateKey    int  `yaml:"duplicate_key" mapstructure:"duplicate_key" json:"duplicateKey" gorm:"column:duplicatekey" bson:"duplicateKey" dynamodbav:"duplicateKey" firestore:"duplicateKey"`
+	NotFound        int  `yaml:"not_found" mapstructure:"not_found" json:"notFound" gorm:"column:notfound" bson:"notFound" dynamodbav:"notFound" firestore:"notFound"`
+	Success         int  `yaml:"success" mapstructure:"success" json:"success" gorm:"column:success" bson:"success" dynamodbav:"success" firestore:"success"`
+	VersionError    int  `yaml:"version_error" mapstructure:"version_error" json:"versionError" gorm:"column:versionerror" bson:"versionError" dynamodbav:"versionError" firestore:"versionError"`
+	ValidationError *int `yaml:"validation_error" mapstructure:"validation_error" json:"validationError" gorm:"column:validationerror" bson:"validationError" dynamodbav:"validationError" firestore:"validationError"`
+	Error           int  `yaml:"error" mapstructure:"error" json:"error" gorm:"column:error" bson:"error" dynamodbav:"error" firestore:"error"`
 }
 type ActionConfig struct {
-	Load   *string `mapstructure:"load" json:"load,omitempty" gorm:"column:load" bson:"load,omitempty" dynamodbav:"load,omitempty" firestore:"load,omitempty"`
-	Create string  `mapstructure:"create" json:"create,omitempty" gorm:"column:create" bson:"create,omitempty" dynamodbav:"create,omitempty" firestore:"create,omitempty"`
-	Update string  `mapstructure:"update" json:"update,omitempty" gorm:"column:update" bson:"update,omitempty" dynamodbav:"update,omitempty" firestore:"update,omitempty"`
-	Patch  string  `mapstructure:"patch" json:"patch,omitempty" gorm:"column:patch" bson:"patch,omitempty" dynamodbav:"patch,omitempty" firestore:"patch,omitempty"`
-	Delete string  `mapstructure:"delete" json:"delete,omitempty" gorm:"column:delete" bson:"delete,omitempty" dynamodbav:"delete,omitempty" firestore:"delete,omitempty"`
+	Load   *string `yaml:"load" mapstructure:"load" json:"load,omitempty" gorm:"column:load" bson:"load,omitempty" dynamodbav:"load,omitempty" firestore:"load,omitempty"`
+	Create string  `yaml:"create" mapstructure:"create" json:"create,omitempty" gorm:"column:create" bson:"create,omitempty" dynamodbav:"create,omitempty" firestore:"create,omitempty"`
+	Update string  `yaml:"update" mapstructure:"update" json:"update,omitempty" gorm:"column:update" bson:"update,omitempty" dynamodbav:"update,omitempty" firestore:"update,omitempty"`
+	Patch  string  `yaml:"patch" mapstructure:"patch" json:"patch,omitempty" gorm:"column:patch" bson:"patch,omitempty" dynamodbav:"patch,omitempty" firestore:"patch,omitempty"`
+	Delete string  `yaml:"delete" mapstructure:"delete" json:"delete,omitempty" gorm:"column:delete" bson:"delete,omitempty" dynamodbav:"delete,omitempty" firestore:"delete,omitempty"`
 }
 
 func InitializeStatus(status *StatusConfig) StatusConfig {

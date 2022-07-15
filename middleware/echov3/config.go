@@ -1,4 +1,4 @@
-package middleware
+package echo
 
 type LogConfig struct {
 	Separate       bool              `yaml:"separate" mapstructure:"separate" json:"separate,omitempty" gorm:"column:separate" bson:"separate,omitempty" dynamodbav:"separate,omitempty" firestore:"separate,omitempty"`

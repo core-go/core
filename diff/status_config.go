@@ -1,15 +1,15 @@
 package diff
 
 type StatusDiffConfig struct {
-	Status *StatusConfig `mapstructure:"status" json:"status" gorm:"column:status" bson:"status" dynamodbav:"status" firestore:"status"`
-	Config DiffConfig    `mapstructure:"config" json:"config" gorm:"column:config" bson:"config" dynamodbav:"config" firestore:"config"`
+	Status *StatusConfig `yaml:"status" mapstructure:"status" json:"status" gorm:"column:status" bson:"status" dynamodbav:"status" firestore:"status"`
+	Config DiffConfig    `yaml:"config" mapstructure:"config" json:"config" gorm:"column:config" bson:"config" dynamodbav:"config" firestore:"config"`
 }
 
 type StatusConfig struct {
-	NotFound     int `mapstructure:"not_found" json:"notFound" gorm:"column:notfound" bson:"notFound" dynamodbav:"notFound" firestore:"notFound"`
-	Success      int `mapstructure:"success" json:"success" gorm:"column:success" bson:"success" dynamodbav:"success" firestore:"success"`
-	VersionError int `mapstructure:"version_error" json:"versionError" gorm:"column:versionerror" bson:"versionError" dynamodbav:"versionError" firestore:"versionError"`
-	Error        int `mapstructure:"error" json:"error" gorm:"column:error" bson:"error" dynamodbav:"error" firestore:"error"`
+	NotFound     int `yaml:"not_found" mapstructure:"not_found" json:"notFound" gorm:"column:notfound" bson:"notFound" dynamodbav:"notFound" firestore:"notFound"`
+	Success      int `yaml:"success" mapstructure:"success" json:"success" gorm:"column:success" bson:"success" dynamodbav:"success" firestore:"success"`
+	VersionError int `yaml:"version_error" mapstructure:"version_error" json:"versionError" gorm:"column:versionerror" bson:"versionError" dynamodbav:"versionError" firestore:"versionError"`
+	Error        int `yaml:"error" mapstructure:"error" json:"error" gorm:"column:error" bson:"error" dynamodbav:"error" firestore:"error"`
 }
 
 func InitializeStatus(status *StatusConfig) StatusConfig {

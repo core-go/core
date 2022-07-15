@@ -30,13 +30,13 @@ type KeyBuilder interface {
 	BuildKeyFromMap(keyMap map[string]interface{}, idNames []string) string
 }
 type DiffConfig struct {
-	HistoryId  string `mapstructure:"history_id" json:"historyId,omitempty" gorm:"column:historyid" bson:"_historyId,omitempty" dynamodbav:"historyId,omitempty" firestore:"historyId,omitempty"`
-	Id         string `mapstructure:"id" json:"id,omitempty" gorm:"column:id" bson:"_id,omitempty" dynamodbav:"id,omitempty" firestore:"id,omitempty"`
-	Origin     string `mapstructure:"origin" json:"origin,omitempty" gorm:"column:origin" bson:"origin,omitempty" dynamodbav:"origin,omitempty" firestore:"origin,omitempty"`
-	Value      string `mapstructure:"value" json:"value,omitempty" gorm:"column:value" bson:"value,omitempty" dynamodbav:"value,omitempty" firestore:"value,omitempty"`
-	ChangedBy  string `mapstructure:"changedBy" json:"changedBy,omitempty" gorm:"column:changedBy" bson:"changedBy,omitempty" dynamodbav:"changedBy,omitempty" firestore:"changedBy,omitempty"`
-	ApprovedBy string `mapstructure:"approvedBy" json:"approvedBy,omitempty" gorm:"column:approvedBy" bson:"approvedBy,omitempty" dynamodbav:"approvedBy,omitempty" firestore:"approvedBy,omitempty"`
-	Timestamp  string `mapstructure:"timestamp" json:"timestamp,omitempty" gorm:"column:timestamp" bson:"timestamp,omitempty" dynamodbav:"timestamp,omitempty" firestore:"timestamp,omitempty"`
+	HistoryId  string `yaml:"history_id" mapstructure:"history_id" json:"historyId,omitempty" gorm:"column:historyid" bson:"_historyId,omitempty" dynamodbav:"historyId,omitempty" firestore:"historyId,omitempty"`
+	Id         string `yaml:"id" mapstructure:"id" json:"id,omitempty" gorm:"column:id" bson:"_id,omitempty" dynamodbav:"id,omitempty" firestore:"id,omitempty"`
+	Origin     string `yaml:"origin" mapstructure:"origin" json:"origin,omitempty" gorm:"column:origin" bson:"origin,omitempty" dynamodbav:"origin,omitempty" firestore:"origin,omitempty"`
+	Value      string `yaml:"value" mapstructure:"value" json:"value,omitempty" gorm:"column:value" bson:"value,omitempty" dynamodbav:"value,omitempty" firestore:"value,omitempty"`
+	ChangedBy  string `yaml:"changed_by" mapstructure:"changed_by" json:"changedBy,omitempty" gorm:"column:changedBy" bson:"changedBy,omitempty" dynamodbav:"changedBy,omitempty" firestore:"changedBy,omitempty"`
+	ApprovedBy string `yaml:"approved_by" mapstructure:"approved_by" json:"approvedBy,omitempty" gorm:"column:approvedBy" bson:"approvedBy,omitempty" dynamodbav:"approvedBy,omitempty" firestore:"approvedBy,omitempty"`
+	Timestamp  string `yaml:"timestamp" mapstructure:"timestamp" json:"timestamp,omitempty" gorm:"column:timestamp" bson:"timestamp,omitempty" dynamodbav:"timestamp,omitempty" firestore:"timestamp,omitempty"`
 }
 type SqlDiffReader struct {
 	DB           *sql.DB
@@ -73,7 +73,7 @@ type SqlHistoryWriter struct {
 	Generate   func() (string, error)
 }
 
-func NewSqlDiffReader(db *sql.DB, table string, entity string, entityType string, idNames []string, config DiffConfig, keyBuilder KeyBuilder, options ...func(int) string) *SqlDiffReader {
+func NewSqlDiffReader(db *sql.DB, table string, entity string, entityType string, idNames []string, config DiffConfig, keyBuilder KeyBuilder, options...func(int) string) *SqlDiffReader {
 	columnSelect := buildQueryColumns(config)
 	driver := getDriver(db)
 	var buildParam func(int) string
@@ -85,7 +85,7 @@ func NewSqlDiffReader(db *sql.DB, table string, entity string, entityType string
 	return &SqlDiffReader{DB: db, Table: table, Entity: entity, EntityType: entityType, IdNames: idNames, Config: getDefaultConfig(config), KeyBuilder: keyBuilder, BuildParam: buildParam, Driver: driver, columnSelect: columnSelect}
 }
 
-func NewSqlDiffListReader(db *sql.DB, table string, entity string, entityType string, idNames []string, config DiffConfig, keyBuilder KeyBuilder, options ...func(int) string) *SqlDiffListReader {
+func NewSqlDiffListReader(db *sql.DB, table string, entity string, entityType string, idNames []string, config DiffConfig, keyBuilder KeyBuilder, options...func(int) string) *SqlDiffListReader {
 	columnSelect := buildQueryColumns(config)
 	driver := getDriver(db)
 	var buildParam func(int) string
@@ -364,7 +364,7 @@ func QueryDiff(ctx context.Context, db *sql.DB, result *DiffModel, sql string, v
 	if driver == DriverOracle {
 		suffix = " AND ROWNUM = 1 "
 	}
-	rows, err := db.QueryContext(ctx, sql+suffix, values...)
+	rows, err := db.QueryContext(ctx, sql + suffix, values...)
 	if err != nil {
 		return err
 	}

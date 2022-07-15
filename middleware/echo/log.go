@@ -4,8 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/core-go/core/middleware"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"io/ioutil"
 	"strings"
 	"time"
@@ -13,57 +12,29 @@ import (
 
 type Fields map[string]interface{}
 
-type Logger struct {
-	Config  middleware.LogConfig
+type EchoLogger struct {
+	Config  LogConfig
 	LogInfo func(ctx context.Context, msg string, fields map[string]interface{})
-	f       middleware.Formatter
+	f       Formatter
 	Mask    func(fieldName, s string) string
 }
 
-func NewLogger(c middleware.LogConfig, log func(ctx context.Context, msg string, fields map[string]interface{}), f middleware.Formatter, mask func(fieldName, s string) string) *Logger {
-	return &Logger{c, log, f, mask}
+func NewEchoLogger(c LogConfig, logInfo func(ctx context.Context, msg string, fields map[string]interface{}), mask func(fieldName, s string) string) *EchoLogger {
+	logger := NewLogger()
+	return &EchoLogger{c, logInfo, logger, mask}
 }
 
-var fieldConfig middleware.FieldConfig
-
-func InitializeFieldConfig(c middleware.LogConfig) {
-	if len(c.Duration) > 0 {
-		fieldConfig.Duration = c.Duration
-	} else {
-		fieldConfig.Duration = "duration"
-	}
-	fieldConfig.Log = c.Log
-	fieldConfig.Ip = c.Ip
-	if c.Map != nil && len(c.Map) > 0 {
-		fieldConfig.Map = c.Map
-	}
-	if c.Constants != nil && len(c.Constants) > 0 {
-		fieldConfig.Constants = c.Constants
-	}
-	if len(c.Fields) > 0 {
-		fields := strings.Split(c.Fields, ",")
-		fieldConfig.Fields = fields
-	}
-	if len(c.Masks) > 0 {
-		fields := strings.Split(c.Masks, ",")
-		fieldConfig.Masks = fields
-	}
-	if len(c.Skips) > 0 {
-		fields := strings.Split(c.Skips, ",")
-		fieldConfig.Skips = fields
-	}
-}
-func (l *Logger) LoggerEcho(next echo.HandlerFunc) echo.HandlerFunc {
+func (l *EchoLogger) Logger(next echo.HandlerFunc) echo.HandlerFunc {
 	InitializeFieldConfig(l.Config)
 	return func(c echo.Context) error {
-		if !fieldConfig.Log || middleware.InSkipList(c.Request(), fieldConfig.Skips) {
+		if !fieldConfig.Log || InSkipList(c.Request(), fieldConfig.Skips) {
 			return next(c)
 		} else {
 			r := c.Request()
-			dw := middleware.NewResponseWriter(c.Response().Writer)
-			ww := middleware.NewWrapResponseWriter(dw, r.ProtoMajor)
+			dw := NewResponseWriter(c.Response().Writer)
+			ww := NewWrapResponseWriter(dw, r.ProtoMajor)
 			startTime := time.Now()
-			fields := middleware.BuildLogFields(l.Config, r)
+			fields := BuildLogFields(l.Config, r)
 			single := !l.Config.Separate
 			if r.Method == "GET" || r.Method == "DELETE" {
 				single = true
@@ -75,7 +46,7 @@ func (l *Logger) LoggerEcho(next echo.HandlerFunc) echo.HandlerFunc {
 				if single {
 					l.f.LogResponse(l.LogInfo, r, ww, l.Config, startTime, dw.Body.String(), fields, single)
 				} else {
-					resLogFields := middleware.BuildLogFields(l.Config, r)
+					resLogFields := BuildLogFields(l.Config, r)
 					l.f.LogResponse(l.LogInfo, r, ww, l.Config, startTime, dw.Body.String(), resLogFields, single)
 				}
 			}()
@@ -85,7 +56,7 @@ func (l *Logger) LoggerEcho(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func (l *Logger) BuildContextWithMask(next echo.HandlerFunc) echo.HandlerFunc {
+func (l *EchoLogger) BuildContextWithMask(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctxEcho := c
 		var ctx context.Context
@@ -124,13 +95,13 @@ func (l *Logger) BuildContextWithMask(next echo.HandlerFunc) echo.HandlerFunc {
 				} else {
 					for k, e := range fieldConfig.Map {
 						if strings.Index(e, ".") >= 0 {
-							v3 := middleware.ValueOf(v, e)
+							v3 := ValueOf(v, e)
 							if v3 != nil {
 								s3, ok3 := v3.(string)
 								if ok3 {
 									if len(s3) > 0 {
 										if l.Mask != nil && fieldConfig.Masks != nil && len(fieldConfig.Masks) > 0 {
-											if middleware.Include(fieldConfig.Masks, k) {
+											if Include(fieldConfig.Masks, k) {
 												ctx = context.WithValue(ctx, k, l.Mask(k, s3))
 											} else {
 												ctx = context.WithValue(ctx, k, s3)
@@ -150,7 +121,7 @@ func (l *Logger) BuildContextWithMask(next echo.HandlerFunc) echo.HandlerFunc {
 								if ok3 {
 									if len(s3) > 0 {
 										if l.Mask != nil && fieldConfig.Masks != nil && len(fieldConfig.Masks) > 0 {
-											if middleware.Include(fieldConfig.Masks, k) {
+											if Include(fieldConfig.Masks, k) {
 												ctx = context.WithValue(ctx, k, l.Mask(k, s3))
 											} else {
 												ctx = context.WithValue(ctx, k, s3)

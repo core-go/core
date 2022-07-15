@@ -6,13 +6,13 @@ import (
 )
 
 type AllowConfig struct {
-	Origins            string `mapstructure:"origins" json:"origins,omitempty" gorm:"column:origins" bson:"origins,omitempty" dynamodbav:"origins,omitempty" firestore:"origins,omitempty"`
-	Methods            string `mapstructure:"methods" json:"methods,omitempty" gorm:"column:methods" bson:"methods,omitempty" dynamodbav:"methods,omitempty" firestore:"methods,omitempty"`
-	Headers            string `mapstructure:"headers" json:"headers,omitempty" gorm:"column:headers" bson:"headers,omitempty" dynamodbav:"headers,omitempty" firestore:"headers,omitempty"`
-	Credentials        bool   `mapstructure:"credentials" json:"credentials,omitempty" gorm:"column:credentials" bson:"credentials,omitempty" dynamodbav:"credentials,omitempty" firestore:"credentials,omitempty"`
-	MaxAge             *int   `mapstructure:"max_age" json:"maxAge,omitempty" gorm:"column:maxage" bson:"maxAge,omitempty" dynamodbav:"maxAge,omitempty" firestore:"maxAge,omitempty"`
-	ExposedHeaders     string `mapstructure:"exposed_headers" json:"exposedHeaders,omitempty" gorm:"column:exposedheaders" bson:"exposedHeaders,omitempty" dynamodbav:"exposedHeaders,omitempty" firestore:"exposedHeaders,omitempty"`
-	OptionsPassthrough *bool  `mapstructure:"options_passthrough" json:"optionsPassthrough,omitempty" gorm:"column:optionsPassthrough" bson:"optionsPassthrough,omitempty" dynamodbav:"optionsPassthrough,omitempty" firestore:"optionsPassthrough,omitempty"`
+	Origins            string `yaml:"origins" mapstructure:"origins" json:"origins,omitempty" gorm:"column:origins" bson:"origins,omitempty" dynamodbav:"origins,omitempty" firestore:"origins,omitempty"`
+	Methods            string `yaml:"methods" mapstructure:"methods" json:"methods,omitempty" gorm:"column:methods" bson:"methods,omitempty" dynamodbav:"methods,omitempty" firestore:"methods,omitempty"`
+	Headers            string `yaml:"headers" mapstructure:"headers" json:"headers,omitempty" gorm:"column:headers" bson:"headers,omitempty" dynamodbav:"headers,omitempty" firestore:"headers,omitempty"`
+	Credentials        bool   `yaml:"credentials" mapstructure:"credentials" json:"credentials,omitempty" gorm:"column:credentials" bson:"credentials,omitempty" dynamodbav:"credentials,omitempty" firestore:"credentials,omitempty"`
+	MaxAge             *int   `yaml:"max_age" mapstructure:"max_age" json:"maxAge,omitempty" gorm:"column:maxage" bson:"maxAge,omitempty" dynamodbav:"maxAge,omitempty" firestore:"maxAge,omitempty"`
+	ExposedHeaders     string `yaml:"exposed_headers" mapstructure:"exposed_headers" json:"exposedHeaders,omitempty" gorm:"column:exposedheaders" bson:"exposedHeaders,omitempty" dynamodbav:"exposedHeaders,omitempty" firestore:"exposedHeaders,omitempty"`
+	OptionsPassthrough *bool  `yaml:"options_passthrough" mapstructure:"options_passthrough" json:"optionsPassthrough,omitempty" gorm:"column:optionsPassthrough" bson:"optionsPassthrough,omitempty" dynamodbav:"optionsPassthrough,omitempty" firestore:"optionsPassthrough,omitempty"`
 }
 
 func New(conf AllowConfig) *cors.Cors {
