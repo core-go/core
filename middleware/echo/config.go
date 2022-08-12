@@ -24,6 +24,7 @@ type LogConfig struct {
 	Masks          string            `yaml:"masks" mapstructure:"masks" json:"masks,omitempty" gorm:"column:masks" bson:"masks,omitempty" dynamodbav:"masks,omitempty" firestore:"masks,omitempty"`
 	Map            map[string]string `yaml:"map" mapstructure:"map" json:"map,omitempty" gorm:"column:map" bson:"map,omitempty" dynamodbav:"map,omitempty" firestore:"map,omitempty"`
 	Constants      map[string]string `yaml:"constants" mapstructure:"constants" json:"constants,omitempty" gorm:"column:constants" bson:"constants,omitempty" dynamodbav:"constants,omitempty" firestore:"constants,omitempty"`
+	Headers        map[string]string `yaml:"headers" mapstructure:"headers" json:"headers,omitempty" gorm:"column:headers" bson:"headers,omitempty" dynamodbav:"headers,omitempty" firestore:"headers,omitempty"`
 }
 
 type FieldConfig struct {
@@ -35,4 +36,5 @@ type FieldConfig struct {
 	Fields    []string          `yaml:"fields" mapstructure:"fields" json:"fields,omitempty" gorm:"column:fields" bson:"fields,omitempty" dynamodbav:"fields,omitempty" firestore:"fields,omitempty"`
 	Masks     []string          `yaml:"masks" mapstructure:"masks" json:"masks,omitempty" gorm:"column:masks" bson:"masks,omitempty" dynamodbav:"masks,omitempty" firestore:"masks,omitempty"`
 	Skips     []string          `yaml:"skips" mapstructure:"skips" json:"skips,omitempty" gorm:"column:skips" bson:"skips,omitempty" dynamodbav:"skips,omitempty" firestore:"skips,omitempty"`
+	Headers   map[string]string `yaml:"headers" mapstructure:"headers" json:"headers,omitempty" gorm:"column:headers" bson:"headers,omitempty" dynamodbav:"headers,omitempty" firestore:"headers,omitempty"`
 }

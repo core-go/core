@@ -20,6 +20,9 @@ func InitializeFieldConfig(c LogConfig) {
 	if c.Constants != nil && len(c.Constants) > 0 {
 		fieldConfig.Constants = c.Constants
 	}
+	if c.Headers != nil && len(c.Headers) > 0 {
+		fieldConfig.Headers = c.Headers
+	}
 	if len(c.Fields) > 0 {
 		fields := strings.Split(c.Fields, ",")
 		fieldConfig.Fields = fields

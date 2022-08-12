@@ -24,6 +24,14 @@ func BuildContextWithMask(next http.Handler, mask func(fieldName, s string) stri
 				}
 			}
 		}
+		if fieldConfig.Headers != nil && len(fieldConfig.Headers) > 0 {
+			for k, e := range fieldConfig.Headers {
+				if len(e) > 0 {
+					header := r.Header.Get(e)
+					ctx = context.WithValue(ctx, k, header)
+				}
+			}
+		}
 		if fieldConfig.Map != nil && len(fieldConfig.Map) > 0 && r.Body != nil && (r.Method != "GET" || r.Method != "DELETE") {
 			buf := new(bytes.Buffer)
 			buf.ReadFrom(r.Body)

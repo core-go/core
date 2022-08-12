@@ -1,4 +1,4 @@
-package echo
+package gin
 
 import (
 	"bytes"

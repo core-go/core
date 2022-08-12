@@ -21,7 +21,7 @@ func SetLogger(logger0 *zap.Logger) {
 func Initialize(c Config, opts ...zapcore.Core) (*zap.Logger, error) {
 	return InitializeWithWriter(c, nil, opts...)
 }
-func InitializeWithWriter(c Config, getWriter func(logLocation string, rotationTime time.Duration) (io.Writer, func() error), opts ...zapcore.Core) (*zap.Logger, error) {
+func InitializeWithWriter(c Config, getWriter func(logLocation string, rotationTime time.Duration, maxSize int64) (io.Writer, func() error), opts ...zapcore.Core) (*zap.Logger, error) {
 	fieldConfig.FieldMap = c.FieldMap
 	if len(c.Duration) > 0 {
 		fieldConfig.Duration = c.Duration
@@ -63,7 +63,12 @@ func InitializeWithWriter(c Config, getWriter func(logLocation string, rotationT
 		if err != nil {
 			return nil, err
 		}
-		w, _ := getWriter(c.Output, 24*time.Hour)
+		dailyRotate := 24 * time.Hour
+		byteSizeLog, err := c.MaxSize.GetByteSize()
+		if err != nil {
+			byteSizeLog = 0
+		}
+		w, _ := getWriter(c.Output, dailyRotate, byteSizeLog)
 		syncer := zap.CombineWriteSyncers(os.Stdout, zapcore.AddSync(w))
 		options = append(options, NewWriter(syncer, cfg))
 	}
