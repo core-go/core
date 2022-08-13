@@ -93,9 +93,9 @@ func (e *ErrorHandler) HandlerException(ctx context.Context, rs interface{}, err
 }
 
 func NewImportRepository(modelType reflect.Type,
-	transform func(ctx context.Context, lines []string) (interface{}, error),
+	transform func(ctx context.Context, lines string, res interface{}) (error),
 	write func(ctx context.Context, data interface{}, endLineFlag bool) error,
-	read func(next func(lines []string, err error, numLine int) error) error,
+	read func(next func(line string, err error, numLine int) error) error,
 	handleException func(ctx context.Context, rs interface{}, err error, i int, fileName string),
 	validate func(ctx context.Context, model interface{}) ([]ErrorMessage, error),
 	logError func(ctx context.Context, rs interface{}, err []ErrorMessage, i int, fileName string),
@@ -104,9 +104,9 @@ func NewImportRepository(modelType reflect.Type,
 	return NewImporter(modelType, transform, write, read, handleException, validate, logError, opt...)
 }
 func NewImportAdapter(modelType reflect.Type,
-	transform func(ctx context.Context, lines []string) (interface{}, error),
+	transform func(ctx context.Context, lines string, res interface{}) (error),
 	write func(ctx context.Context, data interface{}, endLineFlag bool) error,
-	read func(next func(lines []string, err error, numLine int) error) error,
+	read func(next func(line string, err error, numLine int) error) error,
 	handleException func(ctx context.Context, rs interface{}, err error, i int, fileName string),
 	validate func(ctx context.Context, model interface{}) ([]ErrorMessage, error),
 	logError func(ctx context.Context, rs interface{}, err []ErrorMessage, i int, fileName string),
@@ -115,9 +115,9 @@ func NewImportAdapter(modelType reflect.Type,
 	return NewImporter(modelType, transform, write, read, handleException, validate, logError, opt...)
 }
 func NewImportService(modelType reflect.Type,
-	transform func(ctx context.Context, lines []string) (interface{}, error),
+	transform func(ctx context.Context, lines string, res interface{}) (error),
 	write func(ctx context.Context, data interface{}, endLineFlag bool) error,
-	read func(next func(lines []string, err error, numLine int) error) error,
+	read func(next func(line string, err error, numLine int) error) error,
 	handleException func(ctx context.Context, rs interface{}, err error, i int, fileName string),
 	validate func(ctx context.Context, model interface{}) ([]ErrorMessage, error),
 	logError func(ctx context.Context, rs interface{}, err []ErrorMessage, i int, fileName string),
@@ -126,9 +126,9 @@ func NewImportService(modelType reflect.Type,
 	return NewImporter(modelType, transform, write, read, handleException, validate, logError, opt...)
 }
 func NewImporter(modelType reflect.Type,
-	transform func(ctx context.Context, lines []string) (interface{}, error),
+	transform func(ctx context.Context, lines string, res interface{}) (error),
 	write func(ctx context.Context, data interface{}, endLineFlag bool) error,
-	read func(next func(lines []string, err error, numLine int) error) error,
+	read func(next func(line string, err error, numLine int) error) error,
 	handleException func(ctx context.Context, rs interface{}, err error, i int, fileName string),
 	validate func(ctx context.Context, model interface{}) ([]ErrorMessage, error),
 	handleError func(ctx context.Context, rs interface{}, err []ErrorMessage, i int, fileName string),
@@ -143,8 +143,8 @@ func NewImporter(modelType reflect.Type,
 
 type Importer struct {
 	modelType       reflect.Type
-	Transform       func(ctx context.Context, lines []string) (interface{}, error)
-	Read            func(next func(lines []string, err error, numLine int) error) error
+	Transform       func(ctx context.Context, lines string, res interface{}) (error)
+	Read            func(next func(line string, err error, numLine int) error) error
 	Write           func(ctx context.Context, data interface{}, endLineFlag bool) error
 	Validate        func(ctx context.Context, model interface{}) ([]ErrorMessage, error)
 	HandleError     func(ctx context.Context, rs interface{}, err []ErrorMessage, i int, fileName string)
@@ -153,30 +153,31 @@ type Importer struct {
 }
 
 func (s *Importer) Import(ctx context.Context) (total int, success int, err error) {
-	err = s.Read(func(lines []string, err error, numLine int) error {
+	err = s.Read(func(line string, err error, numLine int) error {
 		if err == io.EOF {
 			err = s.Write(ctx, nil, true)
 			return nil
 		}
 		total++
-		itemStruct, err := s.Transform(ctx, lines)
+		record := reflect.New(s.modelType).Interface()
+		err = s.Transform(ctx, line, record)
 		if err != nil {
 			return err
 		}
 		if s.Validate != nil {
-			errs, err := s.Validate(ctx, itemStruct)
+			errs, err := s.Validate(ctx, record)
 			if err != nil {
 				return err
 			}
 			if len(errs) > 0 {
-				s.HandleError(ctx, itemStruct, errs, numLine, s.Filename)
+				s.HandleError(ctx, record, errs, numLine, s.Filename)
 				return nil
 			}
 		}
-		err = s.Write(ctx, itemStruct, false)
+		err = s.Write(ctx, record, false)
 		if err != nil {
 			if s.HandleException != nil {
-				s.HandleException(ctx, itemStruct, err, numLine, s.Filename)
+				s.HandleException(ctx, record, err, numLine, s.Filename)
 				return nil
 			} else {
 				return err

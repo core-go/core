@@ -47,17 +47,24 @@ func GetIndexesByTag(modelType reflect.Type, tagName string) (map[int]Delimiter,
 	}
 	return ma, nil
 }
-func NewDelimiterFormatter(modelType reflect.Type) (*DelimiterFormatter, error) {
+func NewDelimiterFormatter(modelType reflect.Type, options... string) (*DelimiterFormatter, error) {
 	formatCols, err := GetIndexesByTag(modelType, "format")
 	if err != nil {
 		return nil, err
 	}
-	return &DelimiterFormatter{modelType: modelType, formatCols: formatCols}, nil
+	separator := ""
+	if len(options) > 0 {
+		separator = options[0]
+	} else {
+		separator = ","
+	}
+	return &DelimiterFormatter{modelType: modelType, formatCols: formatCols, separator: separator}, nil
 }
 
 type DelimiterFormatter struct {
 	modelType  reflect.Type
 	formatCols map[int]Delimiter
+	separator string
 }
 
 type Delimiter struct {
@@ -65,19 +72,17 @@ type Delimiter struct {
 	Scale  int
 }
 
-func (f DelimiterFormatter) ToStruct(ctx context.Context, lines []string) (interface{}, error) {
-	record := reflect.New(f.modelType).Interface()
-	err := ScanLine(lines, f.modelType, record, f.formatCols)
+func (f DelimiterFormatter) ToStruct(ctx context.Context, lineStr string, res interface{}) (error) {
+	lines := strings.Split(lineStr, f.separator)
+	err := ScanLine(lines, res, f.formatCols)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if record != nil {
-		return reflect.Indirect(reflect.ValueOf(record)).Interface(), nil
-	}
-	return record, err
+	return err
 }
 
-func ScanLine(lines []string, modelType reflect.Type, record interface{}, formatCols map[int]Delimiter) error {
+func ScanLine(lines []string, record interface{}, formatCols map[int]Delimiter) error {
+	modelType := reflect.TypeOf(record).Elem()
 	s := reflect.Indirect(reflect.ValueOf(record))
 	numFields := s.NumField()
 	for i := 0; i < numFields; i++ {
