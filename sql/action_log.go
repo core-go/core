@@ -14,7 +14,6 @@ type ActionLogConf struct {
 	Schema ActionLogSchema `yaml:"schema" mapstructure:"schema" json:"schema,omitempty" gorm:"column:schema" bson:"schema,omitempty" dynamodbav:"schema,omitempty" firestore:"schema,omitempty"`
 	Config ActionLogConfig `yaml:"config" mapstructure:"config" json:"config,omitempty" gorm:"column:config" bson:"config,omitempty" dynamodbav:"config,omitempty" firestore:"config,omitempty"`
 }
-
 type ActionLogSchema struct {
 	Id        string    `yaml:"id" mapstructure:"id" json:"id,omitempty" gorm:"column:id" bson:"_id,omitempty" dynamodbav:"id,omitempty" firestore:"id,omitempty"`
 	User      string    `yaml:"user" mapstructure:"user" json:"user,omitempty" gorm:"column:user" bson:"user,omitempty" dynamodbav:"user,omitempty" firestore:"user,omitempty"`
@@ -59,7 +58,7 @@ func NewActionLogWriter(database *sql.DB, tableName string, config ActionLogConf
 	s.Timestamp = strings.ToLower(s.Timestamp)
 	s.Status = strings.ToLower(s.Status)
 	s.Desc = strings.ToLower(s.Desc)
-	driver := getDriver(database)
+	driver := GetDriver(database)
 	if len(s.Id) == 0 {
 		s.Id = "id"
 	}
@@ -85,7 +84,7 @@ func NewActionLogWriter(database *sql.DB, tableName string, config ActionLogConf
 	if len(options) > 0 && options[0] != nil {
 		buildParam = options[0]
 	} else {
-		buildParam = getBuild(database)
+		buildParam = GetBuild(database)
 	}
 	writer := ActionLogWriter{Database: database, Table: tableName, Config: config, Schema: s, Generate: generate, BuildParam: buildParam, Driver: driver}
 	return &writer
@@ -105,9 +104,9 @@ func (s *ActionLogWriter) Write(ctx context.Context, resource string, action str
 	} else {
 		log[ch.Status] = s.Config.False
 	}
-	log[ch.User] = getString(ctx, s.Config.User)
+	log[ch.User] = GetString(ctx, s.Config.User)
 	if len(ch.Ip) > 0 {
-		log[ch.Ip] = getString(ctx, s.Config.Ip)
+		log[ch.Ip] = GetString(ctx, s.Config.Ip)
 	}
 	if s.Generate != nil {
 		id, er0 := s.Generate(ctx)
@@ -115,18 +114,18 @@ func (s *ActionLogWriter) Write(ctx context.Context, resource string, action str
 			log[ch.Id] = id
 		}
 	}
-	ext := buildExt(ctx, ch.Ext)
+	ext := BuildExt(ctx, ch.Ext)
 	if len(ext) > 0 {
 		for k, v := range ext {
 			log[k] = v
 		}
 	}
-	query, vars := buildInsertSQL(s.Database, s.Table, log, s.BuildParam)
+	query, vars := BuildInsertSQL(s.Database, s.Table, log, s.BuildParam)
 	_, err := s.Database.ExecContext(ctx, query, vars...)
 	return err
 }
 
-func buildExt(ctx context.Context, keys *[]string) map[string]interface{} {
+func BuildExt(ctx context.Context, keys *[]string) map[string]interface{} {
 	headers := make(map[string]interface{})
 	if keys != nil {
 		hs := *keys
@@ -139,7 +138,7 @@ func buildExt(ctx context.Context, keys *[]string) map[string]interface{} {
 	}
 	return headers
 }
-func getString(ctx context.Context, key string) string {
+func GetString(ctx context.Context, key string) string {
 	if len(key) > 0 {
 		u := ctx.Value(key)
 		if u != nil {
@@ -153,18 +152,18 @@ func getString(ctx context.Context, key string) string {
 	}
 	return ""
 }
-func buildInsertSQL(db *sql.DB, tableName string, model map[string]interface{}, options ...func(i int) string) (string, []interface{}) {
-	driver := getDriver(db)
+func BuildInsertSQL(db *sql.DB, tableName string, model map[string]interface{}, options ...func(i int) string) (string, []interface{}) {
+	driver := GetDriver(db)
 	var buildParam func(i int) string
 	if len(options) > 0 && options[0] != nil {
 		buildParam = options[0]
 	} else {
-		buildParam = getBuild(db)
+		buildParam = GetBuild(db)
 	}
 	var cols []string
 	var values []interface{}
 	for col, v := range model {
-		cols = append(cols, quoteString(col, driver))
+		cols = append(cols, QuoteString(col, driver))
 		values = append(values, v)
 	}
 	column := fmt.Sprintf("(%v)", strings.Join(cols, ","))
@@ -175,12 +174,12 @@ func buildInsertSQL(db *sql.DB, tableName string, model map[string]interface{}, 
 		arrValue = append(arrValue, param)
 	}
 	value := fmt.Sprintf("(%v)", strings.Join(arrValue, ","))
-	strSQL := fmt.Sprintf("insert into %v %v values %v", quoteString(tableName, driver), column, value)
+	strSQL := fmt.Sprintf("insert into %v %v values %v", QuoteString(tableName, driver), column, value)
 	return strSQL, values
 }
 
-func quoteString(name string, driver string) string {
-	if driver == driverPostgres {
+func QuoteString(name string, driver string) string {
+	if driver == DriverPostgres {
 		name = "`" + strings.Replace(name, "`", "``", -1) + "`"
 	}
 	return name

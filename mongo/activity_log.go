@@ -6,6 +6,12 @@ import (
 	"time"
 )
 
+type ActivityLogConf struct {
+	Log    bool                    `yaml:"log" mapstructure:"log" json:"log,omitempty" gorm:"column:log" bson:"log,omitempty" dynamodbav:"log,omitempty" firestore:"log,omitempty"`
+	DB     MongoConfig             `yaml:"db" mapstructure:"db" json:"db,omitempty" gorm:"column:db" bson:"db,omitempty" dynamodbav:"db,omitempty" firestore:"db,omitempty"`
+	Schema ActivityLogSchemaConfig `yaml:"schema" mapstructure:"schema" json:"schema,omitempty" gorm:"column:schema" bson:"schema,omitempty" dynamodbav:"schema,omitempty" firestore:"schema,omitempty"`
+	Config ActivityLogConfig       `yaml:"config" mapstructure:"config" json:"config,omitempty" gorm:"column:config" bson:"config,omitempty" dynamodbav:"config,omitempty" firestore:"config,omitempty"`
+}
 type ActivityLogSchemaConfig struct {
 	User      string    `yaml:"user" mapstructure:"user" json:"user,omitempty" gorm:"column:user" bson:"user,omitempty" dynamodbav:"user,omitempty" firestore:"user,omitempty"`
 	Ip        string    `yaml:"ip" mapstructure:"ip" json:"ip,omitempty" gorm:"column:ip" bson:"ip,omitempty" dynamodbav:"ip,omitempty" firestore:"ip,omitempty"`
@@ -50,11 +56,11 @@ type ActivityLogWriter struct {
 }
 
 type ActivityLogConfig struct {
-	User       string `yaml:"user" mapstructure:"user" json:"user,omitempty" gorm:"column:user" bson:"user,omitempty" dynamodbav:"user,omitempty" firestore:"user,omitempty"`
-	Ip         string `yaml:"ip" mapstructure:"ip" json:"ip,omitempty" gorm:"column:ip" bson:"ip,omitempty" dynamodbav:"ip,omitempty" firestore:"ip,omitempty"`
-	True       string `yaml:"true" mapstructure:"true" json:"true,omitempty" gorm:"column:true" bson:"true,omitempty" dynamodbav:"true,omitempty" firestore:"true,omitempty"`
-	False      string `yaml:"false" mapstructure:"false" json:"false,omitempty" gorm:"column:false" bson:"false,omitempty" dynamodbav:"false,omitempty" firestore:"false,omitempty"`
-	Goroutines bool   `yaml:"goroutines" mapstructure:"goroutines" json:"goroutines,omitempty" gorm:"column:goroutines" bson:"goroutines,omitempty" dynamodbav:"goroutines,omitempty" firestore:"goroutines,omitempty"`
+	User       string `mapstructure:"user" json:"user,omitempty" gorm:"column:user" bson:"user,omitempty" dynamodbav:"user,omitempty" firestore:"user,omitempty"`
+	Ip         string `mapstructure:"ip" json:"ip,omitempty" gorm:"column:ip" bson:"ip,omitempty" dynamodbav:"ip,omitempty" firestore:"ip,omitempty"`
+	True       string `mapstructure:"true" json:"true,omitempty" gorm:"column:true" bson:"true,omitempty" dynamodbav:"true,omitempty" firestore:"true,omitempty"`
+	False      string `mapstructure:"false" json:"false,omitempty" gorm:"column:false" bson:"false,omitempty" dynamodbav:"false,omitempty" firestore:"false,omitempty"`
+	Goroutines bool   `mapstructure:"goroutines" json:"goroutines,omitempty" gorm:"column:goroutines" bson:"goroutines,omitempty" dynamodbav:"goroutines,omitempty" firestore:"goroutines,omitempty"`
 }
 
 func (s *ActivityLogWriter) Write(ctx context.Context, resource string, action string, success bool, desc string) error {
@@ -71,9 +77,9 @@ func (s *ActivityLogWriter) Write(ctx context.Context, resource string, action s
 	} else {
 		log[ch.Status] = s.Config.False
 	}
-	log[ch.User] = getString(ctx, s.Config.User)
+	log[ch.User] = GetString(ctx, s.Config.User)
 	if len(ch.Ip) > 0 {
-		log[ch.Ip] = getString(ctx, s.Config.Ip)
+		log[ch.Ip] = GetString(ctx, s.Config.Ip)
 	}
 	if s.Generate != nil {
 		id, er0 := s.Generate(ctx)
@@ -81,7 +87,7 @@ func (s *ActivityLogWriter) Write(ctx context.Context, resource string, action s
 			log["_id"] = id
 		}
 	}
-	ext := buildExt(ctx, ch.Ext)
+	ext := BuildExt(ctx, ch.Ext)
 	if len(ext) > 0 {
 		for k, v := range ext {
 			log[k] = v
@@ -96,7 +102,7 @@ func (s *ActivityLogWriter) Write(ctx context.Context, resource string, action s
 	}
 }
 
-func buildExt(ctx context.Context, keys *[]string) map[string]interface{} {
+func BuildExt(ctx context.Context, keys *[]string) map[string]interface{} {
 	headers := make(map[string]interface{})
 	if keys != nil {
 		hs := *keys
@@ -109,7 +115,7 @@ func buildExt(ctx context.Context, keys *[]string) map[string]interface{} {
 	}
 	return headers
 }
-func getString(ctx context.Context, key string) string {
+func GetString(ctx context.Context, key string) string {
 	if len(key) > 0 {
 		u := ctx.Value(key)
 		if u != nil {

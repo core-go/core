@@ -1,21 +1,11 @@
 package sql
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"reflect"
 	"strconv"
 	"time"
-)
-
-const (
-	driverPostgres   = "postgres"
-	driverMysql      = "mysql"
-	driverMssql      = "mssql"
-	driverOracle     = "oracle"
-	driverSqlite3    = "sqlite3"
-	driverNotSupport = "no support"
 )
 
 type Config struct {
@@ -46,64 +36,33 @@ type RetryConfig struct {
 	Retry9 int64 `yaml:"9" mapstructure:"9" json:"retry9,omitempty" gorm:"column:retry9" bson:"retry9,omitempty" dynamodbav:"retry9,omitempty" firestore:"retry9,omitempty"`
 }
 
-func OpenByConfig(c Config) (*sql.DB, error) {
-	if c.Mock {
-		return nil, nil
+func MakeDurations(vs []int64) []time.Duration {
+	durations := make([]time.Duration, 0)
+	for _, v := range vs {
+		d := time.Duration(v) * time.Second
+		durations = append(durations, d)
 	}
-	if c.Retry.Retry1 <= 0 {
-		return open(c)
-	} else {
-		durations := durationsFromValue(c.Retry, "Retry", 9)
-		return Open(c, durations...)
-	}
+	return durations
 }
-func open(c Config) (*sql.DB, error) {
-	dsn := c.DataSourceName
-	if len(dsn) == 0 {
-		dsn = buildDataSourceName(c)
-	}
-	db, err := sql.Open(c.Driver, dsn)
-	if err != nil {
-		return db, err
-	}
-	if c.ConnMaxLifetime != nil {
-		db.SetConnMaxLifetime(*c.ConnMaxLifetime)
-	}
-	if c.MaxIdleConns > 0 {
-		db.SetMaxIdleConns(c.MaxIdleConns)
-	}
-	if c.MaxOpenConns > 0 {
-		db.SetMaxOpenConns(c.MaxOpenConns)
-	}
-	return db, err
-}
-func Open(c Config, retries ...time.Duration) (*sql.DB, error) {
-	if c.Mock {
-		return nil, nil
-	}
-	if len(retries) == 0 {
-		return open(c)
-	} else {
-		db, er1 := open(c)
-		if er1 == nil {
-			return db, er1
+func MakeArray(v interface{}, prefix string, max int) []int64 {
+	var ar []int64
+	v2 := reflect.Indirect(reflect.ValueOf(v))
+	for i := 1; i <= max; i++ {
+		fn := prefix + strconv.Itoa(i)
+		v3 := v2.FieldByName(fn).Interface().(int64)
+		if v3 > 0 {
+			ar = append(ar, v3)
+		} else {
+			return ar
 		}
-		i := 0
-		err := retry(retries, func() (err error) {
-			i = i + 1
-			db2, er2 := open(c)
-			if er2 == nil {
-				db = db2
-			}
-			return er2
-		})
-		if err != nil {
-			log.Printf("Cannot conect to database: %s.", err.Error())
-		}
-		return db, err
 	}
+	return ar
 }
-func retry(sleeps []time.Duration, f func() error) (err error) {
+func DurationsFromValue(v interface{}, prefix string, max int) []time.Duration {
+	arr := MakeArray(v, prefix, max)
+	return MakeDurations(arr)
+}
+func Retry(sleeps []time.Duration, f func() error) (err error) {
 	attempts := len(sleeps)
 	for i := 0; ; i++ {
 		log.Printf("Retrying %d of %d ", i+1, attempts)
@@ -118,97 +77,4 @@ func retry(sleeps []time.Duration, f func() error) (err error) {
 		log.Printf("Retrying %d of %d after error: %s", i+1, attempts, err.Error())
 	}
 	return fmt.Errorf("after %d attempts, last error: %s", attempts, err)
-}
-func buildDataSourceName(c Config) string {
-	if c.Driver == "postgres" {
-		uri := fmt.Sprintf("user=%s dbname=%s password=%s host=%s port=%d sslmode=disable", c.User, c.Database, c.Password, c.Host, c.Port)
-		return uri
-	} else if c.Driver == "mysql" {
-		uri := ""
-		if c.MultiStatements {
-			uri = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local&multiStatements=True", c.User, c.Password, c.Host, c.Port, c.Database)
-			return uri
-		}
-		uri = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local", c.User, c.Password, c.Host, c.Port, c.Database)
-		return uri
-	} else if c.Driver == "mssql" { // mssql
-		uri := fmt.Sprintf("sqlserver://%s:%s@%s:%d?Database=%s", c.User, c.Password, c.Host, c.Port, c.Database)
-		return uri
-	} else if c.Driver == "godror" || c.Driver == "oracle" {
-		return fmt.Sprintf("user=\"%s\" password=\"%s\" connectString=\"%s:%d/%s\"", c.User, c.Password, c.Host, c.Port, c.Database)
-	} else { //sqlite
-		return c.Host // return sql.Open("sqlite3", c.Host)
-	}
-}
-func durationsFromValue(v interface{}, prefix string, max int) []time.Duration {
-	arr := makeArray(v, prefix, max)
-	return makeDurations(arr)
-}
-func makeDurations(vs []int64) []time.Duration {
-	durations := make([]time.Duration, 0)
-	for _, v := range vs {
-		d := time.Duration(v) * time.Second
-		durations = append(durations, d)
-	}
-	return durations
-}
-func makeArray(v interface{}, prefix string, max int) []int64 {
-	var ar []int64
-	v2 := reflect.Indirect(reflect.ValueOf(v))
-	for i := 1; i <= max; i++ {
-		fn := prefix + strconv.Itoa(i)
-		v3 := v2.FieldByName(fn).Interface().(int64)
-		if v3 > 0 {
-			ar = append(ar, v3)
-		} else {
-			return ar
-		}
-	}
-	return ar
-}
-
-func buildParam(i int) string {
-	return "?"
-}
-func buildOracleParam(i int) string {
-	return ":val" + strconv.Itoa(i)
-}
-func buildMsSqlParam(i int) string {
-	return "@p" + strconv.Itoa(i)
-}
-func buildDollarParam(i int) string {
-	return "$" + strconv.Itoa(i)
-}
-func getBuild(db *sql.DB) func(i int) string {
-	driver := reflect.TypeOf(db.Driver()).String()
-	switch driver {
-	case "*pq.Driver":
-		return buildDollarParam
-	case "*godror.drv":
-		return buildOracleParam
-	case "*mssql.Driver":
-		return buildMsSqlParam
-	default:
-		return buildParam
-	}
-}
-func getDriver(db *sql.DB) string {
-	if db == nil {
-		return driverNotSupport
-	}
-	driver := reflect.TypeOf(db.Driver()).String()
-	switch driver {
-	case "*pq.Driver":
-		return driverPostgres
-	case "*godror.drv":
-		return driverOracle
-	case "*mysql.MySQLDriver":
-		return driverMysql
-	case "*mssql.Driver":
-		return driverMssql
-	case "*sqlite3.SQLiteDriver":
-		return driverSqlite3
-	default:
-		return driverNotSupport
-	}
 }
