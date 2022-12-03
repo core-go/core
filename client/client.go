@@ -7,9 +7,11 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
 	"strings"
 	"time"
 )
@@ -56,11 +58,12 @@ type LogConfig struct {
 	Error          string `yaml:"error" mapstructure:"error" json:"error,omitempty" gorm:"column:error" bson:"error,omitempty" dynamodbav:"error,omitempty" firestore:"error,omitempty"`
 }
 type Params struct {
-	Client *http.Client
-	Url    string
-	Header map[string]string
-	Config *LogConfig
-	Log    func(context.Context, string, map[string]interface{})
+	Client   *http.Client
+	Url      string
+	Header   map[string]string
+	Config   *LogConfig
+	LogError func(context.Context, string, map[string]interface{})
+	LogInfo  func(context.Context, string, map[string]interface{})
 }
 
 const (
@@ -110,22 +113,30 @@ func InitializeParams(config ClientConfig, opts ...func(context.Context, string,
 	if err != nil {
 		return nil, err
 	}
-	var log func(context.Context, string, map[string]interface{})
+	var logError func(context.Context, string, map[string]interface{})
+	var logInfo func(context.Context, string, map[string]interface{})
 	if len(opts) > 0 && opts[0] != nil {
-		log = opts[0]
+		logError = opts[0]
 	}
-	return &Params{Client: c, Url: config.Endpoint.Url, Header: header, Config: conf, Log: log}, nil
+	if len(opts) > 1 && opts[1] != nil {
+		logInfo = opts[1]
+	}
+	return &Params{Client: c, Url: config.Endpoint.Url, Header: header, Config: conf, LogError: logError, LogInfo: logInfo}, nil
 }
 func InitParams(config ClientConf, opts ...func(context.Context, string, map[string]interface{})) (*Params, error) {
 	c, header, conf, err := InitClient(config)
 	if err != nil {
 		return nil, err
 	}
-	var log func(context.Context, string, map[string]interface{})
+	var logError func(context.Context, string, map[string]interface{})
+	var logInfo func(context.Context, string, map[string]interface{})
 	if len(opts) > 0 && opts[0] != nil {
-		log = opts[0]
+		logError = opts[0]
 	}
-	return &Params{Client: c, Url: config.Endpoint.Url, Header: header, Config: conf, Log: log}, nil
+	if len(opts) > 1 && opts[1] != nil {
+		logInfo = opts[1]
+	}
+	return &Params{Client: c, Url: config.Endpoint.Url, Header: header, Config: conf, LogError: logError, LogInfo: logInfo}, nil
 }
 func InitializeClient(config ClientConfig) (*http.Client, map[string]string, *LogConfig, error) {
 	e := config.Endpoint
@@ -245,7 +256,7 @@ func GetTLSClientConfig(clientCert tls.Certificate, options ...string) (*tls.Con
 	return c, nil
 }
 
-func DoJSON(ctx context.Context, client *http.Client, url string, method string, body []byte, headers map[string]string) (*http.Response, error) {
+func DoJSON(ctx context.Context, client *http.Client, method string, url string, body []byte, headers map[string]string) (*http.Response, error) {
 	if body != nil {
 		b := body
 		req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewBuffer(b))
@@ -260,6 +271,39 @@ func DoJSON(ctx context.Context, client *http.Client, url string, method string,
 		}
 		return AddHeaderAndDoJSON(client, req, headers)
 	}
+}
+func DoJSONWithClient(ctx context.Context, client *http.Client, method string, url string, obj interface{}, headers map[string]string, errorStatus int) (*json.Decoder, error) {
+	if client == nil {
+		client = sClient
+	}
+	rq, err := Marshal(obj)
+	if err != nil {
+		return nil, err
+	}
+	return DoJSONAndDecode(ctx, client, method, url, rq, headers, errorStatus)
+}
+func DoJSONAndDecode(ctx context.Context, client *http.Client, method string, url string, body []byte, headers map[string]string, errorStatus int) (*json.Decoder, error) {
+	start := time.Now()
+	response, er1 := DoJSON(ctx, client, method, url, body, headers)
+	end := time.Now()
+	dur := end.Sub(start).Milliseconds()
+	if er1 != nil {
+		return nil, er1
+	}
+	if errorStatus < 0 {
+		res := json.NewDecoder(response.Body)
+		return res, nil
+	}
+	if response.StatusCode >= errorStatus {
+		res, er2 := io.ReadAll(response.Body)
+		var rs string
+		if er2 == nil {
+			rs = string(res)
+		}
+		return nil, NewHttpError(response.StatusCode, nil, dur, fmt.Sprint("Response error with status code: ", response.StatusCode), url, string(body), rs)
+	}
+	res := json.NewDecoder(response.Body)
+	return res, nil
 }
 func AddHeaderAndDoJSON(client *http.Client, req *http.Request, headers map[string]string) (*http.Response, error) {
 	if headers != nil {
@@ -281,19 +325,19 @@ func AddHeaderAndDo(client *http.Client, req *http.Request, headers map[string]s
 	return resp, err
 }
 func DoGet(ctx context.Context, client *http.Client, url string, headers map[string]string) (*http.Response, error) {
-	return DoJSON(ctx, client, url, get, nil, headers)
+	return DoJSON(ctx, client, get, url, nil, headers)
 }
 func DoDelete(ctx context.Context, client *http.Client, url string, headers map[string]string) (*http.Response, error) {
-	return DoJSON(ctx, client, url, delete, nil, headers)
+	return DoJSON(ctx, client, delete, url, nil, headers)
 }
 func DoPost(ctx context.Context, client *http.Client, url string, body []byte, headers map[string]string) (*http.Response, error) {
-	return DoJSON(ctx, client, url, post, body, headers)
+	return DoJSON(ctx, client, post, url, body, headers)
 }
 func DoPut(ctx context.Context, client *http.Client, url string, body []byte, headers map[string]string) (*http.Response, error) {
-	return DoJSON(ctx, client, url, put, body, headers)
+	return DoJSON(ctx, client, put, url, body, headers)
 }
 func DoPatch(ctx context.Context, client *http.Client, url string, body []byte, headers map[string]string) (*http.Response, error) {
-	return DoJSON(ctx, client, url, patch, body, headers)
+	return DoJSON(ctx, client, patch, url, body, headers)
 }
 func GetDecoder(ctx context.Context, client *http.Client, url string, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
 	return DoWithClient(ctx, client, get, url, nil, nil, conf, options...)
@@ -396,6 +440,13 @@ func Marshal(obj interface{}) ([]byte, error) {
 	}
 	return v, nil
 }
+func GetString(obj interface{}) (string, bool) {
+	bs, err := Marshal(obj)
+	if err != nil {
+		return "", false
+	}
+	return string(bs), true
+}
 func DoWithClient(ctx context.Context, client *http.Client, method string, url string, obj interface{}, headers map[string]string, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
 	if client == nil {
 		client = sClient
@@ -404,12 +455,92 @@ func DoWithClient(ctx context.Context, client *http.Client, method string, url s
 	if err != nil {
 		return nil, err
 	}
-	return DoAndBuildDecoder(ctx, client, url, method, rq, headers, conf, options...)
+	return DoAndBuildDecoder(ctx, client, method, url, rq, headers, conf, options...)
 }
-func DoAndBuildDecoder(ctx context.Context, client *http.Client, url string, method string, body []byte, headers map[string]string, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
+func DoAndBuildDecoder(ctx context.Context, client *http.Client, method string, url string, body []byte, headers map[string]string, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) (*json.Decoder, error) {
+	var logError func(context.Context, string, map[string]interface{})
 	var logInfo func(context.Context, string, map[string]interface{})
 	if len(options) > 0 {
-		logInfo = options[0]
+		logError = options[0]
+	}
+	if len(options) > 1 {
+		logInfo = options[1]
+	}
+	start := time.Now()
+	res, er1 := DoJSON(ctx, client, method, url, body, headers)
+	end := time.Now()
+	dur := end.Sub(start).Milliseconds()
+	if logError != nil && (er1 != nil || res.StatusCode >= 400) {
+		fs3 := make(map[string]interface{}, 0)
+		var c2 LogConfig
+		if conf != nil {
+			c2 = *conf
+		} else {
+			c2.Duration = "duration"
+			c2.Request = "request"
+			c2.Response = "response"
+			c2.ResponseStatus = "status"
+			c2.Error = "error"
+		}
+		if body != nil {
+			rq := string(body)
+			if len(rq) > 0 {
+				fs3[c2.Request] = rq
+			}
+		}
+		if er1 != nil {
+			if len(c2.Error) > 0 {
+				fs3[c2.Error] = er1.Error()
+			}
+			logError(ctx, method+" "+url, fs3)
+			return nil, er1
+		}
+		if len(c2.ResponseStatus) > 0 {
+			fs3[c2.ResponseStatus] = res.StatusCode
+		}
+		if len(c2.Size) > 0 && res.ContentLength > 0 {
+			fs3[c2.Size] = res.ContentLength
+		}
+		if len(c2.Response) > 0 {
+			dump, er3 := httputil.DumpResponse(res, true)
+			if er3 != nil {
+				if len(c2.Error) > 0 {
+					fs3[c2.Error] = er3.Error()
+				}
+				logError(ctx, method+" "+url, fs3)
+				return nil, er3
+			}
+			s := string(dump)
+			if len(c2.Size) > 0 {
+				fs3[c2.Size] = len(s)
+			}
+			if len(c2.Response) > 0 {
+				fs3[c2.Response] = s
+			}
+			if res.StatusCode == 503 {
+				logError(ctx, method+" "+url, fs3)
+				var rq string
+				if body != nil {
+					rq = string(body)
+				}
+				er2 := NewHttpError(http.StatusServiceUnavailable, er1, dur, "503 Service Unavailable", url, rq, s)
+				return nil, er2
+			}
+			logError(ctx, method+" "+url, fs3)
+			return json.NewDecoder(strings.NewReader(s)), nil
+		} else {
+			if res.StatusCode == 503 {
+				logError(ctx, method+" "+url, fs3)
+				var rq string
+				if body != nil {
+					rq = string(body)
+				}
+				er2 := NewHttpError(http.StatusServiceUnavailable, er1, dur, "503 Service Unavailable", url, rq)
+				return nil, er2
+			}
+			logError(ctx, method+" "+url, fs3)
+			return json.NewDecoder(res.Body), nil
+		}
 	}
 	if conf != nil && conf.Log == true && logInfo != nil {
 		canRequest := false
@@ -424,11 +555,8 @@ func DoAndBuildDecoder(ctx context.Context, client *http.Client, url string, met
 			}
 			logInfo(ctx, method+" "+url, fs1)
 		}
-		start := time.Now()
-		res, er1 := DoJSON(ctx, client, url, method, body, headers)
-		end := time.Now()
 		fs3 := make(map[string]interface{}, 0)
-		fs3[conf.Duration] = end.Sub(start).Milliseconds()
+		fs3[conf.Duration] = dur
 		if !conf.Separate && len(conf.Request) > 0 && body != nil && canRequest {
 			rq := string(body)
 			if len(rq) > 0 {
@@ -467,7 +595,11 @@ func DoAndBuildDecoder(ctx context.Context, client *http.Client, url string, met
 			}
 			if res.StatusCode == 503 {
 				logInfo(ctx, method+" "+url, fs3)
-				er2 := errors.New("503 Service Unavailable")
+				var rq string
+				if body != nil {
+					rq = string(body)
+				}
+				er2 := NewHttpError(http.StatusServiceUnavailable, er1, dur, "503 Service Unavailable", url, rq)
 				return nil, er2
 			}
 			logInfo(ctx, method+" "+url, fs3)
@@ -475,21 +607,301 @@ func DoAndBuildDecoder(ctx context.Context, client *http.Client, url string, met
 		} else {
 			if res.StatusCode == 503 {
 				logInfo(ctx, method+" "+url, fs3)
-				er2 := errors.New("503 Service Unavailable")
+				var rq string
+				if body != nil {
+					rq = string(body)
+				}
+				er2 := NewHttpError(http.StatusServiceUnavailable, er1, dur, "503 Service Unavailable", url, rq)
 				return nil, er2
 			}
 			logInfo(ctx, method+" "+url, fs3)
 			return json.NewDecoder(res.Body), nil
 		}
 	} else {
-		res, er1 := DoJSON(ctx, client, url, method, body, headers)
 		if er1 != nil {
 			return nil, er1
 		}
 		if res.StatusCode == 503 {
-			er2 := errors.New("503 Service Unavailable")
+			var rq string
+			if body != nil {
+				rq = string(body)
+			}
+			er2 := NewHttpError(http.StatusServiceUnavailable, er1, dur, "503 Service Unavailable", url, rq)
 			return nil, er2
 		}
 		return json.NewDecoder(res.Body), nil
 	}
+}
+
+func DoAndLog(ctx context.Context, client *http.Client, method string, url string, body []byte, headers map[string]string, conf *LogConfig, options ...func(context.Context, string, map[string]interface{})) (*http.Response, error) {
+	var logError func(context.Context, string, map[string]interface{})
+	var logInfo func(context.Context, string, map[string]interface{})
+	if len(options) > 0 {
+		logError = options[0]
+	}
+	if len(options) > 1 {
+		logInfo = options[1]
+	}
+	start := time.Now()
+	res, er1 := DoJSON(ctx, client, method, url, body, headers)
+	end := time.Now()
+	dur := end.Sub(start).Milliseconds()
+	if logError != nil && (er1 != nil || res.StatusCode >= 400) {
+		fs3 := make(map[string]interface{}, 0)
+		var c2 LogConfig
+		if conf != nil {
+			c2 = *conf
+		} else {
+			c2.Duration = "duration"
+			c2.Request = "request"
+			c2.Response = "response"
+			c2.ResponseStatus = "status"
+			c2.Error = "error"
+		}
+		if body != nil {
+			rq := string(body)
+			if len(rq) > 0 {
+				fs3[c2.Request] = rq
+			}
+		}
+		if er1 != nil {
+			if len(c2.Error) > 0 {
+				fs3[c2.Error] = er1.Error()
+			}
+			logError(ctx, method+" "+url, fs3)
+			return res, er1
+		}
+		if len(c2.ResponseStatus) > 0 {
+			fs3[c2.ResponseStatus] = res.StatusCode
+		}
+		if len(c2.Size) > 0 && res.ContentLength > 0 {
+			fs3[c2.Size] = res.ContentLength
+		}
+		if len(c2.Response) > 0 {
+			dump, er3 := httputil.DumpResponse(res, true)
+			if er3 != nil {
+				if len(c2.Error) > 0 {
+					fs3[c2.Error] = er3.Error()
+				}
+				logError(ctx, method+" "+url, fs3)
+				return res, er3
+			}
+			s := string(dump)
+			if len(c2.Size) > 0 {
+				fs3[c2.Size] = len(s)
+			}
+			if len(c2.Response) > 0 {
+				fs3[c2.Response] = s
+			}
+			if res.StatusCode == 503 {
+				logError(ctx, method+" "+url, fs3)
+				var rq string
+				if body != nil {
+					rq = string(body)
+				}
+				er2 := NewHttpError(http.StatusServiceUnavailable, er1, dur, "503 Service Unavailable", url, rq, s)
+				return res, er2
+			}
+			logError(ctx, method+" "+url, fs3)
+			return res, nil
+		} else {
+			if res.StatusCode == 503 {
+				logError(ctx, method+" "+url, fs3)
+				var rq string
+				if body != nil {
+					rq = string(body)
+				}
+				er2 := NewHttpError(http.StatusServiceUnavailable, er1, dur, "503 Service Unavailable", url, rq)
+				return res, er2
+			}
+			logError(ctx, method+" "+url, fs3)
+			return res, nil
+		}
+	}
+	if conf != nil && conf.Log == true && logInfo != nil {
+		canRequest := false
+		if method != "GET" && method != "DELETE" && method != "OPTIONS" {
+			canRequest = true
+		}
+		if conf.Separate && len(conf.Request) > 0 && body != nil && canRequest {
+			fs1 := make(map[string]interface{}, 0)
+			rq := string(body)
+			if len(rq) > 0 {
+				fs1[conf.Request] = rq
+			}
+			logInfo(ctx, method+" "+url, fs1)
+		}
+		fs3 := make(map[string]interface{}, 0)
+		fs3[conf.Duration] = dur
+		if !conf.Separate && len(conf.Request) > 0 && body != nil && canRequest {
+			rq := string(body)
+			if len(rq) > 0 {
+				fs3[conf.Request] = rq
+			}
+		}
+		if er1 != nil {
+			if len(conf.Error) > 0 {
+				fs3[conf.Error] = er1.Error()
+			}
+			logInfo(ctx, method+" "+url, fs3)
+			return res, er1
+		}
+		if len(conf.ResponseStatus) > 0 {
+			fs3[conf.ResponseStatus] = res.StatusCode
+		}
+		if len(conf.Size) > 0 && res.ContentLength > 0 {
+			fs3[conf.Size] = res.ContentLength
+		}
+		if len(conf.Response) > 0 {
+			dump, er3 := httputil.DumpResponse(res, true)
+			if er3 != nil {
+				if len(conf.Error) > 0 {
+					fs3[conf.Error] = er3.Error()
+				}
+				logInfo(ctx, method+" "+url, fs3)
+				return res, er3
+			}
+			s := string(dump)
+			if len(conf.Size) > 0 {
+				fs3[conf.Size] = len(s)
+			}
+			if len(conf.Response) > 0 {
+				fs3[conf.Response] = s
+			}
+			if res.StatusCode == 503 {
+				logInfo(ctx, method+" "+url, fs3)
+				var rq string
+				if body != nil {
+					rq = string(body)
+				}
+				er2 := NewHttpError(http.StatusServiceUnavailable, er1, dur, "503 Service Unavailable", url, rq, s)
+				return res, er2
+			}
+			logInfo(ctx, method+" "+url, fs3)
+			return res, nil
+		} else {
+			if res.StatusCode == 503 {
+				logInfo(ctx, method+" "+url, fs3)
+				var rq string
+				if body != nil {
+					rq = string(body)
+				}
+				er2 := NewHttpError(http.StatusServiceUnavailable, er1, dur, "503 Service Unavailable", url, rq)
+				return res, er2
+			}
+			logInfo(ctx, method+" "+url, fs3)
+			return res, nil
+		}
+	} else {
+		if er1 != nil {
+			return nil, er1
+		}
+		if res.StatusCode == 503 {
+			var rq string
+			if body != nil {
+				rq = string(body)
+			}
+			er2 := NewHttpError(http.StatusServiceUnavailable, er1, dur, "503 Service Unavailable", url, rq)
+			return res, er2
+		}
+		return res, nil
+	}
+}
+
+type HttpError struct {
+	StatusCode   int
+	ErrorMessage string
+	RootError    error
+	Url          string
+	Request      string
+	Response     string
+	Duration     int64
+	ErrorType    string
+	ErrorCode    string
+	Service      string
+	Severity     string
+}
+
+func NewHttpError(statusCode int, rootError error, duration int64, opts ...string) error {
+	err := &HttpError{StatusCode: statusCode, RootError: rootError, Duration: duration}
+	if len(opts) > 0 {
+		err.ErrorMessage = opts[0]
+	} else if rootError != nil {
+		err.ErrorMessage = rootError.Error()
+	}
+	if len(opts) > 1 {
+		err.Url = opts[1]
+	}
+	if len(opts) > 2 {
+		err.Request = opts[2]
+	}
+	if len(opts) > 3 {
+		err.Response = opts[3]
+	}
+	if len(opts) > 4 {
+		err.ErrorType = opts[4]
+	}
+	if len(opts) > 5 {
+		err.ErrorCode = opts[5]
+	}
+	if len(opts) > 6 {
+		err.Service = opts[6]
+	}
+	if len(opts) > 7 {
+		err.Severity = opts[7]
+	}
+	return err
+}
+func (e *HttpError) Error() string {
+	if len(e.ErrorMessage) > 0 {
+		return e.ErrorMessage
+	}
+	return e.GetRootError()
+}
+func (e *HttpError) GetRootError() string {
+	if e.RootError != nil {
+		return e.RootError.Error()
+	}
+	return ""
+}
+func IsHttpError(err error) (*HttpError, bool) {
+	httpErr, ok := err.(*HttpError)
+	if ok {
+		return httpErr, ok
+	} else {
+		return nil, ok
+	}
+}
+func MakeMap(err *HttpError, prefix string) map[string]interface{} {
+	mp := make(map[string]interface{})
+	mp[prefix + "Duration"] = err.Duration
+	mp[prefix + "Status"] = err.StatusCode
+	if len(err.Request) > 0 {
+		mp[prefix + "Request"] = err.Request
+	}
+	if len(err.Response) > 0 {
+		mp[prefix + "Response"] = err.Response
+	}
+	if len(err.Url) > 0 {
+		mp[prefix + "Url"] = err.Url
+	}
+	if len(err.ErrorMessage) > 0 {
+		mp[prefix + "Error"] = err.ErrorMessage
+	}
+	if err.RootError != nil && err.Error() != err.ErrorMessage {
+		mp[prefix + "RootError"] = err.Error()
+	}
+	if len(err.ErrorType) > 0 {
+		mp[prefix + "ErrorType"] = err.ErrorType
+	}
+	if len(err.ErrorCode) > 0 {
+		mp[prefix + "ErrorCode"] = err.ErrorCode
+	}
+	if len(err.Service) > 0 {
+		mp[prefix + "Service"] = err.Service
+	}
+	if len(err.Severity) > 0 {
+		mp[prefix + "Severity"] = err.Severity
+	}
+	return mp
 }

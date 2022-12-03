@@ -95,7 +95,16 @@ func NewRedisClient(uri string) (*redis.Client, error) {
 }
 
 func Set(ctx context.Context, client *redis.Client, key string, value interface{}, timeToLive time.Duration) error {
-	status := client.Set(ctx, key, value, timeToLive)
+	var v string
+	v, ok := value.(string)
+	if ok == false {
+		json, err := json.Marshal(value)
+		if err != nil {
+			return err
+		}
+		v = string(json)
+	}
+	status := client.Set(ctx, key, v, timeToLive)
 	return status.Err()
 }
 func SetNX(ctx context.Context, client *redis.Client, key string, value interface{}, timeToLive time.Duration) error {

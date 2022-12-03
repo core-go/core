@@ -75,7 +75,7 @@ func (h *PatchHandler) Patch(ctx echo.Context) error {
 		}
 	}
 	count, er4 := h.Save(r.Context(), body)
-	return HandleResult(ctx, body, count, er4, h.StatusConf, h.LogError, h.WriteLog, h.ResourceType, h.Activity)
+	return HandleResult(ctx, body, count, er4, h.LogError, h.WriteLog, h.ResourceType, h.Activity)
 }
 
 type GenericHandler struct {
@@ -173,16 +173,16 @@ func (h *GenericHandler) Insert(ctx echo.Context) error {
 				return ErrorAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, h.Error, h.Resource, h.Action.Create, er2, h.Log)
 			}
 			if count > 0 {
-				return Succeed(ctx, http.StatusCreated, sv.SetStatus(body, h.Status.Success), h.Log, h.Resource, h.Action.Create)
+				return Succeed(ctx, http.StatusCreated, body, h.Log, h.Resource, h.Action.Create)
 			}
 			if i == 5 {
-				return ReturnAndLog(ctx, http.StatusConflict, sv.ReturnStatus(h.Status.DuplicateKey), h.Log, false, h.Resource, h.Action.Create, "Duplicate Key")
+				return ReturnAndLog(ctx, http.StatusConflict, count, h.Log, false, h.Resource, h.Action.Create, "Duplicate Key")
 			}
 		}
 	} else if er2 != nil {
 		return ErrorAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, h.Error, h.Resource, h.Action.Create, er2, h.Log)
 	}
-	return Succeed(ctx, http.StatusCreated, sv.SetStatus(body, h.Status.Success), h.Log, h.Resource, h.Action.Create)
+	return Succeed(ctx, http.StatusCreated, body, h.Log, h.Resource, h.Action.Create)
 }
 func (h *GenericHandler) Update(ctx echo.Context) error {
 	r := ctx.Request()
@@ -209,7 +209,7 @@ func (h *GenericHandler) Update(ctx echo.Context) error {
 		}
 	}
 	count, er3 := h.service.Update(r.Context(), body)
-	return HandleResult(ctx, body, count, er3, h.Status, h.Error, h.Log, h.Resource, h.Action.Patch)
+	return HandleResult(ctx, body, count, er3, h.Error, h.Log, h.Resource, h.Action.Patch)
 }
 func (h *GenericHandler) Patch(ctx echo.Context) error {
 	r := ctx.Request()
@@ -235,7 +235,7 @@ func (h *GenericHandler) Patch(ctx echo.Context) error {
 		}
 	}
 	count, er4 := h.service.Patch(r.Context(), body)
-	return HandleResult(ctx, body, count, er4, h.Status, h.Error, h.Log, h.Resource, h.Action.Patch)
+	return HandleResult(ctx, body, count, er4, h.Error, h.Log, h.Resource, h.Action.Patch)
 }
 func (h *GenericHandler) Delete(ctx echo.Context) error {
 	r := ctx.Request()
@@ -314,26 +314,34 @@ func HasError(ctx echo.Context, errors []sv.ErrorMessage, err error, status int,
 	}
 	return false
 }
-func HandleResult(ctx echo.Context, body interface{}, count int64, err error, status sv.StatusConfig, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
+func HandleResult(ctx echo.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
 	if err != nil {
 		return RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
 	}
 	if count == -1 {
-		return ReturnAndLog(ctx, http.StatusConflict, sv.ReturnStatus(status.VersionError), writeLog, false, resource, action, "Data Version Error")
+		return ReturnAndLog(ctx, http.StatusConflict, count, writeLog, false, resource, action, "Data Version Error")
 	} else if count == 0 {
-		return ReturnAndLog(ctx, http.StatusNotFound, sv.ReturnStatus(status.NotFound), writeLog, false, resource, action, "Data Not Found")
+		return ReturnAndLog(ctx, http.StatusNotFound, 0, writeLog, false, resource, action, "Data Not Found")
 	} else {
-		return Succeed(ctx, http.StatusOK, sv.SetStatus(body, status.Success), writeLog, resource, action)
+		if sv.IsNil(body) {
+			return Succeed(ctx, http.StatusOK, count, writeLog, resource, action)
+		} else {
+			return Succeed(ctx, http.StatusOK, body, writeLog, resource, action)
+		}
 	}
 }
-func AfterCreated(ctx echo.Context, body interface{}, count int64, err error, status sv.StatusConfig, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
+func AfterCreated(ctx echo.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
 	if err != nil {
 		return RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
 	}
 	if count <= 0 {
-		return ReturnAndLog(ctx, http.StatusConflict, sv.ReturnStatus(status.DuplicateKey), writeLog, false, resource, action, "Duplicate Key")
+		return ReturnAndLog(ctx, http.StatusConflict, count, writeLog, false, resource, action, "Duplicate Key")
 	} else {
-		return Succeed(ctx, http.StatusCreated, sv.SetStatus(body, status.Success), writeLog, resource, action)
+		if sv.IsNil(body) {
+			return Succeed(ctx, http.StatusCreated, count, writeLog, resource, action)
+		} else {
+			return Succeed(ctx, http.StatusCreated, body, writeLog, resource, action)
+		}
 	}
 }
 func Respond(ctx echo.Context, code int, result interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) error {

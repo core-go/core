@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -109,6 +110,71 @@ func (h *Handler) Load(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type QueryHandler struct {
+	Get      func(ctx context.Context, key string, max int64) ([]Model, error)
+	Select   func(ctx context.Context, key []string) ([]Model, error)
+	LogError func(context.Context, string, ...map[string]interface{})
+	Keyword  string
+	Max      string
+	Q        string
+}
+
+func NewQueryHandler(load func(ctx context.Context, key string, max int64) ([]Model, error), getData func(ctx context.Context, key []string) ([]Model, error), logError func(context.Context, string, ...map[string]interface{}), opts ...string) *QueryHandler {
+	q := "q"
+	if len(opts) > 0 && len(opts[0]) > 0 {
+		q = opts[0]
+	}
+	keyword := "q"
+	if len(opts) > 1 && len(opts[1]) > 0 {
+		keyword = opts[1]
+	}
+	max := "max"
+	if len(opts) > 2 && len(opts[2]) > 0 {
+		max = opts[2]
+	}
+	return &QueryHandler{load, getData, logError, keyword, max, q}
+}
+func (h *QueryHandler) Query(w http.ResponseWriter, r *http.Request) {
+	ps := r.URL.Query()
+	keyword := ps.Get(h.Keyword)
+	if len(keyword) == 0 {
+		vs := make([]string, 0)
+		respondModel(w, r, vs, nil, h.LogError, nil)
+	} else {
+		max := ps.Get(h.Max)
+		i, err := strconv.ParseInt(max, 10, 64)
+		if err != nil {
+			i = 20
+		}
+		if i < 0 {
+			i = 20
+		}
+		vs, err := h.Get(r.Context(), keyword, i)
+		respondModel(w, r, vs, err, h.LogError, nil)
+	}
+}
+func (h *QueryHandler) Load(w http.ResponseWriter, r *http.Request) {
+	var req = make([]string, 0)
+	method := r.Method
+	if method == http.MethodGet {
+		q := r.URL.Query().Get(h.Q)
+		if len(q) > 0 {
+			req = strings.Split(q, ",")
+		}
+	} else {
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	if len(req) == 0 {
+		respondModel(w, r, req, nil, h.LogError, nil)
+	} else {
+		models, err := h.Select(r.Context(), req)
+		respondModel(w, r, models, err, h.LogError, nil)
+	}
+}
 func respond(w http.ResponseWriter, r *http.Request, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, resource string, action string, success bool, desc string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
@@ -128,4 +194,51 @@ func respondError(w http.ResponseWriter, r *http.Request, code int, result inter
 }
 func succeed(w http.ResponseWriter, r *http.Request, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
 	respond(w, r, code, result, writeLog, resource, action, true, "")
+}
+
+func respondModel(w http.ResponseWriter, r *http.Request, model interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options... string) {
+	var resource, action string
+	if len(options) > 0 && len(options[0]) > 0 {
+		resource = options[0]
+	}
+	if len(options) > 1 && len(options[1]) > 0 {
+		action = options[1]
+	}
+	if err != nil {
+		respondAndLog(w, r, http.StatusInternalServerError, internalServerError, err, logError, writeLog, resource, action)
+	} else {
+		if model == nil {
+			returnAndLog(w, r, http.StatusNotFound, model, writeLog, false, resource, action, "Not found")
+		} else {
+			succeed(w, r, http.StatusOK, model, writeLog, resource, action)
+		}
+	}
+}
+func respondAndLog(w http.ResponseWriter, r *http.Request, code int, result interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options... string) error {
+	var resource, action string
+	if len(options) > 0 && len(options[0]) > 0 {
+		resource = options[0]
+	}
+	if len(options) > 1 && len(options[1]) > 0 {
+		action = options[1]
+	}
+	if err != nil {
+		if logError != nil {
+			logError(r.Context(), err.Error())
+			return returnAndLog(w, r, http.StatusInternalServerError, internalServerError, writeLog, false, resource, action, err.Error())
+		} else {
+			return returnAndLog(w, r, http.StatusInternalServerError, err.Error(), writeLog, false, resource, action, err.Error())
+		}
+	} else {
+		return returnAndLog(w, r, code, result, writeLog, true, resource, action, "")
+	}
+}
+func returnAndLog(w http.ResponseWriter, r *http.Request, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, success bool, resource string, action string, desc string) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	err := json.NewEncoder(w).Encode(result)
+	if writeLog != nil {
+		writeLog(r.Context(), resource, action, success, desc)
+	}
+	return err
 }

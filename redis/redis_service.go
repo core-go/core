@@ -1,19 +1,13 @@
 package redis
 
 import (
+	"context"
 	"github.com/garyburd/redigo/redis"
 	"time"
 )
 
 type RedisService struct {
 	Pool *redis.Pool
-}
-
-func NewRedisAdapterByConfig(c Config) (*RedisService, error) {
-	return NewRedisServiceByConfig(c)
-}
-func NewRedisAdapter(redisUrl string) (*RedisService, error) {
-	return NewRedisService(redisUrl)
 }
 func NewRedisServiceByConfig(c Config) (*RedisService, error) {
 	pool, err := NewRedisPoolByConfig(c)
@@ -30,31 +24,31 @@ func NewRedisService(redisUrl string) (*RedisService, error) {
 	return &RedisService{pool}, nil
 }
 
-func (c *RedisService) Put(key string, obj interface{}, timeToLive time.Duration) error {
+func (c *RedisService) Put(ctx context.Context, key string, obj interface{}, timeToLive time.Duration) error {
 	return Set(c.Pool, key, obj, timeToLive)
 }
 
-func (c *RedisService) Expire(key string, timeToLive time.Duration) (bool, error) {
+func (c *RedisService) Expire(ctx context.Context, key string, timeToLive time.Duration) (bool, error) {
 	return Expire(c.Pool, key, timeToLive)
 }
 
-func (c *RedisService) Get(key string) (interface{}, error) {
+func (c *RedisService) Get(ctx context.Context, key string) (interface{}, error) {
 	return Get(c.Pool, key)
 }
 
-func (c *RedisService) ContainsKey(key string) (bool, error) {
+func (c *RedisService) ContainsKey(ctx context.Context, key string) (bool, error) {
 	return Exists(c.Pool, key)
 }
 
-func (c *RedisService) Remove(key string) (bool, error) {
+func (c *RedisService) Remove(ctx context.Context, key string) (bool, error) {
 	return Delete(c.Pool, key)
 }
 
-func (c *RedisService) Clear() error {
+func (c *RedisService) Clear(ctx context.Context) error {
 	return Clear(c.Pool)
 }
 
-func (c *RedisService) GetMany(keys []string) (map[string]interface{}, []string, error) {
+func (c *RedisService) GetMany(ctx context.Context, keys []string) (map[string]interface{}, []string, error) {
 	m2 := make(map[string]interface{})
 	m, n, err := GetMany(c.Pool, keys)
 	if err != nil {
@@ -70,14 +64,14 @@ func (c *RedisService) GetManyStrings(keys []string) (map[string]string, []strin
 	return GetMany(c.Pool, keys)
 }
 
-func (c *RedisService) Keys() ([]string, error) {
+func (c *RedisService) Keys(ctx context.Context) ([]string, error) {
 	return Keys(c.Pool)
 }
 
-func (c *RedisService) Count() (int64, error) {
+func (c *RedisService) Count(ctx context.Context) (int64, error) {
 	return Count(c.Pool)
 }
 
-func (c *RedisService) Size() (int64, error) {
+func (c *RedisService) Size(ctx context.Context) (int64, error) {
 	return Size(c.Pool)
 }

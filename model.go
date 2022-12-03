@@ -19,6 +19,14 @@ type ErrorMessage struct {
 	Param   string `yaml:"param" mapstructure:"param" json:"param,omitempty" gorm:"column:param" bson:"param,omitempty" dynamodbav:"param,omitempty" firestore:"param,omitempty"`
 	Message string `yaml:"message" mapstructure:"message" json:"message,omitempty" gorm:"column:message" bson:"message,omitempty" dynamodbav:"message,omitempty" firestore:"message,omitempty"`
 }
+type ErrorDetail struct {
+	ErrorField string `yaml:"error_field" mapstructure:"error_field" json:"errorField,omitempty" gorm:"column:error_field" bson:"errorField,omitempty" dynamodbav:"errorField,omitempty" firestore:"errorField,omitempty"`
+	ErrorCode  string `yaml:"error_code" mapstructure:"error_code" json:"errorCode,omitempty" gorm:"column:error_code" bson:"errorCode,omitempty" dynamodbav:"errorCode,omitempty" firestore:"errorCode,omitempty"`
+	ErrorDesc  string `yaml:"error_desc" mapstructure:"error_desc" json:"errorDesc,omitempty" gorm:"column:error_desc" bson:"errorDesc,omitempty" dynamodbav:"errorDesc,omitempty" firestore:"errorDesc,omitempty"`
+}
+type ErrorDetails struct {
+	ErrorDetails []ErrorDetail `yaml:"error_details" mapstructure:"error_details" json:"errorDetails,omitempty" gorm:"column:error_details" bson:"errorDetails,omitempty" dynamodbav:"errorDetails,omitempty" firestore:"errorDetails,omitempty"`
+}
 type Validator interface {
 	Validate(ctx context.Context, model interface{}) ([]ErrorMessage, error)
 }
@@ -61,4 +69,15 @@ func lcFirstChar(s string) string {
 		return string(runes)
 	}
 	return s
+}
+func BuildErrorDetails(errors []ErrorMessage) []ErrorDetail {
+	errs := make([]ErrorDetail, 0)
+	if errors == nil || len(errors) == 0 {
+		return errs
+	}
+	for _, s := range errors {
+		d := ErrorDetail{ErrorCode: s.Code, ErrorField: s.Field, ErrorDesc: s.Message}
+		errs = append(errs, d)
+	}
+	return errs
 }

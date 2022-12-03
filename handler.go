@@ -242,7 +242,7 @@ func (h *PatchHandler) Patch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	count, er4 := h.Save(r.Context(), body)
-	HandleResult(w, r, body, count, er4, h.StatusConf, h.LogError, h.WriteLog, h.ResourceType, h.Activity)
+	HandleResult(w, r, body, count, er4, h.LogError, h.WriteLog, h.ResourceType, h.Activity)
 }
 
 type GenericHandler struct {
@@ -337,11 +337,11 @@ func (h *GenericHandler) Insert(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if count > 0 {
-				Succeed(w, r, http.StatusCreated, SetStatus(body, h.Status.Success), h.Log, h.Resource, h.Action.Create)
+				Succeed(w, r, http.StatusCreated, body, h.Log, h.Resource, h.Action.Create)
 				return
 			}
 			if i == 5 {
-				ReturnAndLog(w, r, http.StatusConflict, ReturnStatus(h.Status.DuplicateKey), h.Log, false, h.Resource, h.Action.Create, "Duplicate Key")
+				ReturnAndLog(w, r, http.StatusConflict, count, h.Log, false, h.Resource, h.Action.Create, "Duplicate Key")
 				return
 			}
 		}
@@ -349,7 +349,7 @@ func (h *GenericHandler) Insert(w http.ResponseWriter, r *http.Request) {
 		RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, er2, h.Error, h.Log, h.Resource, h.Action.Create)
 		return
 	}
-	Succeed(w, r, http.StatusCreated, SetStatus(body, h.Status.Success), h.Log, h.Resource, h.Action.Create)
+	Succeed(w, r, http.StatusCreated, body, h.Log, h.Resource, h.Action.Create)
 }
 func (h *GenericHandler) Update(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(context.WithValue(r.Context(), Method, Update))
@@ -376,7 +376,7 @@ func (h *GenericHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	count, er3 := h.service.Update(r.Context(), body)
-	HandleResult(w, r, body, count, er3, h.Status, h.Error, h.Log, h.Resource, h.Action.Update)
+	HandleResult(w, r, body, count, er3, h.Error, h.Log, h.Resource, h.Action.Update)
 }
 func (h *GenericHandler) Patch(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(context.WithValue(r.Context(), Method, Patch))
@@ -401,7 +401,7 @@ func (h *GenericHandler) Patch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	count, er4 := h.service.Patch(r.Context(), body)
-	HandleResult(w, r, body, count, er4, h.Status, h.Error, h.Log, h.Resource, h.Action.Patch)
+	HandleResult(w, r, body, count, er4, h.Error, h.Log, h.Resource, h.Action.Patch)
 }
 func (h *GenericHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, er1 := BuildId(r, h.ModelType, h.Keys, h.LoadHandler.KeyIndexes)
@@ -503,13 +503,12 @@ func HasError(w http.ResponseWriter, r *http.Request, errors []ErrorMessage, err
 		return true
 	}
 	if len(errors) > 0 {
-		result0 := ResultInfo{Status: status, Errors: errors}
-		ReturnAndLog(w, r, http.StatusUnprocessableEntity, result0, writeLog, false, resource, action, "Data Validation Failed")
+		ReturnAndLog(w, r, http.StatusUnprocessableEntity, errors, writeLog, false, resource, action, "Data Validation Failed")
 		return true
 	}
 	return false
 }
-func HandleResult(w http.ResponseWriter, r *http.Request, body interface{}, count int64, err error, status StatusConfig, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
+func HandleResult(w http.ResponseWriter, r *http.Request, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
 	var resource, action string
 	if len(options) > 0 && len(options[0]) > 0 {
 		resource = options[0]
@@ -522,14 +521,18 @@ func HandleResult(w http.ResponseWriter, r *http.Request, body interface{}, coun
 		return
 	}
 	if count == -1 {
-		ReturnAndLog(w, r, http.StatusConflict, ReturnStatus(status.VersionError), writeLog, false, resource, action, "Data Version Error")
+		ReturnAndLog(w, r, http.StatusConflict, count, writeLog, false, resource, action, "Data Version Error")
 	} else if count == 0 {
-		ReturnAndLog(w, r, http.StatusNotFound, ReturnStatus(status.NotFound), writeLog, false, resource, action, "Data Not Found")
+		ReturnAndLog(w, r, http.StatusNotFound, 0, writeLog, false, resource, action, "Data Not Found")
 	} else {
-		Succeed(w, r, http.StatusOK, SetStatus(body, status.Success), writeLog, resource, action)
+		if IsNil(body) {
+			Succeed(w, r, http.StatusOK, count, writeLog, resource, action)
+		} else {
+			Succeed(w, r, http.StatusOK, body, writeLog, resource, action)
+		}
 	}
 }
-func AfterCreated(w http.ResponseWriter, r *http.Request, body interface{}, count int64, err error, status StatusConfig, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
+func AfterCreated(w http.ResponseWriter, r *http.Request, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
 	var resource, action string
 	if len(options) > 0 && len(options[0]) > 0 {
 		resource = options[0]
@@ -542,9 +545,13 @@ func AfterCreated(w http.ResponseWriter, r *http.Request, body interface{}, coun
 		return
 	}
 	if count <= 0 {
-		ReturnAndLog(w, r, http.StatusConflict, ReturnStatus(status.DuplicateKey), writeLog, false, resource, action, "Duplicate Key")
+		ReturnAndLog(w, r, http.StatusConflict, count, writeLog, false, resource, action, "Duplicate Key")
 	} else {
-		Succeed(w, r, http.StatusCreated, SetStatus(body, status.Success), writeLog, resource, action)
+		if IsNil(body) {
+			Succeed(w, r, http.StatusCreated, count, writeLog, resource, action)
+		} else {
+			Succeed(w, r, http.StatusCreated, body, writeLog, resource, action)
+		}
 	}
 }
 func Respond(w http.ResponseWriter, r *http.Request, code int, result interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {

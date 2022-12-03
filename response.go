@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -117,6 +118,19 @@ func Result(w http.ResponseWriter, r *http.Request, code int, result interface{}
 	} else {
 		return JSON(w, code, result)
 	}
+}
+func MakeMap(res interface{}, opts ...string) map[string]interface{} {
+	key := "request"
+	if len(opts) > 0 && len(opts[0]) > 0 {
+		key = opts[0]
+	}
+	m := make(map[string]interface{})
+	b, err := json.Marshal(res)
+	if err != nil {
+		return m
+	}
+	m[key] = string(b)
+	return m
 }
 func Decode(w http.ResponseWriter, r *http.Request, obj interface{}, options...func(context.Context, interface{}) (interface{}, error)) error {
 	er1 := json.NewDecoder(r.Body).Decode(obj)
@@ -417,4 +431,11 @@ func QueryRequiredInt(w http.ResponseWriter, s url.Values, name string) *int {
 		return nil
 	}
 	return v
+}
+func GetRemoteIp(r *http.Request) string {
+	remoteIP, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		remoteIP = r.RemoteAddr
+	}
+	return remoteIP
 }

@@ -2,8 +2,9 @@ package echo
 
 import (
 	"context"
-	sv "github.com/core-go/core"
 	"github.com/labstack/echo/v4"
+	"net"
+	"net/http"
 )
 
 type AuthorizationHandler struct {
@@ -39,7 +40,7 @@ func (c *AuthorizationHandler) HandleAuthorization() echo.MiddlewareFunc {
 				var ctx2 context.Context
 				ctx2 = r.Context()
 				if len(c.Ip) > 0 {
-					ip := sv.GetRemoteIp(r)
+					ip := GetRemoteIp(r)
 					ctx2 = context.WithValue(ctx2, c.Ip, ip)
 				}
 				if !isToken {
@@ -76,4 +77,11 @@ func (c *AuthorizationHandler) HandleAuthorization() echo.MiddlewareFunc {
 			}
 		}
 	}
+}
+func GetRemoteIp(r *http.Request) string {
+	remoteIP, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		remoteIP = r.RemoteAddr
+	}
+	return remoteIP
 }

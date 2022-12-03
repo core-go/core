@@ -70,8 +70,8 @@ func RespondModel(ctx *gin.Context, model interface{}, err error, logError func(
 	if err != nil {
 		RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
 	} else {
-		if model == nil {
-			ReturnAndLog(ctx, http.StatusNotFound, model, writeLog, false, resource, action, "Not found")
+		if sv.IsNil(model) {
+			ReturnAndLog(ctx, http.StatusNotFound, nil, writeLog, false, resource, action, "Not found")
 		} else {
 			Succeed(ctx, http.StatusOK, model, writeLog, resource, action)
 		}

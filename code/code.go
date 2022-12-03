@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -23,9 +24,9 @@ type Model struct {
 	Id       string `yaml:"id" mapstructure:"id" json:"id,omitempty" gorm:"column:id" bson:"id,omitempty" dynamodbav:"id,omitempty" firestore:"id,omitempty"`
 	Code     string `yaml:"code" mapstructure:"code" json:"code,omitempty" gorm:"column:code" bson:"code,omitempty" dynamodbav:"code,omitempty" firestore:"code,omitempty"`
 	Value    string `yaml:"value" mapstructure:"value" json:"value,omitempty" gorm:"column:value" bson:"value,omitempty" dynamodbav:"value,omitempty" firestore:"value,omitempty"`
-	Name     string `yaml:"name"" mapstructure:"name" json:"name,omitempty" gorm:"column:name" bson:"name,omitempty" dynamodbav:"name,omitempty" firestore:"name,omitempty"`
+	Name     string `yaml:"name" mapstructure:"name" json:"name,omitempty" gorm:"column:name" bson:"name,omitempty" dynamodbav:"name,omitempty" firestore:"name,omitempty"`
 	Text     string `yaml:"text" mapstructure:"text" json:"text,omitempty" gorm:"column:text" bson:"text,omitempty" dynamodbav:"text,omitempty" firestore:"text,omitempty"`
-	Sequence int32  `yaml:"sequence mapstructure:"sequence" json:"sequence,omitempty" gorm:"column:sequence" bson:"sequence,omitempty" dynamodbav:"sequence,omitempty" firestore:"sequence,omitempty"`
+	Sequence int32  `yaml:"sequence" mapstructure:"sequence" json:"sequence,omitempty" gorm:"column:sequence" bson:"sequence,omitempty" dynamodbav:"sequence,omitempty" firestore:"sequence,omitempty"`
 }
 type StructureConfig struct {
 	Master   string      `yaml:"master" mapstructure:"master" json:"master,omitempty" gorm:"column:master" bson:"master,omitempty" dynamodbav:"master,omitempty" firestore:"master,omitempty"`
@@ -47,6 +48,8 @@ type SqlLoader struct {
 	Config StructureConfig
 	Build  func(i int) string
 	Map    func(col string) string
+	colMap map[string]int
+	modelType reflect.Type
 }
 type DynamicSqlLoader struct {
 	DB             *sql.DB
@@ -54,9 +57,165 @@ type DynamicSqlLoader struct {
 	ParameterCount int
 	Map            func(col string) string
 	driver         string
+	colMap         map[string]int
+	modelType      reflect.Type
 }
+type Query struct {
+	DB             *sql.DB
+	Select         string
+	Get            string
+	ParameterCount int
+	Build          func(i int) string
+	Map            func(col string) string
+	driver         string
+	colMap         map[string]int
+	modelType      reflect.Type
+}
+func NewDefaultQuery(db *sql.DB, query string, getQuery string, options ...int) (*Query, error) {
+	var parameterCount int
+	if len(options) > 0 {
+		parameterCount = options[0]
+	} else {
+		parameterCount = 1
+	}
+	return NewQuery(db, query, getQuery, parameterCount, true)
+}
+func NewQuery(db *sql.DB, query string, getQuery string, parameterCount int, options ...bool) (*Query, error) {
+	driver := getDriver(db)
+	var mp func(string) string
+	if driver == driverOracle {
+		mp = strings.ToUpper
+	} else {
+		mp = strings.ToLower
+	}
+	modelType := reflect.TypeOf(Model{})
+	fieldsIndex, err := getColumnIndexes(modelType, mp)
+	if err != nil {
+		return nil, err
+	}
+	if parameterCount < 0 {
+		parameterCount = 1
+	}
+	var handleDriver bool
+	if len(options) >= 1 {
+		handleDriver = options[0]
+	} else {
+		handleDriver = true
+	}
+	build := getBuild(db)
+	if handleDriver {
+		if driver == driverOracle || driver == driverPostgres || driver == driverMssql {
+			var x string
+			if driver == driverOracle {
+				x = ":val"
+			} else if driver == driverPostgres {
+				x = "$"
+			} else if driver == driverMssql {
+				x = "@p"
+			}
+			for i := 0; i < parameterCount; i++ {
+				count := i + 1
+				query = strings.Replace(query, "?", x+strconv.Itoa(count), 1)
+			}
+		}
+	}
+	return &Query{DB: db, Select: query, Get: getQuery, Build: build,ParameterCount: parameterCount, Map: mp, colMap: fieldsIndex, modelType: modelType}, nil
+}
+func (l Query) Query(ctx context.Context, key string, max int64) ([]Model, error) {
+	if max <= 0 {
+		max = 20
+	}
+	re := regexp.MustCompile(`\%|\?`)
+	key = re.ReplaceAllString(key, "")
+	models := make([]Model, 0)
+	var query string
+	if l.driver == driverOracle {
+		query = l.Select + fmt.Sprintf(" fetch next %d rows only", max)
+	} else {
+		query = l.Select + fmt.Sprintf(" limit %d", max)
+	}
 
-func NewDefaultDynamicSqlCodeLoader(db *sql.DB, query string, options ...int) *DynamicSqlLoader {
+	var rows *sql.Rows
+	var er1 error
+	pa := key + "%"
+	if l.ParameterCount > 0 {
+		params := make([]interface{}, 0)
+		for i := 1; i <= l.ParameterCount; i++ {
+			params = append(params, pa)
+		}
+		rows, er1 = l.DB.QueryContext(ctx, query, params...)
+	} else {
+		rows, er1 = l.DB.QueryContext(ctx, query)
+	}
+
+	if er1 != nil {
+		return models, er1
+	}
+	defer rows.Close()
+	columns, er2 := rows.Columns()
+	if er2 != nil {
+		return models, er2
+	}
+
+	fieldsIndexSelected := make([]int, 0)
+	fieldsIndex := l.colMap
+	for _, columnsName := range columns {
+		if index, ok := fieldsIndex[columnsName]; ok {
+			fieldsIndexSelected = append(fieldsIndexSelected, index)
+		}
+	}
+	tb, er4 := scanType(rows, l.modelType, fieldsIndexSelected)
+	if er4 != nil {
+		return models, er4
+	}
+	for _, v := range tb {
+		if c, ok := v.(*Model); ok {
+			models = append(models, *c)
+		}
+	}
+	return models, nil
+}
+func (l Query) Load(ctx context.Context, key []string) ([]Model, error) {
+	models := make([]Model, 0)
+	var rows *sql.Rows
+	var er1 error
+	le := len(key)
+	args := make([]interface{}, 0)
+	params := make([]string, 0)
+	for i := 1; i <= le; i++ {
+		params = append(params, l.Build(i))
+		args = append(args, key[i - 1])
+	}
+	query := l.Get + fmt.Sprintf(" (%s)", strings.Join(params, ","))
+	rows, er1 = l.DB.QueryContext(ctx, query, args...)
+	if er1 != nil {
+		return models, er1
+	}
+	defer rows.Close()
+	columns, er2 := rows.Columns()
+	if er2 != nil {
+		return models, er2
+	}
+
+	fieldsIndexSelected := make([]int, 0)
+	fieldsIndex := l.colMap
+	for _, columnsName := range columns {
+		if index, ok := fieldsIndex[columnsName]; ok {
+			fieldsIndexSelected = append(fieldsIndexSelected, index)
+		}
+	}
+	tb, er4 := scanType(rows, l.modelType, fieldsIndexSelected)
+	if er4 != nil {
+		return models, er4
+	}
+	for _, v := range tb {
+		if c, ok := v.(*Model); ok {
+			models = append(models, *c)
+		}
+	}
+	return models, nil
+}
+func NewDefaultDynamicSqlCodeLoader(db *sql.DB, query string, options ...int) (*DynamicSqlLoader, error) {
 	var parameterCount int
 	if len(options) > 0 {
 		parameterCount = options[0]
@@ -65,13 +224,18 @@ func NewDefaultDynamicSqlCodeLoader(db *sql.DB, query string, options ...int) *D
 	}
 	return NewDynamicSqlCodeLoader(db, query, parameterCount, true)
 }
-func NewDynamicSqlCodeLoader(db *sql.DB, query string, parameterCount int, options ...bool) *DynamicSqlLoader {
+func NewDynamicSqlCodeLoader(db *sql.DB, query string, parameterCount int, options ...bool) (*DynamicSqlLoader, error) {
 	driver := getDriver(db)
 	var mp func(string) string
 	if driver == driverOracle {
 		mp = strings.ToUpper
 	} else {
 		mp = strings.ToLower
+	}
+	modelType := reflect.TypeOf(Model{})
+	fieldsIndex, err := getColumnIndexes(modelType, mp)
+	if err != nil {
+		return nil, err
 	}
 	if parameterCount < 0 {
 		parameterCount = 1
@@ -98,7 +262,7 @@ func NewDynamicSqlCodeLoader(db *sql.DB, query string, parameterCount int, optio
 			}
 		}
 	}
-	return &DynamicSqlLoader{DB: db, Query: query, ParameterCount: parameterCount, Map: mp}
+	return &DynamicSqlLoader{DB: db, Query: query, ParameterCount: parameterCount, Map: mp, colMap: fieldsIndex, modelType: modelType}, nil
 }
 func (l DynamicSqlLoader) Load(ctx context.Context, master string) ([]Model, error) {
 	models := make([]Model, 0)
@@ -123,20 +287,15 @@ func (l DynamicSqlLoader) Load(ctx context.Context, master string) ([]Model, err
 	if er2 != nil {
 		return models, er2
 	}
-	// get list indexes column
-	modelType := reflect.TypeOf(Model{})
 
 	fieldsIndexSelected := make([]int, 0)
-	fieldsIndex, er3 := getColumnIndexes(modelType, l.Map)
-	if er3 != nil {
-		return models, er3
-	}
+	fieldsIndex := l.colMap
 	for _, columnsName := range columns {
 		if index, ok := fieldsIndex[columnsName]; ok {
 			fieldsIndexSelected = append(fieldsIndexSelected, index)
 		}
 	}
-	tb, er4 := scanType(rows, modelType, fieldsIndexSelected)
+	tb, er4 := scanType(rows, l.modelType, fieldsIndexSelected)
 	if er4 != nil {
 		return models, er4
 	}
@@ -147,7 +306,7 @@ func (l DynamicSqlLoader) Load(ctx context.Context, master string) ([]Model, err
 	}
 	return models, nil
 }
-func NewSqlCodeLoader(db *sql.DB, table string, config StructureConfig, options ...func(i int) string) *SqlLoader {
+func NewSqlCodeLoader(db *sql.DB, table string, config StructureConfig, options ...func(i int) string) (*SqlLoader, error) {
 	var build func(i int) string
 	if len(options) > 0 && options[0] != nil {
 		build = options[0]
@@ -159,7 +318,12 @@ func NewSqlCodeLoader(db *sql.DB, table string, config StructureConfig, options 
 	if driver == driverOracle {
 		mp = strings.ToUpper
 	}
-	return &SqlLoader{DB: db, Table: table, Config: config, Build: build, Map: mp}
+	modelType := reflect.TypeOf(Model{})
+	fieldsIndex, err := getColumnIndexes(modelType, mp)
+	if err != nil {
+		return nil, err
+	}
+	return &SqlLoader{DB: db, Table: table, Config: config, Build: build, Map: mp, colMap: fieldsIndex, modelType: modelType}, nil
 }
 func (l SqlLoader) Load(ctx context.Context, master string) ([]Model, error) {
 	models := make([]Model, 0)
@@ -232,18 +396,14 @@ func (l SqlLoader) Load(ctx context.Context, master string) ([]Model, error) {
 			return nil, er1
 		}
 		fieldsIndexSelected := make([]int, 0)
-		modelType := reflect.TypeOf(Model{})
 		// get list indexes column
-		fieldsIndex, er3 := getColumnIndexes(modelType, l.Map)
-		if er3 != nil {
-			return models, er3
-		}
+		fieldsIndex := l.colMap
 		for _, columnsName := range columns {
 			if index, ok := fieldsIndex[columnsName]; ok {
 				fieldsIndexSelected = append(fieldsIndexSelected, index)
 			}
 		}
-		tb, er3 := scanType(rows, modelType, fieldsIndexSelected)
+		tb, er3 := scanType(rows, l.modelType, fieldsIndexSelected)
 		if er3 != nil {
 			return nil, er3
 		}

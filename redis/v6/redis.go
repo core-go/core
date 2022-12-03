@@ -94,11 +94,16 @@ func NewRedisClient(uri string) (*redis.Client, error) {
 }
 
 func Set(client *redis.Client, key string, value interface{}, timeToLive time.Duration) error {
-	valueJson, err := json.Marshal(value)
-	if err != nil {
-		return err
+	var v string
+	v, ok := value.(string)
+	if ok == false {
+		json, err := json.Marshal(value)
+		if err != nil {
+			return err
+		}
+		v = string(json)
 	}
-	status := client.Set(key, valueJson, timeToLive)
+	status := client.Set(key, v, timeToLive)
 	return status.Err()
 }
 

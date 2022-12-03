@@ -89,6 +89,28 @@ func GetId(w http.ResponseWriter, r *http.Request, modelType reflect.Type, jsonI
 	}
 	return id
 }
+func GetStatus(status int64) int {
+	if status <= 0 {
+		return http.StatusNotFound
+	}
+	return http.StatusOK
+}
+func IsFound(res interface{}) int {
+	if IsNil(res) {
+		return http.StatusNotFound
+	}
+	return http.StatusOK
+}
+func IsNil(i interface{}) bool {
+	if i == nil {
+		return true
+	}
+	switch reflect.TypeOf(i).Kind() {
+	case reflect.Ptr, reflect.Map, reflect.Array, reflect.Chan, reflect.Slice:
+		return reflect.ValueOf(i).IsNil()
+	}
+	return false
+}
 func RespondModel(w http.ResponseWriter, r *http.Request, model interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options... string) {
 	var resource, action string
 	if len(options) > 0 && len(options[0]) > 0 {
@@ -100,8 +122,8 @@ func RespondModel(w http.ResponseWriter, r *http.Request, model interface{}, err
 	if err != nil {
 		RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
 	} else {
-		if model == nil {
-			ReturnAndLog(w, r, http.StatusNotFound, model, writeLog, false, resource, action, "Not found")
+		if IsNil(model) {
+			ReturnAndLog(w, r, http.StatusNotFound, nil, writeLog, false, resource, action, "Not found")
 		} else {
 			Succeed(w, r, http.StatusOK, model, writeLog, resource, action)
 		}

@@ -36,7 +36,7 @@ func (l *GinLogger) Logger() gin.HandlerFunc {
 			startTime := time.Now()
 			fields := BuildLogFields(l.Config, r)
 			single := !l.Config.Separate
-			if r.Method == "GET" || r.Method == "DELETE" {
+			if r.Method == "GET" || r.Method == "DELETE" || strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") {
 				single = true
 			}
 
@@ -56,7 +56,7 @@ func (l *GinLogger) Logger() gin.HandlerFunc {
 }
 
 func (l *GinLogger) BuildContextWithMask() gin.HandlerFunc {
-	return func(c *gin.Context)  {
+	return func(c *gin.Context) {
 		ctxGin := c
 		var ctx context.Context
 		ctx = c.Request.Context()
@@ -69,6 +69,14 @@ func (l *GinLogger) BuildContextWithMask() gin.HandlerFunc {
 		}
 
 		r := c.Request
+		if fieldConfig.Headers != nil && len(fieldConfig.Headers) > 0 {
+			for k, e := range fieldConfig.Headers {
+				if len(e) > 0 {
+					header := r.Header.Get(e)
+					ctx = context.WithValue(ctx, k, header)
+				}
+			}
+		}
 		if fieldConfig.Map != nil && len(fieldConfig.Map) > 0 && r.Body != nil && (r.Method != "GET" || r.Method != "DELETE") {
 			buf := new(bytes.Buffer)
 			buf.ReadFrom(r.Body)
@@ -141,7 +149,7 @@ func (l *GinLogger) BuildContextWithMask() gin.HandlerFunc {
 				}
 			}
 		} else {
-			if len(fieldConfig.Ip) == 0 && fieldConfig.Constants == nil {
+			if len(fieldConfig.Ip) == 0 && fieldConfig.Constants == nil && fieldConfig.Headers == nil {
 				c.Next()
 			} else {
 				ctxGin.Request = ctxGin.Request.WithContext(ctx)
