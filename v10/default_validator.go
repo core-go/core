@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"unicode"
 
+	ut "github.com/go-playground/universal-translator"
+
 	s "github.com/core-go/core"
 	"github.com/go-playground/validator/v10"
 )
@@ -17,25 +19,66 @@ const (
 
 type DefaultValidator struct {
 	validate           *validator.Validate
+	Trans              *ut.Translator
 	CustomValidateList []CustomValidate
 }
-
-func NewValidator() *DefaultValidator {
-	list := GetCustomValidateList()
-	return &DefaultValidator{CustomValidateList: list}
+func NewChecker(opts ...bool) (*DefaultValidator, error) {
+	return NewValidator(opts...)
 }
-
+func NewValidator(opts ...bool) (*DefaultValidator, error) {
+	register := true
+	if len(opts) > 0 {
+		register = opts[0]
+	}
+	uValidate, uTranslator, err := NewDefaultValidator()
+	if err != nil {
+		return nil, err
+	}
+	list := GetCustomValidateList()
+	validator := &DefaultValidator{validate: uValidate, Trans: &uTranslator, CustomValidateList: list}
+	if register {
+		err2 := validator.RegisterCustomValidate()
+		if err2 != nil {
+			return validator, err2
+		}
+	}
+	return validator, nil
+}
+func NewDefaultChecker() (*validator.Validate, ut.Translator, error) {
+	return NewDefaultValidator()
+}
+func NewDefaultValidator() (*validator.Validate, ut.Translator, error) {
+	validate := validator.New()
+	var transl ut.Translator
+	if trans != nil {
+		transl = *trans
+	} else {
+		list := GetCustomValidateList()
+		for _, v := range list {
+			err := validate.RegisterValidation(v.Tag, v.Fn)
+			if err != nil {
+				return nil, nil, err
+			}
+		}
+		ptr, err := RegisterTranslatorEn(validate)
+		if err != nil {
+			return nil, nil, err
+		}
+		transl = ptr
+	}
+	return validate, transl, nil
+}
+func (p *DefaultValidator) Check(ctx context.Context, model interface{}) ([]s.ErrorDetail, error) {
+	errs, err := p.Validate(ctx, model)
+	errors := s.BuildErrorDetails(errs)
+	return errors, err
+}
 func (p *DefaultValidator) Validate(ctx context.Context, model interface{}) ([]s.ErrorMessage, error) {
 	errors := make([]s.ErrorMessage, 0)
-	if p.validate == nil {
-		validate := validator.New()
-		validate = p.RegisterCustomValidate(validate)
-		p.validate = validate
-	}
 	err := p.validate.Struct(model)
 
 	if err != nil {
-		errors, err = MapErrors(err)
+		errors, err = p.MapErrors(err)
 	}
 	v := ctx.Value(method)
 	if v != nil {
@@ -57,19 +100,7 @@ var alias = map[string]string{
 	"ltefield": "maxfield",
 }
 
-func MapErrors(err error) (list []s.ErrorMessage, err1 error) {
-	if _, ok := err.(*validator.InvalidValidationError); ok {
-		err1 = fmt.Errorf("InvalidValidationError")
-		return
-	}
-	for _, err := range err.(validator.ValidationErrors) {
-		code := formatCodeMsg(err)
-		list = append(list, s.ErrorMessage{Field: s.FormatErrorField(err.Namespace()), Code: code})
-	}
-	return
-}
-
-func formatCodeMsg(err validator.FieldError) string {
+func getTagName(err validator.FieldError) string {
 	var code string
 	if aliasTag, ok := alias[err.Tag()]; ok {
 		if (err.Tag() == "max" || err.Tag() == "min") && err.Kind() != reflect.String {
@@ -93,9 +124,36 @@ func lcFirstChar(s string) string {
 	}
 	return s
 }
-func (p *DefaultValidator) RegisterCustomValidate(validate *validator.Validate) *validator.Validate {
+func (p *DefaultValidator) RegisterCustomValidate() error {
 	for _, v := range p.CustomValidateList {
-		validate.RegisterValidation(v.Tag, v.Fn)
+		err := p.validate.RegisterValidation(v.Tag, v.Fn)
+		if err != nil {
+			return err
+		}
 	}
-	return validate
+	if p.Trans != nil && p.validate != nil {
+		// register default translate
+		for _, validate := range p.CustomValidateList {
+			if text, ok := translations[validate.Tag]; ok {
+				err := AddMessage(p.validate, *p.Trans, validate.Tag, text, true)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (p *DefaultValidator) MapErrors(err error) (list []s.ErrorMessage, err1 error) {
+	if _, ok := err.(*validator.InvalidValidationError); ok {
+		err1 = fmt.Errorf("InvalidValidationError")
+		return
+	}
+	tr := *p.Trans
+	for _, err := range err.(validator.ValidationErrors) {
+		code := getTagName(err)
+		list = append(list, s.ErrorMessage{Field: s.FormatErrorField(err.Namespace()), Code: code, Message: err.Translate(tr), Param: err.Param()})
+	}
+	return
 }

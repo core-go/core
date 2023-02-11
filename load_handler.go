@@ -6,13 +6,14 @@ import (
 	"reflect"
 )
 
+type Log func(context.Context, string, string, bool, string) error
 type LoadHandler struct {
 	LoadData   func(ctx context.Context, id interface{}) (interface{}, error)
 	Keys       []string
 	ModelType  reflect.Type
 	KeyIndexes map[string]int
 	Error      func(context.Context, string, ...map[string]interface{})
-	WriteLog   func(ctx context.Context, resource string, action string, success bool, desc string) error
+	WriteLog   Log
 	Resource   string
 	Activity   string
 }

@@ -16,6 +16,25 @@ var PatternMap = map[string]string{
 	"code":       "^\\w*\\d*$",
 }
 
+var translations = map[string]string{
+	"email":        "{0} must be a valid email address",
+	"url":          "{0} must be a valid URL",
+	"uri":          "{0} must be a valid URI",
+	"fax":          "{0} must be a valid fax number",
+	"phone":        "{0} must be a valid phone number",
+	"ip":           "{0} must be a valid IP address",
+	"ipv4":         "{0} must be a valid IPv4 address",
+	"ipv6":         "{0} must be a valid IPv6 address",
+	"digit":        "{0} must contain only digits",
+	"pin":          "{0} must contain only digits",
+	"abc":          "{0} must contain only letters",
+	"id":           "{0} must be a valid ID",
+	"code":         "{0} must be a valid code",
+	"country_code": "{0} must be a valid country code",
+	"username":     "{0} must be a valid username",
+	"regex":        "{0} must match the provided regex pattern",
+}
+
 func GetCustomValidateList() (list []CustomValidate) {
 	list = append(list, CustomValidate{Fn: CheckEmail, Tag: "email"})
 	list = append(list, CustomValidate{Fn: CheckUrl, Tag: "url"})
@@ -26,6 +45,7 @@ func GetCustomValidateList() (list []CustomValidate) {
 	list = append(list, CustomValidate{Fn: CheckIpV4, Tag: "ipv4"})
 	list = append(list, CustomValidate{Fn: CheckIpV6, Tag: "ipv6"})
 	list = append(list, CustomValidate{Fn: CheckDigit, Tag: "digit"})
+	list = append(list, CustomValidate{Fn: CheckPIN, Tag: "pin"})
 	list = append(list, CustomValidate{Fn: CheckAbc, Tag: "abc"})
 	list = append(list, CustomValidate{Fn: CheckId, Tag: "id"})
 	list = append(list, CustomValidate{Fn: CheckCode, Tag: "code"})
@@ -66,6 +86,9 @@ func CheckIpV6(fl validator.FieldLevel) bool {
 	return CheckString(fl, s.IsIpAddressV6)
 }
 func CheckDigit(fl validator.FieldLevel) bool {
+	return CheckString(fl, s.IsDigit)
+}
+func CheckPIN(fl validator.FieldLevel) bool {
 	return CheckString(fl, s.IsDigit)
 }
 func CheckAbc(fl validator.FieldLevel) bool {

@@ -15,6 +15,7 @@ type Languages struct {
 	Km string `yaml:"km" mapstructure:"km" json:"km,omitempty" gorm:"column:km" bson:"km,omitempty" dynamodbav:"km,omitempty" firestore:"km,omitempty"`
 	Id string `yaml:"id" mapstructure:"id" json:"id,omitempty" gorm:"column:id" bson:"id,omitempty" dynamodbav:"id,omitempty" firestore:"id,omitempty"`
 	Ms string `yaml:"ms" mapstructure:"ms" json:"ms,omitempty" gorm:"column:ms" bson:"ms,omitempty" dynamodbav:"ms,omitempty" firestore:"ms,omitempty"`
+	Tl string `yaml:"tl" mapstructure:"tl" json:"tl,omitempty" gorm:"column:tl" bson:"tl,omitempty" dynamodbav:"tl,omitempty" firestore:"tl,omitempty"`
 	Ja string `yaml:"ja" mapstructure:"ja" json:"ja,omitempty" gorm:"column:ja" bson:"ja,omitempty" dynamodbav:"ja,omitempty" firestore:"ja,omitempty"`
 	Ko string `yaml:"ko" mapstructure:"ko" json:"ko,omitempty" gorm:"column:ko" bson:"ko,omitempty" dynamodbav:"ko,omitempty" firestore:"ko,omitempty"`
 	De string `yaml:"de" mapstructure:"de" json:"de,omitempty" gorm:"column:de" bson:"de,omitempty" dynamodbav:"de,omitempty" firestore:"de,omitempty"`

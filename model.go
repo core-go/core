@@ -6,6 +6,7 @@ import (
 	"unicode"
 )
 
+type Sequence func(context.Context, string) (int64, error)
 type ResultInfo struct {
 	Status  int            `yaml:"status" mapstructure:"status" json:"status" gorm:"column:status" bson:"status" dynamodbav:"status" firestore:"status"`
 	Errors  []ErrorMessage `yaml:"errors" mapstructure:"errors" json:"errors,omitempty" gorm:"column:errors" bson:"errors,omitempty" dynamodbav:"errors,omitempty" firestore:"errors,omitempty"`
@@ -19,6 +20,7 @@ type ErrorMessage struct {
 	Param   string `yaml:"param" mapstructure:"param" json:"param,omitempty" gorm:"column:param" bson:"param,omitempty" dynamodbav:"param,omitempty" firestore:"param,omitempty"`
 	Message string `yaml:"message" mapstructure:"message" json:"message,omitempty" gorm:"column:message" bson:"message,omitempty" dynamodbav:"message,omitempty" firestore:"message,omitempty"`
 }
+type Validate func(ctx context.Context, model interface{}) ([]ErrorMessage, error)
 type ErrorDetail struct {
 	ErrorField string `yaml:"error_field" mapstructure:"error_field" json:"errorField,omitempty" gorm:"column:error_field" bson:"errorField,omitempty" dynamodbav:"errorField,omitempty" firestore:"errorField,omitempty"`
 	ErrorCode  string `yaml:"error_code" mapstructure:"error_code" json:"errorCode,omitempty" gorm:"column:error_code" bson:"errorCode,omitempty" dynamodbav:"errorCode,omitempty" firestore:"errorCode,omitempty"`
