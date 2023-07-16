@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -59,7 +60,7 @@ func Send(ctx context.Context, send func(ctx context.Context, data []byte, attri
 func (l *StructuredLogger) LogRequest(log func(context.Context, string, map[string]interface{}), r *http.Request, c LogConfig, fields map[string]interface{}, singleLog bool) {
 	var fs map[string]interface{}
 	fs = fields
-	if len(c.Request) > 0 && r.Method != "GET" && r.Method != "DELETE" {
+	if len(c.Request) > 0 && r.Method != "GET" && r.Method != "DELETE" && !strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") {
 		fs = BuildRequestBody(r, c.Request, fields)
 	}
 	if !singleLog {

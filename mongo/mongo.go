@@ -862,7 +862,24 @@ func GetFieldByJson(modelType reflect.Type, jsonName string) (int, string, strin
 	}
 	return -1, jsonName, jsonName
 }
-
+func GetFields(fields []string, modelType reflect.Type) bson.M {
+	if len(fields) <= 0 {
+		return nil
+	}
+	ex := false
+	var fs = bson.M{}
+	for _, key := range fields {
+		_, _, columnName := GetFieldByJson(modelType, key)
+		if len(columnName) >= 0 {
+			fs[columnName] = 1
+			ex = true
+		}
+	}
+	if ex == false {
+		return nil
+	}
+	return fs
+}
 //For Search and Patch
 func GetBsonName(modelType reflect.Type, fieldName string) string {
 	field, found := modelType.FieldByName(fieldName)

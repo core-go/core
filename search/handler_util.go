@@ -250,9 +250,17 @@ func ToFilter(w http.ResponseWriter, r *http.Request, filter interface{}, paramI
 func DecodeAndCheck(w http.ResponseWriter, r *http.Request, filter interface{}, paramIndex map[string]int, options...int) error {
 	return ToFilter(w, r, filter, paramIndex, options...)
 }
-func ResultToCsv(fields []string, models interface{}, count int64, nextPageToken string, embedField string, opts...map[string]int) (string, bool) {
+func ResultToCsv(fields []string, models interface{}, count int64, embedField string, opts...map[string]int) (string, bool) {
 	if len(fields) > 0 {
-		result1 := ToCsv(fields, models, count, nextPageToken, embedField, opts...)
+		result1 := ToCsv(fields, models, count, embedField, opts...)
+		return result1, true
+	} else {
+		return "", false
+	}
+}
+func ResultToNextCsv(fields []string, models interface{}, nextPageToken string, embedField string, opts...map[string]int) (string, bool) {
+	if len(fields) > 0 {
+		result1 := ToNextCsv(fields, models, nextPageToken, embedField, opts...)
 		return result1, true
 	} else {
 		return "", false

@@ -15,6 +15,12 @@ type SearchBuilder struct {
 	Map        func(ctx context.Context, model interface{}) (interface{}, error)
 }
 
+func NewSearchQueryWithSort(db *mongo.Database, collectionName string, buildQuery func(interface{}) (bson.D, bson.M), getSort func(interface{}) string, buildSort func(string, reflect.Type) bson.D, options ...func(context.Context, interface{}) (interface{}, error)) *SearchBuilder {
+	return NewSearchBuilderWithSort(db, collectionName, buildQuery, getSort, buildSort, options...)
+}
+func NewSearchQuery(db *mongo.Database, collectionName string, buildQuery func(interface{}) (bson.D, bson.M), getSort func(interface{}) string, options ...func(context.Context, interface{}) (interface{}, error)) *SearchBuilder {
+	return NewSearchBuilderWithSort(db, collectionName, buildQuery, getSort, BuildSort, options...)
+}
 func NewSearchBuilderWithSort(db *mongo.Database, collectionName string, buildQuery func(interface{}) (bson.D, bson.M), getSort func(interface{}) string, buildSort func(string, reflect.Type) bson.D, options ...func(context.Context, interface{}) (interface{}, error)) *SearchBuilder {
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) > 0 && options[0] != nil {
@@ -27,17 +33,15 @@ func NewSearchBuilderWithSort(db *mongo.Database, collectionName string, buildQu
 func NewSearchBuilder(db *mongo.Database, collectionName string, buildQuery func(interface{}) (bson.D, bson.M), getSort func(interface{}) string, options ...func(context.Context, interface{}) (interface{}, error)) *SearchBuilder {
 	return NewSearchBuilderWithSort(db, collectionName, buildQuery, getSort, BuildSort, options...)
 }
-func (b *SearchBuilder) Search(ctx context.Context, m interface{}, results interface{}, limit int64, options ...int64) (int64, string, error) {
+func (b *SearchBuilder) Search(ctx context.Context, m interface{}, results interface{}, limit int64, skip int64) (int64, error) {
 	query, fields := b.BuildQuery(m)
 
 	var sort = bson.D{}
 	s := b.GetSort(m)
 	modelType := reflect.TypeOf(results).Elem().Elem()
 	sort = b.BuildSort(s, modelType)
-	var skip int64 = 0
-	if len(options) > 0 && options[0] > 0 {
-		skip = options[0]
+	if skip < 0 {
+		skip = 0
 	}
-	count, err := BuildSearchResult(ctx, b.Collection, results, query, fields, sort, limit, skip, b.Map)
-	return count, "", err
+	return BuildSearchResult(ctx, b.Collection, results, query, fields, sort, limit, skip, b.Map)
 }

@@ -50,7 +50,7 @@ func Logger(c LogConfig, log func(ctx context.Context, msg string, fields map[st
 				startTime := time.Now()
 				fields := BuildLogFields(c, r)
 				single := !c.Separate
-				if r.Method == "GET" || r.Method == "DELETE" {
+				if r.Method == "GET" || r.Method == "DELETE" || strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") {
 					single = true
 				}
 				f.LogRequest(log, r, c, fields, single)

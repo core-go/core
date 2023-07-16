@@ -2,13 +2,17 @@ package search
 
 import "reflect"
 
-func BuildResultMap(models interface{}, count int64, nextPageToken string, config SearchResultConfig) map[string]interface{} {
+func BuildResultMap(models interface{}, count int64, config SearchResultConfig) map[string]interface{} {
 	result := make(map[string]interface{})
-
 	result[config.Total] = count
 	result[config.Results] = models
+	return result
+}
+func BuildNextResultMap(models interface{}, nextPageToken string, config SearchResultConfig) map[string]interface{} {
+	result := make(map[string]interface{})
+	result[config.Results] = models
 	if len(nextPageToken) > 0 {
-		result[config.NextPageToken] = nextPageToken
+		result[config.Next] = nextPageToken
 	}
 	return result
 }

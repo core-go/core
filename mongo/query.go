@@ -15,9 +15,15 @@ func BuildSearchResult(ctx context.Context, collection *mongo.Collection, result
 		mp = opts[0]
 	}
 	optionsFind := options.Find()
-	optionsFind.Projection = fields
-	optionsFind.SetSkip(skip)
-	optionsFind.SetLimit(limit)
+	if fields != nil {
+		optionsFind.Projection = fields
+	}
+	if skip > 0 {
+		optionsFind.SetSkip(skip)
+	}
+	if limit > 0 {
+		optionsFind.SetLimit(limit)
+	}
 	if sort != nil {
 		optionsFind.SetSort(sort)
 	}

@@ -26,7 +26,7 @@ func NewMongoSearchLoaderWithQueryAndSort(db *mongo.Database, collection string,
 	searcher := NewSearcher(builder.Search)
 	return searcher, loader
 }
-func NewMongoSearchLoader(db *mongo.Database, collection string, modelType reflect.Type, idObjectId bool, search func(context.Context, interface{}, interface{}, int64, ...int64) (int64, string, error), options ...func(context.Context, interface{}) (interface{}, error)) (*Searcher, *Loader) {
+func NewMongoSearchLoader(db *mongo.Database, collection string, modelType reflect.Type, idObjectId bool, search func(context.Context, interface{}, interface{}, int64, int64) (int64, error), options ...func(context.Context, interface{}) (interface{}, error)) (*Searcher, *Loader) {
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) > 0 && options[0] != nil {
 		mp = options[0]
@@ -35,6 +35,6 @@ func NewMongoSearchLoader(db *mongo.Database, collection string, modelType refle
 	searcher := NewSearcher(search)
 	return searcher, loader
 }
-func NewSearchLoader(db *mongo.Database, collection string, modelType reflect.Type, search func(context.Context, interface{}, interface{}, int64, ...int64) (int64, string, error), options ...func(context.Context, interface{}) (interface{}, error)) (*Searcher, *Loader) {
+func NewSearchLoader(db *mongo.Database, collection string, modelType reflect.Type, search func(context.Context, interface{}, interface{}, int64, int64) (int64, error), options ...func(context.Context, interface{}) (interface{}, error)) (*Searcher, *Loader) {
 	return NewMongoSearchLoader(db, collection, modelType, false, search, options...)
 }
