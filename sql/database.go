@@ -30,68 +30,6 @@ type TxCache interface {
 	Size() (int64, error)
 }
 
-// for Loader
-func FindPrimaryKeys(modelType reflect.Type) ([]string, []string) {
-	numField := modelType.NumField()
-	var idColumnFields []string
-	var idJsons []string
-	for i := 0; i < numField; i++ {
-		field := modelType.Field(i)
-		ormTag := field.Tag.Get("gorm")
-		tags := strings.Split(ormTag, ";")
-		for _, tag := range tags {
-			if strings.Compare(strings.TrimSpace(tag), "primary_key") == 0 {
-				k, ok := findTag(ormTag, "column")
-				if ok {
-					idColumnFields = append(idColumnFields, k)
-					tag1, ok1 := field.Tag.Lookup("json")
-					tagJsons := strings.Split(tag1, ",")
-					if ok1 && len(tagJsons) > 0 {
-						idJsons = append(idJsons, tagJsons[0])
-					}
-				}
-			}
-		}
-	}
-	return idColumnFields, idJsons
-}
-func BuildFindById(table string, buildParam func(i int) string, id interface{}, mapJsonColumnKeys map[string]string, keys []string) (string, []interface{}) {
-	var where = ""
-	var values []interface{}
-	if len(keys) == 1 {
-		where = fmt.Sprintf("where %s = %s", mapJsonColumnKeys[keys[0]], buildParam(1))
-		values = append(values, id)
-	} else {
-		conditions := make([]string, 0)
-		if ids, ok := id.(map[string]interface{}); ok {
-			j := 0
-			for _, keyJson := range keys {
-				columnName := mapJsonColumnKeys[keyJson]
-				if idk, ok1 := ids[keyJson]; ok1 {
-					conditions = append(conditions, fmt.Sprintf("%s = %s", columnName, buildParam(j)))
-					values = append(values, idk)
-					j++
-				}
-			}
-			where = "where " + strings.Join(conditions, " and ")
-		}
-	}
-	return fmt.Sprintf("select * from %v %v", table, where), values
-}
-func BuildFindByIdWithDB(db *sql.DB, table string, id interface{}, mapJsonColumnKeys map[string]string, keys []string, options ...func(i int) string) (string, []interface{}) {
-	var buildParam func(i int) string
-	if len(options) > 0 && options[0] != nil {
-		buildParam = options[0]
-	} else {
-		buildParam = GetBuild(db)
-	}
-	return BuildFindById(table, buildParam, id, mapJsonColumnKeys, keys)
-}
-
-func BuildSelectAllQuery(table string) string {
-	return fmt.Sprintf("select * from %v", table)
-}
-
 func InitSingleResult(modelType reflect.Type) interface{} {
 	return reflect.New(modelType).Interface()
 }
@@ -99,16 +37,7 @@ func InitSingleResult(modelType reflect.Type) interface{} {
 func InitArrayResults(modelsType reflect.Type) interface{} {
 	return reflect.New(modelsType).Interface()
 }
-func FindFieldIndex(modelType reflect.Type, fieldName string) int {
-	numField := modelType.NumField()
-	for i := 0; i < numField; i++ {
-		field := modelType.Field(i)
-		if field.Name == fieldName {
-			return i
-		}
-	}
-	return -1
-}
+
 func ExecStmt(ctx context.Context, stmt *sql.Stmt, values ...interface{}) (int64, error) {
 	result, err := stmt.ExecContext(ctx, values...)
 	if err != nil {
@@ -290,33 +219,6 @@ func UpdateTxWithVersion(ctx context.Context, db *sql.DB, tx *sql.Tx, table stri
 	}
 	return result.RowsAffected()
 }
-func Delete(ctx context.Context, db *sql.DB, table string, query map[string]interface{}, options ...func(i int) string) (int64, error) {
-	var buildParam func(i int) string
-	if len(options) > 0 && options[0] != nil {
-		buildParam = options[0]
-	} else {
-		buildParam = GetBuild(db)
-	}
-	sql, values := BuildToDelete(table, query, buildParam)
-
-	result, err := db.ExecContext(ctx, sql, values...)
-
-	if err != nil {
-		return -1, err
-	}
-	return BuildResult(result.RowsAffected())
-}
-func DeleteTx(ctx context.Context, tx *sql.Tx, table string, query map[string]interface{}, buildParam func(i int) string) (int64, error) {
-	sql, values := BuildToDelete(table, query, buildParam)
-
-	result, err := tx.ExecContext(ctx, sql, values...)
-
-	if err != nil {
-		return -1, err
-	}
-	return BuildResult(result.RowsAffected())
-}
-
 func InsertBatch(ctx context.Context, db *sql.DB, tableName string, models interface{}, options ...*Schema) (int64, error) {
 	buildParam := GetBuild(db)
 	var schema *Schema
@@ -587,43 +489,6 @@ func ExtractMapValue(value interface{}, excludeColumns *[]string, ignoreNull boo
 	return attrs, attrsKey, nAttrs, nil
 }
 
-func GetIndexByTag(tag, key string, modelType reflect.Type) (index int) {
-	for i := 0; i < modelType.NumField(); i++ {
-		f := modelType.Field(i)
-		v := strings.Split(f.Tag.Get(tag), ",")[0]
-		if v == key {
-			return i
-		}
-	}
-	return -1
-}
-
-// For ViewDefaultRepository
-func GetColumnName(modelType reflect.Type, jsonName string) (col string, colExist bool) {
-	index := GetIndexByTag("json", jsonName, modelType)
-	if index == -1 {
-		return jsonName, false
-	}
-	field := modelType.Field(index)
-	ormTag, ok2 := field.Tag.Lookup("gorm")
-	if !ok2 {
-		return "", true
-	}
-	if has := strings.Contains(ormTag, "column"); has {
-		str1 := strings.Split(ormTag, ";")
-		num := len(str1)
-		for i := 0; i < num; i++ {
-			str2 := strings.Split(str1[i], ":")
-			for j := 0; j < len(str2); j++ {
-				if str2[j] == "column" {
-					return str2[j+1], true
-				}
-			}
-		}
-	}
-	return jsonName, false
-}
-
 func GetJsonNameByIndex(ModelType reflect.Type, index int) (string, bool) {
 	field := ModelType.Field(index)
 	if tagJson, ok := field.Tag.Lookup("json"); ok {
@@ -709,11 +574,6 @@ func FindIdColumns(modelType reflect.Type) []string {
 		}
 	}
 	return idFields
-}
-
-func BuildQueryById(id interface{}, modelType reflect.Type, idName string) (query map[string]interface{}) {
-	columnName, _ := GetColumnName(modelType, idName)
-	return map[string]interface{}{columnName: id}
 }
 
 func MapToGORM(ids map[string]interface{}, modelType reflect.Type) (query map[string]interface{}) {

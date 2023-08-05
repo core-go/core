@@ -17,6 +17,29 @@ const (
 	asc                 = "asc"
 )
 
+func GetOffset(limit int64, page int64, opts...int64) int64 {
+	var firstLimit int64 = 0
+	if len(opts) > 0 && opts[0] > 0 {
+		firstLimit = opts[0]
+	}
+	if firstLimit > 0 {
+		if page <= 1 {
+			return 0
+		} else {
+			offset := limit*(page-2) + firstLimit
+			if offset < 0 {
+				return 0
+			}
+			return offset
+		}
+	} else {
+		offset := limit * (page - 1)
+		if offset < 0 {
+			return 0
+		}
+		return offset
+	}
+}
 func BuildFromQuery(ctx context.Context, db *sql.DB, fieldsIndex map[string]int, models interface{}, query string, params []interface{}, limit int64, offset int64, toArray func(interface{}) interface {
 	driver.Valuer
 	sql.Scanner
@@ -50,12 +73,12 @@ func BuildFromQuery(ctx context.Context, db *sql.DB, fieldsIndex map[string]int,
 			return total, er2
 		} else {
 			queryPaging := BuildPagingQuery(query, limit, offset, driver)
-			queryCount, paramsCount := BuildCountQuery(query, params)
+			queryCount := BuildCountQuery(query)
 			er1 := QueryWithArray(ctx, db, fieldsIndex, models, toArray, queryPaging, params...)
 			if er1 != nil {
 				return -1, er1
 			}
-			total, er2 := Count(ctx, db, queryCount, paramsCount...)
+			total, er2 := Count(ctx, db, queryCount, params...)
 			if er2 != nil {
 				total = 0
 			}
@@ -87,10 +110,13 @@ func BuildPagingQueryByDriver(sql string, limit int64, offset int64, driver stri
 		return s2
 	}
 }
-func BuildPagingQuery(sql string, limit int64, offset int64, driver string) string {
+func BuildPagingQuery(sql string, limit int64, offset int64, opts...string) string {
+	if offset < 0 {
+		offset = 0
+	}
 	if limit > 0 {
 		var pagingQuery string
-		if driver == DriverOracle {
+		if len(opts) > 0 && opts[0] == DriverOracle {
 			pagingQuery = fmt.Sprintf(OraclePagingFormat, strconv.FormatInt(offset, 10), strconv.FormatInt(limit, 10))
 		} else {
 			pagingQuery = fmt.Sprintf(DefaultPagingFormat, strconv.FormatInt(limit, 10), strconv.FormatInt(offset, 10))
@@ -101,27 +127,27 @@ func BuildPagingQuery(sql string, limit int64, offset int64, driver string) stri
 	return sql
 }
 
-func BuildCountQuery(sql string, params []interface{}) (string, []interface{}) {
+func BuildCountQuery(sql string) string {
 	i := strings.Index(sql, "select ")
 	if i < 0 {
-		return sql, params
+		return sql
 	}
 	j := strings.Index(sql, " from ")
 	if j < 0 {
-		return sql, params
+		return sql
 	}
 	k := strings.Index(sql, " order by ")
 	h := strings.Index(sql, " distinct ")
 	if h > 0 {
 		sql3 := `select count(*) as total from (` + sql[i:] + `) as main`
-		return sql3, params
+		return sql3
 	}
 	if k > 0 {
 		sql3 := `select count(*) as total ` + sql[j:k]
-		return sql3, params
+		return sql3
 	} else {
 		sql3 := `select count(*) as total ` + sql[j:]
-		return sql3, params
+		return sql3
 	}
 }
 
@@ -132,8 +158,7 @@ func BuildSearchResult(ctx context.Context, models interface{}, mp func(context.
 	_, err := MapModels(ctx, models, mp)
 	return err
 }
-
-func BuildSort(sortString string, modelType reflect.Type) string {
+func GetSort(sortString string, modelType reflect.Type) string {
 	var sort = make([]string, 0)
 	sorts := strings.Split(sortString, ",")
 	for i := 0; i < len(sorts); i++ {
@@ -150,7 +175,15 @@ func BuildSort(sortString string, modelType reflect.Type) string {
 		}
 	}
 	if len(sort) > 0 {
-		return ` order by ` + strings.Join(sort, ",")
+		return strings.Join(sort, ",")
+	} else {
+		return ""
+	}
+}
+func BuildSort(sortString string, modelType reflect.Type) string {
+	var sort = GetSort(sortString, modelType)
+	if len(sort) > 0 {
+		return ` order by ` + sort
 	} else {
 		return ""
 	}

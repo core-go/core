@@ -1,4 +1,4 @@
-package sql
+package action
 
 import (
 	"context"
@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	q "github.com/core-go/core/sql"
 )
 
 type ActionLogConf struct {
 	Log    bool            `yaml:"log" mapstructure:"log" json:"log,omitempty" gorm:"column:log" bson:"log,omitempty" dynamodbav:"log,omitempty" firestore:"log,omitempty"`
-	DB     Config          `yaml:"db" mapstructure:"db" json:"db,omitempty" gorm:"column:db" bson:"db,omitempty" dynamodbav:"db,omitempty" firestore:"db,omitempty"`
+	DB     q.Config        `yaml:"db" mapstructure:"db" json:"db,omitempty" gorm:"column:db" bson:"db,omitempty" dynamodbav:"db,omitempty" firestore:"db,omitempty"`
 	Schema ActionLogSchema `yaml:"schema" mapstructure:"schema" json:"schema,omitempty" gorm:"column:schema" bson:"schema,omitempty" dynamodbav:"schema,omitempty" firestore:"schema,omitempty"`
 	Config ActionLogConfig `yaml:"config" mapstructure:"config" json:"config,omitempty" gorm:"column:config" bson:"config,omitempty" dynamodbav:"config,omitempty" firestore:"config,omitempty"`
 }
@@ -58,7 +60,7 @@ func NewActionLogWriter(database *sql.DB, tableName string, config ActionLogConf
 	s.Timestamp = strings.ToLower(s.Timestamp)
 	s.Status = strings.ToLower(s.Status)
 	s.Desc = strings.ToLower(s.Desc)
-	driver := GetDriver(database)
+	driver := q.GetDriver(database)
 	if len(s.Id) == 0 {
 		s.Id = "id"
 	}
@@ -84,7 +86,7 @@ func NewActionLogWriter(database *sql.DB, tableName string, config ActionLogConf
 	if len(options) > 0 && options[0] != nil {
 		buildParam = options[0]
 	} else {
-		buildParam = GetBuild(database)
+		buildParam = q.GetBuild(database)
 	}
 	writer := ActionLogWriter{Database: database, Table: tableName, Config: config, Schema: s, Generate: generate, BuildParam: buildParam, Driver: driver}
 	return &writer
@@ -153,12 +155,12 @@ func GetString(ctx context.Context, key string) string {
 	return ""
 }
 func BuildInsertSQL(db *sql.DB, tableName string, model map[string]interface{}, options ...func(i int) string) (string, []interface{}) {
-	driver := GetDriver(db)
+	driver := q.GetDriver(db)
 	var buildParam func(i int) string
 	if len(options) > 0 && options[0] != nil {
 		buildParam = options[0]
 	} else {
-		buildParam = GetBuild(db)
+		buildParam = q.GetBuild(db)
 	}
 	var cols []string
 	var values []interface{}
@@ -179,8 +181,8 @@ func BuildInsertSQL(db *sql.DB, tableName string, model map[string]interface{}, 
 }
 
 func QuoteString(name string, driver string) string {
-	if driver == DriverPostgres {
-		name = "`" + strings.Replace(name, "`", "``", -1) + "`"
+	if driver == q.DriverPostgres {
+		name = `"` + name + `"`
 	}
 	return name
 }

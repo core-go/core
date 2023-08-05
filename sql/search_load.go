@@ -6,6 +6,7 @@ import (
 	"database/sql/driver"
 	"reflect"
 )
+
 func NewSearchLoader(db *sql.DB, tableName string, modelType reflect.Type, buildQuery func(interface{}) (string, []interface{}), options ...func(context.Context, interface{}) (interface{}, error)) (*Searcher, *Loader, error) {
 	return NewSearchLoaderWithArray(db, tableName, modelType, buildQuery, nil, options...)
 }

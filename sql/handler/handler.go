@@ -1,4 +1,4 @@
-package sql
+package handler
 
 import (
 	"context"
@@ -7,18 +7,20 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	q "github.com/core-go/core/sql"
 )
 
 type Handler struct {
 	DB        *sql.DB
 	Transform func(s string) string
-	Cache     TxCache
+	Cache     q.TxCache
 	Generate  func(ctx context.Context) (string, error)
 	Error     func(context.Context, string, ...map[string]interface{})
 }
 
 const d = 120 * time.Second
-func NewHandler(db *sql.DB, transform func(s string) string, cache TxCache, generate func(context.Context) (string, error), options... func(context.Context, string, ...map[string]interface{})) *Handler {
+func NewHandler(db *sql.DB, transform func(s string) string, cache q.TxCache, generate func(context.Context) (string, error), options... func(context.Context, string, ...map[string]interface{})) *Handler {
 	var logError func(context.Context, string, ...map[string]interface{})
 	if len(options) >= 1 {
 		logError = options[0]
@@ -84,13 +86,13 @@ func (h *Handler) EndTransaction(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func (h *Handler) Exec(w http.ResponseWriter, r *http.Request) {
-	s := JStatement{}
+	s := q.JStatement{}
 	er0 := json.NewDecoder(r.Body).Decode(&s)
 	if er0 != nil {
 		http.Error(w, er0.Error(), http.StatusBadRequest)
 		return
 	}
-	s.Params = ParseDates(s.Params, s.Dates)
+	s.Params = q.ParseDates(s.Params, s.Dates)
 	ps := r.URL.Query()
 	stx := ps.Get("tx")
 	if len(stx) == 0 {
@@ -141,17 +143,17 @@ func (h *Handler) Exec(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Query(w http.ResponseWriter, r *http.Request) {
-	s := JStatement{}
+	s := q.JStatement{}
 	er0 := json.NewDecoder(r.Body).Decode(&s)
 	if er0 != nil {
 		http.Error(w, er0.Error(), http.StatusBadRequest)
 		return
 	}
-	s.Params = ParseDates(s.Params, s.Dates)
+	s.Params = q.ParseDates(s.Params, s.Dates)
 	ps := r.URL.Query()
 	stx := ps.Get("tx")
 	if len(stx) == 0 {
-		res, er1 := QueryMap(r.Context(), h.DB, h.Transform, s.Query, s.Params...)
+		res, er1 := q.QueryMap(r.Context(), h.DB, h.Transform, s.Query, s.Params...)
 		if er1 != nil {
 			handleError(w, r, 500, er1.Error(), h.Error, er1)
 			return
@@ -167,7 +169,7 @@ func (h *Handler) Query(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "cannot get tx from cache. Maybe tx got timeout", http.StatusInternalServerError)
 			return
 		}
-		res, er1 := QueryMapWithTx(r.Context(), tx, h.Transform, s.Query, s.Params...)
+		res, er1 := q.QueryMapWithTx(r.Context(), tx, h.Transform, s.Query, s.Params...)
 		if er1 != nil {
 			handleError(w, r, 500, er1.Error(), h.Error, er1)
 			return
@@ -185,17 +187,17 @@ func (h *Handler) Query(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func (h *Handler) QueryOne(w http.ResponseWriter, r *http.Request) {
-	s := JStatement{}
+	s := q.JStatement{}
 	er0 := json.NewDecoder(r.Body).Decode(&s)
 	if er0 != nil {
 		http.Error(w, er0.Error(), http.StatusBadRequest)
 		return
 	}
-	s.Params = ParseDates(s.Params, s.Dates)
+	s.Params = q.ParseDates(s.Params, s.Dates)
 	ps := r.URL.Query()
 	stx := ps.Get("tx")
 	if len(stx) == 0 {
-		res, er1 := QueryMap(r.Context(), h.DB, h.Transform, s.Query, s.Params...)
+		res, er1 := q.QueryMap(r.Context(), h.DB, h.Transform, s.Query, s.Params...)
 		if er1 != nil {
 			handleError(w, r, 500, er1.Error(), h.Error, er1)
 			return
@@ -215,7 +217,7 @@ func (h *Handler) QueryOne(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "cannot get tx from cache. Maybe tx got timeout", http.StatusInternalServerError)
 			return
 		}
-		res, er1 := QueryMapWithTx(r.Context(), tx, h.Transform, s.Query, s.Params...)
+		res, er1 := q.QueryMapWithTx(r.Context(), tx, h.Transform, s.Query, s.Params...)
 		if er1 != nil {
 			handleError(w, r, 500, er1.Error(), h.Error, er1)
 			return
@@ -237,8 +239,8 @@ func (h *Handler) QueryOne(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func (h *Handler) ExecBatch(w http.ResponseWriter, r *http.Request) {
-	var s []JStatement
-	b := make([]Statement, 0)
+	var s []q.JStatement
+	b := make([]q.Statement, 0)
 	er0 := json.NewDecoder(r.Body).Decode(&s)
 	if er0 != nil {
 		http.Error(w, er0.Error(), http.StatusBadRequest)
@@ -246,9 +248,9 @@ func (h *Handler) ExecBatch(w http.ResponseWriter, r *http.Request) {
 	}
 	l := len(s)
 	for i := 0; i < l; i++ {
-		st := Statement{}
+		st := q.Statement{}
 		st.Query = s[i].Query
-		st.Params = ParseDates(s[i].Params, s[i].Dates)
+		st.Params = q.ParseDates(s[i].Params, s[i].Dates)
 		b = append(b, st)
 	}
 	ps := r.URL.Query()
@@ -258,9 +260,9 @@ func (h *Handler) ExecBatch(w http.ResponseWriter, r *http.Request) {
 	if len(stx) == 0 {
 		master := ps.Get("master")
 		if master == "true" {
-			res, er1 = ExecuteBatch(r.Context(), h.DB, b, true, true)
+			res, er1 = q.ExecuteBatch(r.Context(), h.DB, b, true, true)
 		} else {
-			res, er1 = ExecuteAll(r.Context(), h.DB, b...)
+			res, er1 = q.ExecuteAll(r.Context(), h.DB, b...)
 		}
 	} else {
 		tx, er0 := h.Cache.Get(stx)
@@ -277,7 +279,7 @@ func (h *Handler) ExecBatch(w http.ResponseWriter, r *http.Request) {
 		if commit == "true" {
 			tc = true
 		}
-		res, er1 = ExecuteStatements(r.Context(), tx, tc, b...)
+		res, er1 = q.ExecuteStatements(r.Context(), tx, tc, b...)
 		if tc && er1 == nil {
 			h.Cache.Remove(stx)
 		}

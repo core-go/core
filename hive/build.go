@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	_ "time"
 )
 
 func BuildToInsert(table string, model interface{}, options ...*Schema) string {

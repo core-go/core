@@ -8,13 +8,13 @@ import (
 )
 
 type Searcher struct {
-	search  func(ctx context.Context, searchModel interface{}, results interface{}, limit int64, options ...int64) (int64, string, error)
+	search  func(ctx context.Context, searchModel interface{}, results interface{}, limit int64, offset int64) (int64, error)
 	ToArray func(interface{}) interface {
 		driver.Valuer
 		sql.Scanner
 	}
 }
-func NewSearcher(search func(context.Context, interface{}, interface{}, int64, ...int64) (int64, string, error), options... func(interface{}) interface {
+func NewSearcher(search func(context.Context, interface{}, interface{}, int64, int64) (int64, error), options... func(interface{}) interface {
 	driver.Valuer
 	sql.Scanner
 }) *Searcher {
@@ -28,8 +28,8 @@ func NewSearcher(search func(context.Context, interface{}, interface{}, int64, .
 	return &Searcher{search: search, ToArray: toArray}
 }
 
-func (s *Searcher) Search(ctx context.Context, m interface{}, results interface{}, limit int64, options ...int64) (int64, string, error) {
-	return s.search(ctx, m, results, limit, options...)
+func (s *Searcher) Search(ctx context.Context, m interface{}, results interface{}, limit int64, offset int64) (int64, error) {
+	return s.search(ctx, m, results, limit, offset)
 }
 func NewSearcherWithQuery(db *sql.DB, modelType reflect.Type, buildQuery func(interface{}) (string, []interface{}), options ...func(context.Context, interface{}) (interface{}, error)) (*Searcher, error) {
 	return NewSearcherWithArray(db, modelType, buildQuery, nil, options...)

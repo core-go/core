@@ -1,4 +1,4 @@
-package sql
+package passcode
 
 import (
 	"context"
@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	q "github.com/core-go/core/sql"
 )
 
-type PasscodeService struct {
+type PasscodeRepository struct {
 	db            *sql.DB
 	tableName     string
 	idName        string
@@ -18,10 +20,16 @@ type PasscodeService struct {
 	Driver        string
 	BuildParam    func(i int) string
 }
-func NewPasscodeService(db *sql.DB, tableName string, options ...string) *PasscodeService {
-	return NewPasscodeServiceWithTx(db, tableName, "", options...)
+func NewPasscodeAdapter(db *sql.DB, tableName string, options ...string) *PasscodeRepository {
+	return NewPasscodeRepositoryWithTx(db, tableName, "", options...)
 }
-func NewPasscodeServiceWithTx(db *sql.DB, tableName string, tx string, options ...string) *PasscodeService {
+func NewPasscodeAdapterWithTx(db *sql.DB, tableName string, tx string, options ...string) *PasscodeRepository {
+	return NewPasscodeRepositoryWithTx(db, tableName, tx, options...)
+}
+func NewPasscodeRepository(db *sql.DB, tableName string, options ...string) *PasscodeRepository {
+	return NewPasscodeRepositoryWithTx(db, tableName, "", options...)
+}
+func NewPasscodeRepositoryWithTx(db *sql.DB, tableName string, tx string, options ...string) *PasscodeRepository {
 	var idName, passcodeName, expiredAtName string
 	if len(options) >= 1 && len(options[0]) > 0 {
 		expiredAtName = options[0]
@@ -38,9 +46,9 @@ func NewPasscodeServiceWithTx(db *sql.DB, tableName string, tx string, options .
 	} else {
 		passcodeName = "passcode"
 	}
-	driver := GetDriver(db)
-	buildParam := GetBuild(db)
-	return &PasscodeService{
+	driver := q.GetDriver(db)
+	buildParam := q.GetBuild(db)
+	return &PasscodeRepository{
 		db:            db,
 		tableName:     strings.ToLower(tableName),
 		idName:        strings.ToLower(idName),
@@ -52,15 +60,15 @@ func NewPasscodeServiceWithTx(db *sql.DB, tableName string, tx string, options .
 	}
 }
 
-func (s *PasscodeService) Save(ctx context.Context, id string, passcode string, expireAt time.Time) (int64, error) {
+func (s *PasscodeRepository) Save(ctx context.Context, id string, passcode string, expireAt time.Time) (int64, error) {
 	var placeholder []string
 	columns := []string{s.idName, s.passcodeName, s.expiredAtName}
 	var queryString string
-	driver := GetDriver(s.db)
+	driver := q.GetDriver(s.db)
 	for i := 0; i < 3; i++ {
 		placeholder = append(placeholder, s.BuildParam(i+1))
 	}
-	if driver == DriverPostgres {
+	if driver == q.DriverPostgres {
 		setColumns := make([]string, 0)
 		for i, key := range columns {
 			setColumns = append(setColumns, key+" = "+s.BuildParam(i+4))
@@ -72,7 +80,7 @@ func (s *PasscodeService) Save(ctx context.Context, id string, passcode string, 
 			s.idName,
 			strings.Join(setColumns, ", "),
 		)
-	} else if driver == DriverMysql {
+	} else if driver == q.DriverMysql {
 		setColumns := make([]string, 0)
 		for i, key := range columns {
 			setColumns = append(setColumns, key+" = "+s.BuildParam(i+3))
@@ -84,7 +92,7 @@ func (s *PasscodeService) Save(ctx context.Context, id string, passcode string, 
 			"("+strings.Join(placeholder, ", ")+")",
 			strings.Join(setColumns, ", "),
 		)
-	} else if driver == DriverOracle {
+	} else if driver == q.DriverOracle {
 		var placeholderOracle []string
 		for i := 0; i < 3; i++ {
 			placeholderOracle = append(placeholderOracle, s.BuildParam(i+4))
@@ -107,7 +115,7 @@ func (s *PasscodeService) Save(ctx context.Context, id string, passcode string, 
 			strings.Join(columns, ", "),
 			strings.Join(placeholderOracle, ", "),
 		)
-	} else if driver == DriverMssql {
+	} else if driver == q.DriverMssql {
 		setColumns := make([]string, 0)
 		onDupe := s.tableName + "." + s.idName + " = " + "temp." + s.idName
 		for _, key := range columns {
@@ -122,7 +130,7 @@ func (s *PasscodeService) Save(ctx context.Context, id string, passcode string, 
 			strings.Join(columns, ", "),
 			strings.Join(placeholder, ", "),
 		)
-	} else if driver == DriverSqlite3 {
+	} else if driver == q.DriverSqlite3 {
 		setColumns := make([]string, 0)
 		for i, key := range columns {
 			setColumns = append(setColumns, key+" = "+s.BuildParam(i+3))
@@ -155,8 +163,8 @@ func (s *PasscodeService) Save(ctx context.Context, id string, passcode string, 
 	return x.RowsAffected()
 }
 
-func (s *PasscodeService) Load(ctx context.Context, id string) (string, time.Time, error) {
-	driverName := GetDriver(s.db)
+func (s *PasscodeRepository) Load(ctx context.Context, id string) (string, time.Time, error) {
+	driverName := q.GetDriver(s.db)
 	arr := make(map[string]interface{})
 	strSql := fmt.Sprintf(`SELECT %s, %s FROM `, s.passcodeName, s.expiredAtName) + s.tableName + ` WHERE ` + s.idName + ` = ` + s.BuildParam(1)
 	rows, err := s.db.QueryContext(ctx, strSql, id)
@@ -193,14 +201,14 @@ func (s *PasscodeService) Load(ctx context.Context, id string) (string, time.Tim
 
 	var code string
 	var expiredAt time.Time
-	if driverName == DriverPostgres {
+	if driverName == q.DriverPostgres {
 		code = arr[s.passcodeName].(string)
-	} else if driverName == DriverOracle {
+	} else if driverName == q.DriverOracle {
 		code = arr[strings.ToUpper(s.passcodeName)].(string)
 	} else {
 		code = string(arr[s.passcodeName].([]byte))
 	}
-	if driverName == DriverOracle {
+	if driverName == q.DriverOracle {
 		expiredAt = arr[strings.ToUpper(s.expiredAtName)].(time.Time)
 	} else {
 		expiredAt = arr[s.expiredAtName].(time.Time)
@@ -208,7 +216,7 @@ func (s *PasscodeService) Load(ctx context.Context, id string) (string, time.Tim
 	return code, expiredAt, nil
 }
 
-func (s *PasscodeService) Delete(ctx context.Context, id string) (int64, error) {
+func (s *PasscodeRepository) Delete(ctx context.Context, id string) (int64, error) {
 	strSQL := `DELETE FROM ` + s.tableName + ` WHERE ` + s.idName + ` =  ` + s.BuildParam(1)
 	x, err := s.db.ExecContext(ctx, strSQL, id)
 	if err != nil {

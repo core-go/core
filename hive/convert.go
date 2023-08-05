@@ -28,8 +28,6 @@ const (
 	s3 = len(lt3)
 )
 
-
-
 // convertAssign is the same as convertAssignRows, but without the optional
 // rows argument.
 func ConvertAssign(dest, src interface{}) error {
@@ -206,7 +204,7 @@ func convertAssignRows(dest, src interface{}) error {
 			return fmt.Errorf("converting NULL to %s is unsupported", dv.Kind())
 		}
 		s := asString(src)
-		if s == ""{
+		if s == "" {
 			s = "0"
 		}
 		i64, err := strconv.ParseInt(s, 10, dv.Type().Bits())
@@ -314,6 +312,7 @@ func asBytes(buf []byte, rv reflect.Value) (b []byte, ok bool) {
 	}
 	return
 }
+
 //
 //func getLayoutTime(s string) string {
 //	switch len(s) {
