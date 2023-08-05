@@ -193,6 +193,9 @@ func Clone(origin interface{}) interface{} {
 	return result.Interface()
 }
 func ToMap(in interface{}, ignoreFields ...string) map[string]interface{} {
+	return ToMapWithTag(in, "json", ignoreFields...)
+}
+func ToMapWithTag(in interface{}, tagName string, ignoreFields ...string) map[string]interface{} {
 	out := make(map[string]interface{})
 	v := reflect.ValueOf(in)
 	if v.Kind() == reflect.Ptr {
@@ -214,7 +217,7 @@ func ToMap(in interface{}, ignoreFields ...string) map[string]interface{} {
 				continue
 			}
 		}
-		n := getTag(typ.Field(i), "json")
+		n := getTag(typ.Field(i), tagName)
 		out[n] = fv
 	}
 	for _, v := range ignoreFields {
