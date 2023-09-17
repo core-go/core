@@ -1,9 +1,11 @@
-package io
+package zip
 
 import (
 	"archive/zip"
 	"bytes"
 	"os"
+
+	"github.com/core-go/core/io"
 )
 
 func ToMemory(fullName string, content string) (*bytes.Buffer, error) {
@@ -46,7 +48,7 @@ func Zip(fullname string, fileName, content string) error {
 	}
 	return nil
 }
-func FilesToMemory(files []File) (*bytes.Buffer, error) {
+func FilesToMemory(files []io.File) (*bytes.Buffer, error) {
 	// Create a buffer to write our archive to.
 	buf := new(bytes.Buffer)
 
@@ -72,7 +74,7 @@ func FilesToMemory(files []File) (*bytes.Buffer, error) {
 	}
 	return buf, nil
 }
-func ToFiles(fullname string, files []File) error {
+func ToFiles(fullname string, files []io.File) error {
 	newZipFile, err := os.Create(fullname)
 	if err != nil {
 		return err

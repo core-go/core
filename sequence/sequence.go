@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+type Sequence func(context.Context, string) (int64, error)
+
 type SequenceAdapter struct {
 	DB         *sql.DB
 	Tables     string

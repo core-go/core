@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func Save(fullName string, content string) error {
@@ -52,4 +53,11 @@ func IsValidPath(path string) bool {
 		return false
 	}
 	return false
+}
+func Ext(path string) string {
+	ext := filepath.Ext(path)
+	if strings.HasPrefix(ext, ":") {
+		ext = ext[1:]
+	}
+	return ext
 }

@@ -40,7 +40,6 @@ func GetDriver(db *sql.DB) string {
 		return DriverNotSupport
 	}
 }
-type BuildParamFn func(i int) string
 func BuildParam(i int) string {
 	return "?"
 }

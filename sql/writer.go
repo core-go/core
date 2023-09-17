@@ -62,6 +62,24 @@ func Init(modelType reflect.Type, db *sql.DB) (map[string]int, *Schema, map[stri
 	buildParam := GetBuild(db)
 	return fieldsIndex, schema, jm, keys, arr, fields, buildParam, driver, nil
 }
+func CreateParams(modelType reflect.Type, db *sql.DB) (*Params, error) {
+	fieldsIndex, schema, jsonColumnMap, keys, _, fields, buildParam, _,  err := Init(modelType, db)
+	if err != nil {
+		return nil, err
+	}
+	return &Params{DB: db, ModelType: modelType, Map: fieldsIndex, Schema: schema, JsonColumnMap: jsonColumnMap, Keys: keys, Fields: fields, BuildParam: buildParam}, nil
+}
+type Params struct {
+	DB            *sql.DB
+	ModelType     reflect.Type
+	Map           map[string]int
+	Fields        string
+	Keys          []string
+	Schema        *Schema
+	JsonColumnMap map[string]string
+	BuildParam    func(int) string
+}
+
 type Writer struct {
 	*Loader
 	jsonColumnMap  map[string]string

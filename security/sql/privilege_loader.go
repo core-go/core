@@ -1,4 +1,4 @@
-package security
+package sql
 
 import (
 	"context"
@@ -15,9 +15,6 @@ const (
 	driverOracle     = "oracle"
 	driverSqlite3    = "sqlite3"
 	driverNotSupport = "no support"
-
-	actionNone int32 = 0
-	actionAll  int32 = 2147483647
 )
 
 type PrivilegeLoader struct {

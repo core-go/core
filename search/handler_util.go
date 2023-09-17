@@ -181,6 +181,18 @@ func BuildParamIndex(filterType reflect.Type) map[string]int {
 	}
 	return params
 }
+func CreateParams(filterType reflect.Type, modelType reflect.Type, opts...string) (map[string]int, int, map[string]int, map[string]int) {
+	embedField := ""
+	if len(opts) > 0 {
+		embedField = opts[0]
+	}
+	paramIndex := BuildParamIndex(filterType)
+	filterIndex := FindFilterIndex(filterType)
+	model := reflect.New(modelType).Interface()
+	fields := GetJSONFields(modelType)
+	firstLayerIndexes, secondLayerIndexes := BuildJsonMap(model, fields, embedField)
+	return paramIndex, filterIndex, firstLayerIndexes, secondLayerIndexes
+}
 func BuildParams(filterType reflect.Type) (map[string]int, int) {
 	paramIndex := BuildParamIndex(filterType)
 	filterIndex := FindFilterIndex(filterType)
@@ -250,9 +262,25 @@ func ToFilter(w http.ResponseWriter, r *http.Request, filter interface{}, paramI
 func DecodeAndCheck(w http.ResponseWriter, r *http.Request, filter interface{}, paramIndex map[string]int, options...int) error {
 	return ToFilter(w, r, filter, paramIndex, options...)
 }
+func ResultCsv(fields []string, models interface{}, count int64, opts...map[string]int) (string, bool) {
+	if len(fields) > 0 {
+		result1 := ToCsv(fields, models, count, "", opts...)
+		return result1, true
+	} else {
+		return "", false
+	}
+}
 func ResultToCsv(fields []string, models interface{}, count int64, embedField string, opts...map[string]int) (string, bool) {
 	if len(fields) > 0 {
 		result1 := ToCsv(fields, models, count, embedField, opts...)
+		return result1, true
+	} else {
+		return "", false
+	}
+}
+func ResultNextCsv(fields []string, models interface{}, nextPageToken string, opts...map[string]int) (string, bool) {
+	if len(fields) > 0 {
+		result1 := ToNextCsv(fields, models, nextPageToken, "", opts...)
 		return result1, true
 	} else {
 		return "", false
@@ -265,4 +293,9 @@ func ResultToNextCsv(fields []string, models interface{}, nextPageToken string, 
 	} else {
 		return "", false
 	}
+}
+func CSV(w http.ResponseWriter, code int, out string)  {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	w.Write([]byte(out))
 }

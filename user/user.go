@@ -18,6 +18,9 @@ type User struct {
 	Url   *string `yaml:"url" mapstructure:"url" json:"url,omitempty" gorm:"column:url" bson:"url,omitempty" dynamodbav:"url,omitempty" firestore:"url,omitempty"`
 }
 
+type GetUsers func(ctx context.Context, ids []string) ([]User, error)
+type GetUser func(ctx context.Context, id string) (*User, error)
+
 type UserPort interface {
 	Load(ctx context.Context, id string) (*User, error)
 	Query(ctx context.Context, ids []string) ([]User, error)

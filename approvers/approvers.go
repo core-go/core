@@ -5,6 +5,8 @@ import (
 	"database/sql"
 )
 
+type GetApprovers func(context.Context, string) ([]string, error)
+
 type ApproversRepository interface {
 	GetApprovers(ctx context.Context, id string) ([]string, error)
 }

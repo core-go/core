@@ -18,6 +18,9 @@ type Entity struct {
 	Url   *string `yaml:"url" mapstructure:"url" json:"url,omitempty" gorm:"column:url" bson:"url,omitempty" dynamodbav:"url,omitempty" firestore:"url,omitempty"`
 }
 
+type GetEntities func(ctx context.Context, ids []string) ([]Entity, error)
+type GetEntity func(ctx context.Context, id string) (*Entity, error)
+
 type EntityPort interface {
 	Load(ctx context.Context, id string) (*Entity, error)
 	Query(ctx context.Context, ids []string) ([]Entity, error)

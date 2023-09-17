@@ -8,17 +8,17 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/x/bsonx"
 	"log"
 	"reflect"
 	"strings"
 )
 
 func CreateUniqueIndex(collection *mongo.Collection, fieldName string) (string, error) {
+	keys := bson.D{{Key: fieldName, Value: 1}}
 	indexName, err := collection.Indexes().CreateOne(
 		context.Background(),
 		mongo.IndexModel{
-			Keys:    bsonx.Doc{{fieldName, bsonx.Int32(1)}},
+			Keys:    keys,
 			Options: options.Index().SetUnique(true),
 		},
 	)
@@ -1018,7 +1018,7 @@ func MapToMongoObject(model interface{}, idName string, objectId bool, newId boo
 		id, _ := getValue(model, index)
 		if objectId {
 			if newId && (id == nil) {
-				setValue(model, index, bsonx.ObjectID(primitive.NewObjectID()))
+				setValue(model, index, primitive.NewObjectID())
 			} else {
 				objectId, err := primitive.ObjectIDFromHex(id.(string))
 				if err == nil {

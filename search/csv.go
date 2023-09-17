@@ -29,19 +29,15 @@ func BuildCsv(rows []string, fields []string, valueOfmodels reflect.Value, embed
 			var cols []string
 			valueOfmodel := valueOfmodels.Index(i)
 			for _, fieldName := range fields {
-				index0, exist0 := secondLayerIndexes[fieldName]
-				if exist0 {
-					fmt.Sprintf("%d ", index0)
-				} else {
-					fmt.Sprintf("not exist")
-				}
 				if index, exist := firstLayerIndexes[fieldName]; exist {
 					valueOfFieldName := valueOfmodel.Field(index)
 					cols = AppendColumns(valueOfFieldName, cols)
-				} else if index, exist := secondLayerIndexes[fieldName]; exist {
-					embedFieldValue := reflect.Indirect(valueOfmodel.Field(firstLayerIndexes[embedFieldName]))
-					valueOfFieldName := embedFieldValue.Field(index)
-					cols = AppendColumns(valueOfFieldName, cols)
+				} else if secondLayerIndexes != nil {
+					if index, exist := secondLayerIndexes[fieldName]; exist {
+						embedFieldValue := reflect.Indirect(valueOfmodel.Field(firstLayerIndexes[embedFieldName]))
+						valueOfFieldName := embedFieldValue.Field(index)
+						cols = AppendColumns(valueOfFieldName, cols)
+					}
 				}
 			}
 			rows = append(rows, strings.Join(cols, ","))

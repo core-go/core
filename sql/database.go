@@ -19,6 +19,14 @@ const (
 	DriverCassandra = "cassandra"
 )
 
+type BuildParamFn func(int) string
+type Generate func(context.Context) (string, error)
+type Sequence func(context.Context, string) (int64, error)
+type Array func(interface{}) interface {
+	driver.Valuer
+	sql.Scanner
+}
+
 type TxCache interface {
 	Put(key string, value *sql.Tx, timeToLive time.Duration) error
 	Expire(key string, timeToLive time.Duration) (bool, error)

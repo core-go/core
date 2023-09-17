@@ -1,4 +1,4 @@
-package security
+package echo
 
 import (
 	"strconv"
@@ -8,25 +8,25 @@ import (
 
 const joinChar = "-"
 
-type DefaultTokenBlacklistTokenChecker struct {
+type DefaultBlacklistTokenChecker struct {
 	CacheService CacheService
 	TokenPrefix  string
 	TokenExpires int64
 }
 
-func NewTokenBlacklistChecker(cacheService CacheService, keyPrefix string, tokenExpires int64) *DefaultTokenBlacklistTokenChecker {
-	return &DefaultTokenBlacklistTokenChecker{CacheService: cacheService, TokenPrefix: keyPrefix, TokenExpires: tokenExpires}
+func NewTokenBlacklistTokenService(cacheService CacheService, keyPrefix string, tokenExpires int64) *DefaultBlacklistTokenChecker {
+	return &DefaultBlacklistTokenChecker{CacheService: cacheService, TokenPrefix: keyPrefix, TokenExpires: tokenExpires}
 }
 
-func (s *DefaultTokenBlacklistTokenChecker) generateKey(token string) string {
+func (s *DefaultBlacklistTokenChecker) generateKey(token string) string {
 	return s.TokenPrefix + token
 }
 
-func (s *DefaultTokenBlacklistTokenChecker) generateKeyForId(id string) string {
+func (s *DefaultBlacklistTokenChecker) generateKeyForId(id string) string {
 	return s.TokenPrefix + id
 }
 
-func (s *DefaultTokenBlacklistTokenChecker) Revoke(token string, reason string, expiredDate time.Time) error {
+func (s *DefaultBlacklistTokenChecker) Revoke(token string, reason string, expiredDate time.Time) error {
 	key := s.generateKey(token)
 	var value string
 	if len(reason) > 0 {
@@ -44,14 +44,14 @@ func (s *DefaultTokenBlacklistTokenChecker) Revoke(token string, reason string, 
 	}
 }
 
-func (s *DefaultTokenBlacklistTokenChecker) RevokeAllTokens(id string, reason string) error {
+func (s *DefaultBlacklistTokenChecker) RevokeAllTokens(id string, reason string) error {
 	key := s.generateKeyForId(id)
 	today := time.Now()
 	value := reason + joinChar + strconv.Itoa(int(today.Unix()))
 	return s.CacheService.Put(key, value, time.Duration(s.TokenExpires)*time.Second)
 }
 
-func (s *DefaultTokenBlacklistTokenChecker) Check(id string, token string, createAt time.Time) string {
+func (s *DefaultBlacklistTokenChecker) Check(id string, token string, createAt time.Time) string {
 	idKey := s.generateKeyForId(id)
 	tokenKey := s.generateKey(token)
 

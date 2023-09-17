@@ -40,13 +40,14 @@ func (h *Authorizer) Authorize(next http.Handler, privilegeId string, action int
 			next.ServeHTTP(w, r)
 			return
 		}
-		sum := action & p
+
 		if h.Exact {
+			sum := action & p
 			if sum == action {
 				next.ServeHTTP(w, r)
 				return
 			}
-		} else if sum >= action {
+		} else if p >= action {
 			next.ServeHTTP(w, r)
 			return
 		}
