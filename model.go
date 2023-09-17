@@ -6,14 +6,18 @@ import (
 	"unicode"
 )
 
+type BuildParam func(i int) string
+type Log func(context.Context, string, ...map[string]interface{})
+type Search func(ctx context.Context, filter interface{}, results interface{}, limit int64, offset int64) (int64, error)
 type Sequence func(context.Context, string) (int64, error)
+/*
 type ResultInfo struct {
 	Status  int            `yaml:"status" mapstructure:"status" json:"status" gorm:"column:status" bson:"status" dynamodbav:"status" firestore:"status"`
 	Errors  []ErrorMessage `yaml:"errors" mapstructure:"errors" json:"errors,omitempty" gorm:"column:errors" bson:"errors,omitempty" dynamodbav:"errors,omitempty" firestore:"errors,omitempty"`
 	Value   interface{}    `yaml:"value" mapstructure:"value" json:"value,omitempty" gorm:"column:value" bson:"value,omitempty" dynamodbav:"value,omitempty" firestore:"value,omitempty"`
 	Message string         `yaml:"message" mapstructure:"message" json:"message,omitempty" gorm:"column:message" bson:"message,omitempty" dynamodbav:"message,omitempty" firestore:"message,omitempty"`
 }
-
+*/
 type ErrorMessage struct {
 	Field   string `yaml:"field" mapstructure:"field" json:"field,omitempty" gorm:"column:field" bson:"field,omitempty" dynamodbav:"field,omitempty" firestore:"field,omitempty"`
 	Code    string `yaml:"code" mapstructure:"code" json:"code,omitempty" gorm:"column:code" bson:"code,omitempty" dynamodbav:"code,omitempty" firestore:"code,omitempty"`
@@ -72,14 +76,21 @@ func lcFirstChar(s string) string {
 	}
 	return s
 }
-func BuildErrorDetails(errors []ErrorMessage) []ErrorDetail {
+func BuildErrorDetails(errors []ErrorMessage, ignoreField bool) []ErrorDetail {
 	errs := make([]ErrorDetail, 0)
 	if errors == nil || len(errors) == 0 {
 		return errs
 	}
-	for _, s := range errors {
-		d := ErrorDetail{ErrorCode: s.Code, ErrorField: s.Field, ErrorDesc: s.Message}
-		errs = append(errs, d)
+	if ignoreField {
+		for _, s := range errors {
+			d := ErrorDetail{ErrorCode: s.Code, ErrorDesc: s.Message}
+			errs = append(errs, d)
+		}
+	} else {
+		for _, s := range errors {
+			d := ErrorDetail{ErrorCode: s.Code, ErrorField: s.Field, ErrorDesc: s.Message}
+			errs = append(errs, d)
+		}
 	}
 	return errs
 }

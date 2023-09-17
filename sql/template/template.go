@@ -632,7 +632,24 @@ type Builder interface {
 	BuildQuery(f interface{}) (string, []interface{})
 }
 
-func UseQuery(isTemplate bool, query func(interface{}) (string, []interface{}), id string, m map[string]*Template, modelType *reflect.Type, mp func(interface{}, *reflect.Type, ...func(string, reflect.Type) string) map[string]interface{}, param func(i int) string, buildSort func(string, reflect.Type) string, opts ...func(string) string) (func(interface{}) (string, []interface{}), error) {
+func UseQuery(id string, m map[string]*Template, modelType *reflect.Type, mp func(interface{}, *reflect.Type, ...func(string, reflect.Type) string) map[string]interface{}, param func(i int) string, buildSort func(string, reflect.Type) string, opts ...func(string) string) (func(interface{}) (string, []interface{}), error) {
+	b, err := NewQueryBuilder(id, m, modelType, mp, param, buildSort, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return b.BuildQuery, nil
+}
+func UseQueryWithArray(id string, m map[string]*Template, modelType *reflect.Type, mp func(interface{}, *reflect.Type, ...func(string, reflect.Type) string) map[string]interface{}, param func(i int) string, buildSort func(string, reflect.Type) string, opts ...func(interface{}) interface {
+	driver.Valuer
+	sql.Scanner
+}) (func(interface{}) (string, []interface{}), error) {
+	b, err := NewQueryBuilderWithArray(id, m, modelType, mp, param, buildSort, nil, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return b.BuildQuery, nil
+}
+func GetQuery(isTemplate bool, query func(interface{}) (string, []interface{}), id string, m map[string]*Template, modelType *reflect.Type, mp func(interface{}, *reflect.Type, ...func(string, reflect.Type) string) map[string]interface{}, param func(i int) string, buildSort func(string, reflect.Type) string, opts ...func(string) string) (func(interface{}) (string, []interface{}), error) {
 	if !isTemplate {
 		return query, nil
 	}
@@ -642,7 +659,7 @@ func UseQuery(isTemplate bool, query func(interface{}) (string, []interface{}), 
 	}
 	return b.BuildQuery, nil
 }
-func UseQueryWithArray(isTemplate bool, query func(interface{}) (string, []interface{}), id string, m map[string]*Template, modelType *reflect.Type, mp func(interface{}, *reflect.Type, ...func(string, reflect.Type) string) map[string]interface{}, param func(i int) string, buildSort func(string, reflect.Type) string, opts ...func(interface{}) interface {
+func GetQueryWithArray(isTemplate bool, query func(interface{}) (string, []interface{}), id string, m map[string]*Template, modelType *reflect.Type, mp func(interface{}, *reflect.Type, ...func(string, reflect.Type) string) map[string]interface{}, param func(i int) string, buildSort func(string, reflect.Type) string, opts ...func(interface{}) interface {
 	driver.Valuer
 	sql.Scanner
 }) (func(interface{}) (string, []interface{}), error) {
@@ -655,7 +672,10 @@ func UseQueryWithArray(isTemplate bool, query func(interface{}) (string, []inter
 	}
 	return b.BuildQuery, nil
 }
-func UseQueryBuilder(isTemplate bool, builder Builder, id string, m map[string]*Template, modelType *reflect.Type, mp func(interface{}, *reflect.Type, ...func(string, reflect.Type) string) map[string]interface{}, param func(i int) string, buildSort func(string, reflect.Type) string, opts ...func(string) string) (Builder, error) {
+func UseQueryBuilder(id string, m map[string]*Template, modelType *reflect.Type, mp func(interface{}, *reflect.Type, ...func(string, reflect.Type) string) map[string]interface{}, param func(i int) string, buildSort func(string, reflect.Type) string, opts ...func(string) string) (Builder, error) {
+	return NewQueryBuilder(id, m, modelType, mp, param, buildSort, opts...)
+}
+func GetQueryBuilder(isTemplate bool, builder Builder, id string, m map[string]*Template, modelType *reflect.Type, mp func(interface{}, *reflect.Type, ...func(string, reflect.Type) string) map[string]interface{}, param func(i int) string, buildSort func(string, reflect.Type) string, opts ...func(string) string) (Builder, error) {
 	if !isTemplate {
 		return builder, nil
 	}

@@ -62,11 +62,11 @@ func (h *LoadHandler) Load(ctx *gin.Context) {
 		return
 	} else {
 		model, er2 := h.LoadData(r.Context(), id)
-		RespondModel(ctx, model, er2, h.Error, h.WriteLog, h.Resource, h.Activity)
+		Return(ctx, model, er2, h.Error, h.WriteLog, h.Resource, h.Activity)
 	}
 }
 
-func RespondModel(ctx *gin.Context, model interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
+func Return(ctx *gin.Context, model interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
 	if err != nil {
 		RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
 	} else {

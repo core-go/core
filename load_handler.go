@@ -6,14 +6,14 @@ import (
 	"reflect"
 )
 
-type Log func(context.Context, string, string, bool, string) error
+type WriteLog func(context.Context, string, string, bool, string) error
 type LoadHandler struct {
 	LoadData   func(ctx context.Context, id interface{}) (interface{}, error)
 	Keys       []string
 	ModelType  reflect.Type
 	KeyIndexes map[string]int
 	Error      func(context.Context, string, ...map[string]interface{})
-	WriteLog   Log
+	WriteLog   WriteLog
 	Resource   string
 	Activity   string
 }
@@ -79,7 +79,7 @@ func (h *LoadHandler) Load(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, er1.Error(), http.StatusBadRequest)
 	} else {
 		model, er2 := h.LoadData(r.Context(), id)
-		RespondModel(w, r, model, er2, h.Error, h.WriteLog, h.Resource, h.Activity)
+		Return(w, r, model, er2, h.Error, h.WriteLog, h.Resource, h.Activity)
 	}
 }
 func GetId(w http.ResponseWriter, r *http.Request, modelType reflect.Type, jsonId []string, indexes map[string]int, options... int) map[string]interface{} {
@@ -112,7 +112,7 @@ func IsNil(i interface{}) bool {
 	}
 	return false
 }
-func RespondModel(w http.ResponseWriter, r *http.Request, model interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options... string) {
+func Return(w http.ResponseWriter, r *http.Request, model interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options... string) {
 	var resource, action string
 	if len(options) > 0 && len(options[0]) > 0 {
 		resource = options[0]
@@ -134,6 +134,6 @@ func RespondIfFound(w http.ResponseWriter, r *http.Request, model interface{}, f
 	if err == nil && !found {
 		JSON(w, http.StatusNotFound, nil)
 	} else {
-		RespondModel(w, r, model, err, logError, writeLog, options...)
+		Return(w, r, model, err, logError, writeLog, options...)
 	}
 }

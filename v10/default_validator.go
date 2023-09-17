@@ -21,6 +21,7 @@ type DefaultValidator struct {
 	validate           *validator.Validate
 	Trans              *ut.Translator
 	CustomValidateList []CustomValidate
+	IgnoreField        bool
 }
 func NewChecker(opts ...bool) (*DefaultValidator, error) {
 	return NewValidator(opts...)
@@ -30,12 +31,16 @@ func NewValidator(opts ...bool) (*DefaultValidator, error) {
 	if len(opts) > 0 {
 		register = opts[0]
 	}
+	ignoreField := false
+	if len(opts) > 1 {
+		ignoreField = opts[1]
+	}
 	uValidate, uTranslator, err := NewDefaultValidator()
 	if err != nil {
 		return nil, err
 	}
 	list := GetCustomValidateList()
-	validator := &DefaultValidator{validate: uValidate, Trans: &uTranslator, CustomValidateList: list}
+	validator := &DefaultValidator{validate: uValidate, Trans: &uTranslator, CustomValidateList: list, IgnoreField: ignoreField}
 	if register {
 		err2 := validator.RegisterCustomValidate()
 		if err2 != nil {
@@ -70,7 +75,7 @@ func NewDefaultValidator() (*validator.Validate, ut.Translator, error) {
 }
 func (p *DefaultValidator) Check(ctx context.Context, model interface{}) ([]s.ErrorDetail, error) {
 	errs, err := p.Validate(ctx, model)
-	errors := s.BuildErrorDetails(errs)
+	errors := s.BuildErrorDetails(errs, p.IgnoreField)
 	return errors, err
 }
 func (p *DefaultValidator) Validate(ctx context.Context, model interface{}) ([]s.ErrorMessage, error) {

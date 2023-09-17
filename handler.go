@@ -22,7 +22,7 @@ type Approve interface {
 type Load interface {
 	Load(w http.ResponseWriter, r *http.Request)
 }
-type Search interface {
+type SearchHandlr interface {
 	Search(w http.ResponseWriter, r *http.Request)
 	Load(w http.ResponseWriter, r *http.Request)
 }
@@ -69,7 +69,7 @@ type SimpleService interface {
 	Patch(ctx context.Context, model map[string]interface{}) (int64, error)
 	Delete(ctx context.Context, id interface{}) (int64, error)
 }
-
+/*
 func ReturnStatus(status int) ResultInfo {
 	r := ResultInfo{Status: status}
 	return r
@@ -79,12 +79,12 @@ func SetStatus(obj interface{}, status int) ResultInfo {
 	r := ResultInfo{Status: status, Value: obj}
 	return r
 }
-
+*/
 type WriterConfig struct {
-	Status *StatusConfig `yaml:"status" mapstructure:"status" json:"status,omitempty" gorm:"column:status" bson:"status,omitempty" dynamodbav:"status,omitempty" firestore:"status,omitempty"`
+	// Status *StatusConfig `yaml:"status" mapstructure:"status" json:"status,omitempty" gorm:"column:status" bson:"status,omitempty" dynamodbav:"status,omitempty" firestore:"status,omitempty"`
 	Action *ActionConfig `yaml:"action" mapstructure:"action" json:"action,omitempty" gorm:"column:action" bson:"action,omitempty" dynamodbav:"action,omitempty" firestore:"action,omitempty"`
 }
-
+/*
 type StatusConfig struct {
 	DuplicateKey    int  `yaml:"duplicate_key" mapstructure:"duplicate_key" json:"duplicateKey" gorm:"column:duplicatekey" bson:"duplicateKey" dynamodbav:"duplicateKey" firestore:"duplicateKey"`
 	NotFound        int  `yaml:"not_found" mapstructure:"not_found" json:"notFound" gorm:"column:notfound" bson:"notFound" dynamodbav:"notFound" firestore:"notFound"`
@@ -93,6 +93,7 @@ type StatusConfig struct {
 	ValidationError *int `yaml:"validation_error" mapstructure:"validation_error" json:"validationError" gorm:"column:validationerror" bson:"validationError" dynamodbav:"validationError" firestore:"validationError"`
 	Error           int  `yaml:"error" mapstructure:"error" json:"error" gorm:"column:error" bson:"error" dynamodbav:"error" firestore:"error"`
 }
+ */
 type ActionConfig struct {
 	Load   *string `yaml:"load" mapstructure:"load" json:"load,omitempty" gorm:"column:load" bson:"load,omitempty" dynamodbav:"load,omitempty" firestore:"load,omitempty"`
 	Create string  `yaml:"create" mapstructure:"create" json:"create,omitempty" gorm:"column:create" bson:"create,omitempty" dynamodbav:"create,omitempty" firestore:"create,omitempty"`
@@ -100,7 +101,7 @@ type ActionConfig struct {
 	Patch  string  `yaml:"patch" mapstructure:"patch" json:"patch,omitempty" gorm:"column:patch" bson:"patch,omitempty" dynamodbav:"patch,omitempty" firestore:"patch,omitempty"`
 	Delete string  `yaml:"delete" mapstructure:"delete" json:"delete,omitempty" gorm:"column:delete" bson:"delete,omitempty" dynamodbav:"delete,omitempty" firestore:"delete,omitempty"`
 }
-
+/*
 func InitializeStatus(status *StatusConfig) StatusConfig {
 	var s StatusConfig
 	if status != nil {
@@ -120,6 +121,7 @@ func InitializeStatus(status *StatusConfig) StatusConfig {
 	}
 	return s
 }
+ */
 func InitializeAction(conf *ActionConfig) ActionConfig {
 	var c ActionConfig
 	if conf != nil {
@@ -152,7 +154,6 @@ type Params struct {
 	Keys      []string
 	Indexes   map[string]int
 	ModelType reflect.Type
-	Status    StatusConfig
 	Resource  string
 	Action    ActionConfig
 	Error     func(context.Context, string, ...map[string]interface{})
@@ -160,49 +161,46 @@ type Params struct {
 	Validate  func(context.Context, interface{}) ([]ErrorMessage, error)
 }
 
-func MakeParams(modelType reflect.Type, status *StatusConfig, logError func(context.Context, string, ...map[string]interface{}), action *ActionConfig, options ...func(context.Context, string, string, bool, string) error) *Params {
-	return CreateParams(modelType, status, logError, nil, action, options...)
+func MakeParams(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), action *ActionConfig, options ...func(context.Context, string, string, bool, string) error) *Params {
+	return CreateParams(modelType, logError, nil, action, options...)
 }
-func InitParams(modelType reflect.Type, status *StatusConfig, logError func(context.Context, string, ...map[string]interface{}), options ...func(context.Context, interface{}) ([]ErrorMessage, error)) *Params {
+func InitParams(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), options ...func(context.Context, interface{}) ([]ErrorMessage, error)) *Params {
 	var validate func(context.Context, interface{}) ([]ErrorMessage, error)
 	if len(options) > 0 {
 		validate = options[0]
 	}
-	return CreateParams(modelType, status, logError, validate, nil)
+	return CreateParams(modelType, logError, validate, nil)
 }
-func CreateParams(modelType reflect.Type, status *StatusConfig, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]ErrorMessage, error), action *ActionConfig, options ...func(context.Context, string, string, bool, string) error) *Params {
+func CreateParams(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]ErrorMessage, error), action *ActionConfig, options ...func(context.Context, string, string, bool, string) error) *Params {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 {
 		writeLog = options[0]
 	}
-	s := InitializeStatus(status)
 	a := InitializeAction(action)
 	resource := BuildResourceName(modelType.Name())
 	keys, indexes, _ := BuildMapField(modelType)
-	return &Params{Keys: keys, Indexes: indexes, ModelType: modelType, Status: s, Resource: resource, Action: a, Error: logError, Log: writeLog, Validate: validate}
+	return &Params{Keys: keys, Indexes: indexes, ModelType: modelType, Resource: resource, Action: a, Error: logError, Log: writeLog, Validate: validate}
 }
-func CreatePatchAndParams(modelType reflect.Type, status *StatusConfig, logError func(context.Context, string, ...map[string]interface{}), patch func(context.Context, map[string]interface{}) (int64, error), validate func(context.Context, interface{}) ([]ErrorMessage, error), build func(context.Context, interface{}) (interface{}, error), action *ActionConfig, options ...func(context.Context, string, string, bool, string) error) (*PatchHandler, *Params) {
+func CreatePatchAndParams(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), patch func(context.Context, map[string]interface{}) (int64, error), validate func(context.Context, interface{}) ([]ErrorMessage, error), build func(context.Context, interface{}) (interface{}, error), action *ActionConfig, options ...func(context.Context, string, string, bool, string) error) (*PatchHandler, *Params) {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 {
 		writeLog = options[0]
 	}
-	s := InitializeStatus(status)
 	a := InitializeAction(action)
 	resource := BuildResourceName(modelType.Name())
 	keys, indexes, _ := BuildMapField(modelType)
-	patchHandler := &PatchHandler{PrimaryKeys: keys, FieldIndexes: indexes, ObjectType: modelType, StatusConf: s, Save: patch, ValidateData: validate, Build: build, LogError: logError, WriteLog: writeLog, ResourceType: resource, Activity: a.Patch}
-	params := &Params{Keys: keys, Indexes: indexes, ModelType: modelType, Status: s, Resource: resource, Action: a, Error: logError, Log: writeLog, Validate: validate}
+	patchHandler := &PatchHandler{PrimaryKeys: keys, FieldIndexes: indexes, ObjectType: modelType, Save: patch, ValidateData: validate, Build: build, LogError: logError, WriteLog: writeLog, ResourceType: resource, Activity: a.Patch}
+	params := &Params{Keys: keys, Indexes: indexes, ModelType: modelType, Resource: resource, Action: a, Error: logError, Log: writeLog, Validate: validate}
 	return patchHandler, params
 }
-func NewPatchHandler(patch func(context.Context, map[string]interface{}) (int64, error), modelType reflect.Type, status *StatusConfig, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]ErrorMessage, error), build func(context.Context, interface{}) (interface{}, error), action string, options ...func(context.Context, string, string, bool, string) error) *PatchHandler {
+func NewPatchHandler(patch func(context.Context, map[string]interface{}) (int64, error), modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]ErrorMessage, error), build func(context.Context, interface{}) (interface{}, error), action string, options ...func(context.Context, string, string, bool, string) error) *PatchHandler {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 {
 		writeLog = options[0]
 	}
-	s := InitializeStatus(status)
 	resource := BuildResourceName(modelType.Name())
 	keys, indexes, _ := BuildMapField(modelType)
-	return &PatchHandler{PrimaryKeys: keys, FieldIndexes: indexes, ObjectType: modelType, StatusConf: s, Save: patch, ValidateData: validate, Build: build, LogError: logError, WriteLog: writeLog, ResourceType: resource, Activity: action}
+	return &PatchHandler{PrimaryKeys: keys, FieldIndexes: indexes, ObjectType: modelType, Save: patch, ValidateData: validate, Build: build, LogError: logError, WriteLog: writeLog, ResourceType: resource, Activity: action}
 }
 
 type PatchHandler struct {
@@ -216,7 +214,6 @@ type PatchHandler struct {
 	WriteLog     func(context.Context, string, string, bool, string) error
 	ResourceType string
 	Activity     string
-	StatusConf   StatusConfig
 }
 
 func (h *PatchHandler) Patch(w http.ResponseWriter, r *http.Request) {
@@ -237,7 +234,7 @@ func (h *PatchHandler) Patch(w http.ResponseWriter, r *http.Request) {
 	}
 	if h.ValidateData != nil {
 		errors, er3 := h.ValidateData(r.Context(), bodyStruct)
-		if HasError(w, r, errors, er3, *h.StatusConf.ValidationError, h.LogError, h.WriteLog, h.ResourceType, h.Activity) {
+		if HasError(w, r, errors, er3, h.LogError, h.WriteLog, h.ResourceType, h.Activity) {
 			return
 		}
 	}
@@ -247,7 +244,6 @@ func (h *PatchHandler) Patch(w http.ResponseWriter, r *http.Request) {
 
 type GenericHandler struct {
 	*LoadHandler
-	Status   StatusConfig
 	Action   ActionConfig
 	service  SimpleService
 	builder  Builder
@@ -257,42 +253,41 @@ type GenericHandler struct {
 }
 
 func NewHandler(genericService SimpleService, modelType reflect.Type, modelBuilder Builder, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
-	return NewHandlerWithConfig(genericService, modelType, nil, modelBuilder, logError, validate, options...)
+	return NewHandlerWithConfig(genericService, modelType, modelBuilder, logError, validate, options...)
 }
 func NewHandlerWithKeys(genericService SimpleService, keys []string, modelType reflect.Type, modelBuilder Builder, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 {
 		writeLog = options[0]
 	}
-	return NewHandlerWithKeysAndLog(genericService, keys, modelType, nil, modelBuilder, logError, validate, writeLog, "", nil)
+	return NewHandlerWithKeysAndLog(genericService, keys, modelType, modelBuilder, logError, validate, writeLog, "", nil)
 }
-func NewHandlerWithConfig(genericService SimpleService, modelType reflect.Type, status *StatusConfig, modelBuilder Builder, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
+func NewHandlerWithConfig(genericService SimpleService, modelType reflect.Type, modelBuilder Builder, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 && options[0] != nil {
 		writeLog = options[0]
 	}
-	return NewHandlerWithKeysAndLog(genericService, nil, modelType, status, modelBuilder, logError, validate, writeLog, "", nil)
+	return NewHandlerWithKeysAndLog(genericService, nil, modelType, modelBuilder, logError, validate, writeLog, "", nil)
 }
-func NewHandlerWithLog(genericService SimpleService, modelType reflect.Type, status *StatusConfig, modelBuilder Builder, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]ErrorMessage, error), writeLog func(context.Context, string, string, bool, string) error, resource string, conf *ActionConfig) *GenericHandler {
-	return NewHandlerWithKeysAndLog(genericService, nil, modelType, status, modelBuilder, logError, validate, writeLog, resource, conf)
+func NewHandlerWithLog(genericService SimpleService, modelType reflect.Type, modelBuilder Builder, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]ErrorMessage, error), writeLog func(context.Context, string, string, bool, string) error, resource string, conf *ActionConfig) *GenericHandler {
+	return NewHandlerWithKeysAndLog(genericService, nil, modelType, modelBuilder, logError, validate, writeLog, resource, conf)
 }
-func NewHandlerWithKeysAndLog(genericService SimpleService, keys []string, modelType reflect.Type, status *StatusConfig, modelBuilder Builder, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]ErrorMessage, error), writeLog func(context.Context, string, string, bool, string) error, resource string, conf *ActionConfig) *GenericHandler {
-	if keys == nil || len(keys) == 0 {
+func NewHandlerWithKeysAndLog(genericService SimpleService, keys []string, modelType reflect.Type, modelBuilder Builder, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]ErrorMessage, error), writeLog func(context.Context, string, string, bool, string) error, resource string, conf *ActionConfig) *GenericHandler {
+		if keys == nil || len(keys) == 0 {
 		keys = GetJsonPrimaryKeys(modelType)
 	}
-	if len(resource) == 0 {
+		if len(resource) == 0 {
 		resource = BuildResourceName(modelType.Name())
 	}
-	var writeLog2 func(context.Context, string, string, bool, string) error
-	if conf != nil && conf.Load != nil {
+		var writeLog2 func(context.Context, string, string, bool, string) error
+		if conf != nil && conf.Load != nil {
 		writeLog2 = writeLog
 	}
 	c := InitializeAction(conf)
-	s := InitializeStatus(status)
 	loadHandler := NewLoadHandlerWithKeysAndLog(genericService.Load, keys, modelType, logError, writeLog2, *c.Load, resource)
 	_, jsonMapIndex, _ := BuildMapField(modelType)
 
-	return &GenericHandler{LoadHandler: loadHandler, service: genericService, Status: s, builder: modelBuilder, Validate: validate, Indexes: jsonMapIndex, Log: writeLog, Action: c}
+	return &GenericHandler{LoadHandler: loadHandler, service: genericService, builder: modelBuilder, Validate: validate, Indexes: jsonMapIndex, Log: writeLog, Action: c}
 }
 func (h *GenericHandler) Create(w http.ResponseWriter, r *http.Request) {
 	h.Insert(w, r)
@@ -311,7 +306,7 @@ func (h *GenericHandler) Insert(w http.ResponseWriter, r *http.Request) {
 	}
 	if h.Validate != nil {
 		errors, er1 := h.Validate(r.Context(), body)
-		if HasError(w, r, errors, er1, *h.Status.ValidationError, h.Error, h.Log, h.Resource, h.Action.Create) {
+		if HasError(w, r, errors, er1, h.Error, h.Log, h.Resource, h.Action.Create) {
 			return
 		}
 	}
@@ -320,7 +315,7 @@ func (h *GenericHandler) Insert(w http.ResponseWriter, r *http.Request) {
 	count, er2 = h.service.Insert(r.Context(), body)
 	if count <= 0 && er2 == nil {
 		if h.builder == nil {
-			ReturnAndLog(w, r, http.StatusConflict, ReturnStatus(h.Status.DuplicateKey), h.Log, false, h.Resource, h.Action.Create, "Duplicate Key")
+			ReturnAndLog(w, r, http.StatusConflict, 0, h.Log, false, h.Resource, h.Action.Create, "Duplicate Key")
 			return
 		}
 		i := 0
@@ -371,7 +366,7 @@ func (h *GenericHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	if h.Validate != nil {
 		errors, er2 := h.Validate(r.Context(), body)
-		if HasError(w, r, errors, er2, *h.Status.ValidationError, h.Error, h.Log, h.Resource, h.Action.Update) {
+		if HasError(w, r, errors, er2, h.Error, h.Log, h.Resource, h.Action.Update) {
 			return
 		}
 	}
@@ -396,7 +391,7 @@ func (h *GenericHandler) Patch(w http.ResponseWriter, r *http.Request) {
 	}
 	if h.Validate != nil {
 		errors, er3 := h.Validate(r.Context(), bodyStruct)
-		if HasError(w, r, errors, er3, *h.Status.ValidationError, h.Error, h.Log, h.Resource, h.Action.Patch) {
+		if HasError(w, r, errors, er3, h.Error, h.Log, h.Resource, h.Action.Patch) {
 			return
 		}
 	}
@@ -490,7 +485,7 @@ func BuildMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{},
 	return r2, json, er1
 }
 
-func HasError(w http.ResponseWriter, r *http.Request, errors []ErrorMessage, err error, status int, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) bool {
+func HasError(w http.ResponseWriter, r *http.Request, errors []ErrorMessage, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) bool {
 	var resource, action string
 	if len(options) > 0 && len(options[0]) > 0 {
 		resource = options[0]
@@ -568,7 +563,8 @@ func Respond(w http.ResponseWriter, r *http.Request, code int, result interface{
 		Succeed(w, r, code, result, writeLog, resource, action)
 	}
 }
-func Return(w http.ResponseWriter, r *http.Request, code int, result ResultInfo, status StatusConfig, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
+/*
+func Return222(w http.ResponseWriter, r *http.Request, code int, result ResultInfo, status StatusConfig, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
 	var resource, action string
 	if len(options) > 0 && len(options[0]) > 0 {
 		resource = options[0]
@@ -596,3 +592,4 @@ func Return(w http.ResponseWriter, r *http.Request, code int, result ResultInfo,
 		}
 	}
 }
+*/

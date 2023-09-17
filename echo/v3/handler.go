@@ -14,28 +14,26 @@ const (
 	Update = "update"
 	Patch  = "patch"
 )
-func CreatePatchAndParams(modelType reflect.Type, status *sv.StatusConfig, logError func(context.Context, string, ...map[string]interface{}), patch func(context.Context, map[string]interface{}) (int64, error), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), build func(context.Context, interface{}) (interface{}, error), action *sv.ActionConfig, options ...func(context.Context, string, string, bool, string) error) (*PatchHandler, *sv.Params) {
+func CreatePatchAndParams(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), patch func(context.Context, map[string]interface{}) (int64, error), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), build func(context.Context, interface{}) (interface{}, error), action *sv.ActionConfig, options ...func(context.Context, string, string, bool, string) error) (*PatchHandler, *sv.Params) {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 {
 		writeLog = options[0]
 	}
-	s := sv.InitializeStatus(status)
 	a := sv.InitializeAction(action)
 	resource := sv.BuildResourceName(modelType.Name())
 	keys, indexes, _ := sv.BuildMapField(modelType)
-	patchHandler := &PatchHandler{PrimaryKeys: keys, FieldIndexes: indexes, ObjectType: modelType, StatusConf: s, Save: patch, ValidateData: validate, Build: build, LogError: logError, WriteLog: writeLog, ResourceType: resource, Activity: a.Patch}
-	params := &sv.Params{Keys: keys, Indexes: indexes, ModelType: modelType, Status: s, Resource: resource, Action: a, Error: logError, Log: writeLog, Validate: validate}
+	patchHandler := &PatchHandler{PrimaryKeys: keys, FieldIndexes: indexes, ObjectType: modelType, Save: patch, ValidateData: validate, Build: build, LogError: logError, WriteLog: writeLog, ResourceType: resource, Activity: a.Patch}
+	params := &sv.Params{Keys: keys, Indexes: indexes, ModelType: modelType, Resource: resource, Action: a, Error: logError, Log: writeLog, Validate: validate}
 	return patchHandler, params
 }
-func NewPatchHandler(patch func(context.Context, map[string]interface{}) (int64, error), modelType reflect.Type, status *sv.StatusConfig, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), build func(context.Context, interface{}) (interface{}, error), action string, options ...func(context.Context, string, string, bool, string) error) *PatchHandler {
+func NewPatchHandler(patch func(context.Context, map[string]interface{}) (int64, error), modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), build func(context.Context, interface{}) (interface{}, error), action string, options ...func(context.Context, string, string, bool, string) error) *PatchHandler {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 {
 		writeLog = options[0]
 	}
-	s := sv.InitializeStatus(status)
 	resource := sv.BuildResourceName(modelType.Name())
 	keys, indexes, _ := sv.BuildMapField(modelType)
-	return &PatchHandler{PrimaryKeys: keys, FieldIndexes: indexes, ObjectType: modelType, StatusConf: s, Save: patch, ValidateData: validate, Build: build, LogError: logError, WriteLog: writeLog, ResourceType: resource, Activity: action}
+	return &PatchHandler{PrimaryKeys: keys, FieldIndexes: indexes, ObjectType: modelType, Save: patch, ValidateData: validate, Build: build, LogError: logError, WriteLog: writeLog, ResourceType: resource, Activity: action}
 }
 
 type PatchHandler struct {
@@ -49,7 +47,6 @@ type PatchHandler struct {
 	WriteLog     func(context.Context, string, string, bool, string) error
 	ResourceType string
 	Activity     string
-	StatusConf   sv.StatusConfig
 }
 func (h *PatchHandler) Patch(ctx echo.Context) error {
 	r := ctx.Request()
@@ -70,7 +67,7 @@ func (h *PatchHandler) Patch(ctx echo.Context) error {
 	}
 	if h.ValidateData != nil {
 		errors, er3 := h.ValidateData(r.Context(), &bodyStruct)
-		if HasError(ctx, errors, er3, *h.StatusConf.ValidationError, h.LogError, h.WriteLog, h.ResourceType, h.Activity) {
+		if HasError(ctx, errors, er3, h.LogError, h.WriteLog, h.ResourceType, h.Activity) {
 			return er3
 		}
 	}
@@ -80,7 +77,6 @@ func (h *PatchHandler) Patch(ctx echo.Context) error {
 
 type GenericHandler struct {
 	*LoadHandler
-	Status   sv.StatusConfig
 	Action   sv.ActionConfig
 	service  sv.SimpleService
 	builder  sv.Builder
@@ -90,26 +86,26 @@ type GenericHandler struct {
 }
 
 func NewHandler(genericService sv.SimpleService, modelType reflect.Type, modelBuilder sv.Builder, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
-	return NewHandlerWithConfig(genericService, modelType, nil, modelBuilder, logError, validate, options...)
+	return NewHandlerWithConfig(genericService, modelType, modelBuilder, logError, validate, options...)
 }
 func NewHandlerWithKeys(genericService sv.SimpleService, keys []string, modelType reflect.Type, modelBuilder sv.Builder, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 {
 		writeLog = options[0]
 	}
-	return NewHandlerWithKeysAndLog(genericService, keys, modelType, nil, modelBuilder, logError, validate, writeLog, "", nil)
+	return NewHandlerWithKeysAndLog(genericService, keys, modelType, modelBuilder, logError, validate, writeLog, "", nil)
 }
-func NewHandlerWithConfig(genericService sv.SimpleService, modelType reflect.Type, status *sv.StatusConfig, modelBuilder sv.Builder, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
+func NewHandlerWithConfig(genericService sv.SimpleService, modelType reflect.Type, modelBuilder sv.Builder, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), options ...func(context.Context, string, string, bool, string) error) *GenericHandler {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 && options[0] != nil {
 		writeLog = options[0]
 	}
-	return NewHandlerWithKeysAndLog(genericService, nil, modelType, status, modelBuilder, logError, validate, writeLog, "", nil)
+	return NewHandlerWithKeysAndLog(genericService, nil, modelType, modelBuilder, logError, validate, writeLog, "", nil)
 }
-func NewHandlerWithLog(genericService sv.SimpleService, modelType reflect.Type, status *sv.StatusConfig, modelBuilder sv.Builder, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), writeLog func(context.Context, string, string, bool, string) error, resource string, conf *sv.ActionConfig) *GenericHandler {
-	return NewHandlerWithKeysAndLog(genericService, nil, modelType, status, modelBuilder, logError, validate, writeLog, resource, conf)
+func NewHandlerWithLog(genericService sv.SimpleService, modelType reflect.Type, modelBuilder sv.Builder, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), writeLog func(context.Context, string, string, bool, string) error, resource string, conf *sv.ActionConfig) *GenericHandler {
+	return NewHandlerWithKeysAndLog(genericService, nil, modelType, modelBuilder, logError, validate, writeLog, resource, conf)
 }
-func NewHandlerWithKeysAndLog(genericService sv.SimpleService, keys []string, modelType reflect.Type, status *sv.StatusConfig, modelBuilder sv.Builder, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), writeLog func(context.Context, string, string, bool, string) error, resource string, conf *sv.ActionConfig) *GenericHandler {
+func NewHandlerWithKeysAndLog(genericService sv.SimpleService, keys []string, modelType reflect.Type, modelBuilder sv.Builder, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), writeLog func(context.Context, string, string, bool, string) error, resource string, conf *sv.ActionConfig) *GenericHandler {
 	if keys == nil || len(keys) == 0 {
 		keys = sv.GetJsonPrimaryKeys(modelType)
 	}
@@ -121,11 +117,10 @@ func NewHandlerWithKeysAndLog(genericService sv.SimpleService, keys []string, mo
 		writeLog2 = writeLog
 	}
 	c := sv.InitializeAction(conf)
-	s := sv.InitializeStatus(status)
 	loadHandler := NewLoadHandlerWithKeysAndLog(genericService.Load, keys, modelType, logError, writeLog2, *c.Load, resource)
 	_, jsonMapIndex, _ := sv.BuildMapField(modelType)
 
-	return &GenericHandler{LoadHandler: loadHandler, service: genericService, Status: s, builder: modelBuilder, Validate: validate, Indexes: jsonMapIndex, Log: writeLog, Action: c}
+	return &GenericHandler{LoadHandler: loadHandler, service: genericService, builder: modelBuilder, Validate: validate, Indexes: jsonMapIndex, Log: writeLog, Action: c}
 }
 func (h *GenericHandler) Create(ctx echo.Context) error {
 	return h.Insert(ctx)
@@ -149,9 +144,7 @@ func (h *GenericHandler) Insert(ctx echo.Context) error {
 			return ErrorAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, h.Error, h.Resource, h.Action.Create, er1, h.Log)
 		}
 		if len(errors) > 0 {
-			//result0 := model.ResultInfo{Status: model.StatusError, Errors: MakeErrors(errors)}
-			result0 := sv.ResultInfo{Status: *h.Status.ValidationError, Errors: errors}
-			return ReturnAndLog(ctx, http.StatusUnprocessableEntity, result0, h.Log, false, h.Resource, h.Action.Create, "Data Validation Failed")
+			return ReturnAndLog(ctx, http.StatusUnprocessableEntity, errors, h.Log, false, h.Resource, h.Action.Create, "Data Validation Failed")
 		}
 	}
 	var count int64
@@ -159,7 +152,7 @@ func (h *GenericHandler) Insert(ctx echo.Context) error {
 	count, er2 = h.service.Insert(r.Context(), body)
 	if count <= 0 && er2 == nil {
 		if h.builder == nil {
-			return ReturnAndLog(ctx, http.StatusConflict, sv.ReturnStatus(h.Status.DuplicateKey), h.Log, false, h.Resource, h.Action.Create, "Duplicate Key")
+			return ReturnAndLog(ctx, http.StatusConflict, 0, h.Log, false, h.Resource, h.Action.Create, "Duplicate Key")
 		}
 		i := 0
 		for count <= 0 && i <= 5 {
@@ -204,7 +197,7 @@ func (h *GenericHandler) Update(ctx echo.Context) error {
 	}
 	if h.Validate != nil {
 		errors, er2 := h.Validate(r.Context(), body)
-		if HasError(ctx, errors, er2, *h.Status.ValidationError, h.Error, h.Log, h.Resource, h.Action.Update) {
+		if HasError(ctx, errors, er2, h.Error, h.Log, h.Resource, h.Action.Update) {
 			return er2
 		}
 	}
@@ -230,7 +223,7 @@ func (h *GenericHandler) Patch(ctx echo.Context) error {
 	}
 	if h.Validate != nil {
 		errors, er3 := h.Validate(r.Context(), &bodyStruct)
-		if HasError(ctx, errors, er3, *h.Status.ValidationError, h.Error, h.Log, h.Resource, h.Action.Patch) {
+		if HasError(ctx, errors, er3, h.Error, h.Log, h.Resource, h.Action.Patch) {
 			return er3
 		}
 	}
@@ -302,14 +295,13 @@ func BuildMapAndCheckId(ctx echo.Context, obj interface{}, keysJson []string, ma
 	}
 	return json, er1
 }
-func HasError(ctx echo.Context, errors []sv.ErrorMessage, err error, status int, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) bool {
+func HasError(ctx echo.Context, errors []sv.ErrorMessage, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) bool {
 	if err != nil {
 		RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
 		return true
 	}
 	if len(errors) > 0 {
-		result0 := sv.ResultInfo{Status: status, Errors: errors}
-		ReturnAndLog(ctx, http.StatusUnprocessableEntity, result0, writeLog, false, resource, action, "Data Validation Failed")
+		ReturnAndLog(ctx, http.StatusUnprocessableEntity, errors, writeLog, false, resource, action, "Data Validation Failed")
 		return true
 	}
 	return false
@@ -358,7 +350,8 @@ func Respond(ctx echo.Context, code int, result interface{}, err error, logError
 		return Succeed(ctx, code, result, writeLog, resource, action)
 	}
 }
-func Return(ctx echo.Context, code int, result sv.ResultInfo, status sv.StatusConfig, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
+/*
+func Return222(ctx echo.Context, code int, result sv.ResultInfo, status sv.StatusConfig, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
 	var resource, action string
 	if len(options) > 0 && len(options[0]) > 0 {
 		resource = options[0]
@@ -386,7 +379,7 @@ func Return(ctx echo.Context, code int, result sv.ResultInfo, status sv.StatusCo
 		}
 	}
 }
-
+*/
 func Result(ctx echo.Context, code int, result interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), opts...interface{}) error {
 	if err != nil {
 		if len(opts) > 0 && opts[0] != nil {
