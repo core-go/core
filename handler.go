@@ -315,7 +315,7 @@ func (h *GenericHandler) Insert(w http.ResponseWriter, r *http.Request) {
 	count, er2 = h.service.Insert(r.Context(), body)
 	if count <= 0 && er2 == nil {
 		if h.builder == nil {
-			ReturnAndLog(w, r, http.StatusConflict, 0, h.Log, false, h.Resource, h.Action.Create, "Duplicate Key")
+			ReturnAndLog(w, r, http.StatusConflict, -1, h.Log, false, h.Resource, h.Action.Create, "Duplicate Key")
 			return
 		}
 		i := 0
@@ -512,7 +512,12 @@ func HandleResult(w http.ResponseWriter, r *http.Request, body interface{}, coun
 		action = options[1]
 	}
 	if err != nil {
-		RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
+		if IsNil(body) {
+			RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
+		} else {
+			logError(r.Context(), err.Error(), MakeMap(body))
+			RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, err, nil, writeLog, resource, action)
+		}
 		return
 	}
 	if count == -1 {
@@ -536,7 +541,12 @@ func AfterCreated(w http.ResponseWriter, r *http.Request, body interface{}, coun
 		action = options[1]
 	}
 	if err != nil {
-		RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
+		if IsNil(body) {
+			RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
+		} else {
+			logError(r.Context(), err.Error(), MakeMap(body))
+			RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, err, nil, writeLog, resource, action)
+		}
 		return
 	}
 	if count <= 0 {

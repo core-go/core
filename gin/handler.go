@@ -150,7 +150,7 @@ func (h *GenericHandler) Insert(ctx *gin.Context) {
 	count, er2 = h.service.Insert(r.Context(), body)
 	if count <= 0 && er2 == nil {
 		if h.builder == nil {
-			ReturnAndLog(ctx, http.StatusConflict, 0, h.Log, false, h.Resource, h.Action.Create, "Duplicate Key")
+			ReturnAndLog(ctx, http.StatusConflict, -1, h.Log, false, h.Resource, h.Action.Create, "Duplicate Key")
 			return
 		}
 		i := 0
@@ -316,7 +316,12 @@ func HasError(ctx *gin.Context, errors []sv.ErrorMessage, err error, logError fu
 }
 func HandleResult(ctx *gin.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
 	if err != nil {
-		RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
+		if sv.IsNil(body) {
+			RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
+		} else {
+			logError(ctx.Request.Context(), err.Error(), sv.MakeMap(body))
+			RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, nil, writeLog, resource, action)
+		}
 		return
 	}
 	if count == -1 {
@@ -333,7 +338,12 @@ func HandleResult(ctx *gin.Context, body interface{}, count int64, err error, lo
 }
 func AfterCreated(ctx *gin.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
 	if err != nil {
-		RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
+		if sv.IsNil(body) {
+			RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
+		} else {
+			logError(ctx.Request.Context(), err.Error(), sv.MakeMap(body))
+			RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
+		}
 		return
 	}
 	if count <= 0 {

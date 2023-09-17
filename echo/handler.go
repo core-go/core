@@ -152,7 +152,7 @@ func (h *GenericHandler) Insert(ctx echo.Context) error {
 	count, er2 = h.service.Insert(r.Context(), body)
 	if count <= 0 && er2 == nil {
 		if h.builder == nil {
-			return ReturnAndLog(ctx, http.StatusConflict, 0, h.Log, false, h.Resource, h.Action.Create, "Duplicate Key")
+			return ReturnAndLog(ctx, http.StatusConflict, -1, h.Log, false, h.Resource, h.Action.Create, "Duplicate Key")
 		}
 		i := 0
 		for count <= 0 && i <= 5 {
@@ -324,7 +324,12 @@ func HandleResult(ctx echo.Context, body interface{}, count int64, err error, lo
 }
 func AfterCreated(ctx echo.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
 	if err != nil {
-		return RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
+		if sv.IsNil(body) {
+			return RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
+		} else {
+			logError(ctx.Request().Context(), err.Error(), sv.MakeMap(body))
+			return RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, nil, resource, action)
+		}
 	}
 	if count <= 0 {
 		return ReturnAndLog(ctx, http.StatusConflict, count, writeLog, false, resource, action, "Duplicate Key")
