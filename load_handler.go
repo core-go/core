@@ -6,14 +6,13 @@ import (
 	"reflect"
 )
 
-type WriteLog func(context.Context, string, string, bool, string) error
 type LoadHandler struct {
 	LoadData   func(ctx context.Context, id interface{}) (interface{}, error)
 	Keys       []string
 	ModelType  reflect.Type
 	KeyIndexes map[string]int
 	Error      func(context.Context, string, ...map[string]interface{})
-	WriteLog   WriteLog
+	WriteLog   func(context.Context, string, string, bool, string) error
 	Resource   string
 	Activity   string
 }
@@ -89,28 +88,6 @@ func GetId(w http.ResponseWriter, r *http.Request, modelType reflect.Type, jsonI
 		return nil
 	}
 	return id
-}
-func GetStatus(status int64) int {
-	if status <= 0 {
-		return http.StatusNotFound
-	}
-	return http.StatusOK
-}
-func IsFound(res interface{}) int {
-	if IsNil(res) {
-		return http.StatusNotFound
-	}
-	return http.StatusOK
-}
-func IsNil(i interface{}) bool {
-	if i == nil {
-		return true
-	}
-	switch reflect.TypeOf(i).Kind() {
-	case reflect.Ptr, reflect.Map, reflect.Array, reflect.Chan, reflect.Slice:
-		return reflect.ValueOf(i).IsNil()
-	}
-	return false
 }
 func Return(w http.ResponseWriter, r *http.Request, model interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options... string) {
 	var resource, action string

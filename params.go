@@ -13,8 +13,6 @@ import (
 )
 
 const (
-	InternalServerError = "Internal Server Error"
-
 	t1 = "2006-01-02T15:04:05Z"
 	t2 = "2006-01-02T15:04:05-0700"
 	t3 = "2006-01-02T15:04:05.0000000-0700"
@@ -23,115 +21,6 @@ const (
 	l2 = len(t2)
 	l3 = len(t3)
 )
-
-func ErrorWithMessage(w http.ResponseWriter, r *http.Request, code int, err string, writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
-	ReturnAndLog(w, r, code, err, writeLog, true, resource, action, err)
-}
-func Error(w http.ResponseWriter, r *http.Request, code int, result interface{}, logError func(context.Context, string), err error) error {
-	if logError != nil {
-		logError(r.Context(), err.Error())
-	}
-	return JSON(w, code, result)
-}
-func RespondAndLog(w http.ResponseWriter, r *http.Request, code int, result interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options... string) error {
-	var resource, action string
-	if len(options) > 0 && len(options[0]) > 0 {
-		resource = options[0]
-	}
-	if len(options) > 1 && len(options[1]) > 0 {
-		action = options[1]
-	}
-	if err != nil {
-		if logError != nil {
-			logError(r.Context(), err.Error())
-			return ReturnAndLog(w, r, http.StatusInternalServerError, InternalServerError, writeLog, false, resource, action, err.Error())
-		} else {
-			return ReturnAndLog(w, r, http.StatusInternalServerError, err.Error(), writeLog, false, resource, action, err.Error())
-		}
-	} else {
-		return ReturnAndLog(w, r, code, result, writeLog, true, resource, action, "")
-	}
-}
-func Succeed(w http.ResponseWriter, r *http.Request, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, options... string) error {
-	return RespondAndLog(w, r, code, result, nil, nil, writeLog, options...)
-}
-func ReturnAndLog(w http.ResponseWriter, r *http.Request, code int, result interface{}, writeLog func(context.Context, string, string, bool, string) error, success bool, resource string, action string, desc string) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	err := json.NewEncoder(w).Encode(result)
-	if writeLog != nil {
-		writeLog(r.Context(), resource, action, success, desc)
-	}
-	return err
-}
-func WriteLogWithGoRoutine(ctx context.Context, writeLog func(context.Context, string, string, bool, string) error, resource string, action string, success bool, desc string) {
-	if writeLog != nil {
-		token := ctx.Value("authorization")
-		go func() {
-			timeOut := 10 * time.Second
-			ctxSaveLog, cancel := context.WithTimeout(context.Background(), timeOut)
-			defer cancel()
-
-			if authorizationToken, ok := token.(map[string]interface{}); ok {
-				ctxSaveLog = context.WithValue(ctxSaveLog, "authorization", authorizationToken)
-			}
-			err := writeLog(ctxSaveLog, resource, action, success, desc)
-			fmt.Printf("saveLogErr: %v\n", err)
-		}()
-	}
-}
-func Marshal(v interface{}) ([]byte, error) {
-	b, ok1 := v.([]byte)
-	if ok1 {
-		return b, nil
-	}
-	s, ok2 := v.(string)
-	if ok2 {
-		return []byte(s), nil
-	}
-	return json.Marshal(v)
-}
-func JSON(w http.ResponseWriter, code int, result interface{}) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	err := json.NewEncoder(w).Encode(result)
-	return err
-}
-func Result(w http.ResponseWriter, r *http.Request, code int, result interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), opts...interface{}) error {
-	if err != nil {
-		if len(opts) > 0 && opts[0] != nil {
-			b, er2 := json.Marshal(opts[0])
-			if er2 == nil {
-				m := make(map[string]interface{})
-				m["request"] = string(b)
-				logError(r.Context(), err.Error(), m)
-			} else {
-				logError(r.Context(), err.Error())
-			}
-			http.Error(w, InternalServerError, http.StatusInternalServerError)
-			return err
-		} else {
-			logError(r.Context(), err.Error(), nil)
-			http.Error(w, InternalServerError, http.StatusInternalServerError)
-			return err
-		}
-	} else {
-		return JSON(w, code, result)
-	}
-}
-func MakeMap(res interface{}, opts ...string) map[string]interface{} {
-	key := "request"
-	if len(opts) > 0 && len(opts[0]) > 0 {
-		key = opts[0]
-	}
-	m := make(map[string]interface{})
-	b, err := json.Marshal(res)
-	if err != nil {
-		return m
-	}
-	m[key] = string(b)
-	return m
-}
 func Decode(w http.ResponseWriter, r *http.Request, obj interface{}, options...func(context.Context, interface{}) (interface{}, error)) error {
 	er1 := json.NewDecoder(r.Body).Decode(obj)
 	defer r.Body.Close()

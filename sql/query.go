@@ -180,6 +180,21 @@ func GetSort(sortString string, modelType reflect.Type) string {
 		return ""
 	}
 }
+func GetColumnNameForSearch(modelType reflect.Type, sortField string) string {
+	sortField = strings.TrimSpace(sortField)
+	i, _, column := GetFieldByJson(modelType, sortField)
+	if i > -1 {
+		return column
+	}
+	return ""
+}
+func GetSortType(sortType string) string {
+	if sortType == "-" {
+		return desc
+	} else {
+		return asc
+	}
+}
 func BuildSort(sortString string, modelType reflect.Type) string {
 	var sort = GetSort(sortString, modelType)
 	if len(sort) > 0 {
@@ -188,7 +203,6 @@ func BuildSort(sortString string, modelType reflect.Type) string {
 		return ""
 	}
 }
-
 func ExtractArray(values []interface{}, field interface{}) []interface{} {
 	s := reflect.Indirect(reflect.ValueOf(field))
 	for i := 0; i < s.Len(); i++ {

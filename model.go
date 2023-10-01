@@ -2,17 +2,12 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"unicode"
 )
 
-type BuildParam func(int) string
-type Log func(context.Context, string, ...map[string]interface{})
-type Search func(ctx context.Context, filter interface{}, results interface{}, limit int64, offset int64) (int64, error)
-type SearchFn func(ctx context.Context, filter interface{}, results interface{}, limit int64, nextPageToken string) (string, error)
-type Generate func(context.Context) (string, error)
-type Sequence func(context.Context, string) (int64, error)
-
+type Validate func(ctx context.Context, model interface{}) ([]ErrorMessage, error)
 type ResultInfo struct {
 	Status  int            `yaml:"status" mapstructure:"status" json:"status" gorm:"column:status" bson:"status" dynamodbav:"status" firestore:"status"`
 	Errors  []ErrorMessage `yaml:"errors" mapstructure:"errors" json:"errors,omitempty" gorm:"column:errors" bson:"errors,omitempty" dynamodbav:"errors,omitempty" firestore:"errors,omitempty"`
@@ -25,7 +20,6 @@ type ErrorMessage struct {
 	Param   string `yaml:"param" mapstructure:"param" json:"param,omitempty" gorm:"column:param" bson:"param,omitempty" dynamodbav:"param,omitempty" firestore:"param,omitempty"`
 	Message string `yaml:"message" mapstructure:"message" json:"message,omitempty" gorm:"column:message" bson:"message,omitempty" dynamodbav:"message,omitempty" firestore:"message,omitempty"`
 }
-type Validate func(ctx context.Context, model interface{}) ([]ErrorMessage, error)
 type ErrorDetail struct {
 	ErrorField string `yaml:"error_field" mapstructure:"error_field" json:"errorField,omitempty" gorm:"column:error_field" bson:"errorField,omitempty" dynamodbav:"errorField,omitempty" firestore:"errorField,omitempty"`
 	ErrorCode  string `yaml:"error_code" mapstructure:"error_code" json:"errorCode,omitempty" gorm:"column:error_code" bson:"errorCode,omitempty" dynamodbav:"errorCode,omitempty" firestore:"errorCode,omitempty"`
@@ -76,6 +70,17 @@ func lcFirstChar(s string) string {
 		return string(runes)
 	}
 	return s
+}
+func Marshal(v interface{}) ([]byte, error) {
+	b, ok1 := v.([]byte)
+	if ok1 {
+		return b, nil
+	}
+	s, ok2 := v.(string)
+	if ok2 {
+		return []byte(s), nil
+	}
+	return json.Marshal(v)
 }
 func Map(errors []ErrorMessage, mp map[string]string) []ErrorMessage {
 	if mp != nil && len(mp) > 0 {

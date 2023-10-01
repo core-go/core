@@ -356,31 +356,6 @@ func SaveBatchWithArray(ctx context.Context, db *sql.DB, tableName string, model
 	return total, err
 }
 
-func GetFieldByJson(modelType reflect.Type, jsonName string) (int, string, string) {
-	numField := modelType.NumField()
-	for i := 0; i < numField; i++ {
-		field := modelType.Field(i)
-		tag1, ok1 := field.Tag.Lookup("json")
-		if ok1 && strings.Split(tag1, ",")[0] == jsonName {
-			if tag2, ok2 := field.Tag.Lookup("gorm"); ok2 {
-				if has := strings.Contains(tag2, "column"); has {
-					str1 := strings.Split(tag2, ";")
-					num := len(str1)
-					for k := 0; k < num; k++ {
-						str2 := strings.Split(str1[k], ":")
-						for j := 0; j < len(str2); j++ {
-							if str2[j] == "column" {
-								return i, field.Name, str2[j+1]
-							}
-						}
-					}
-				}
-			}
-			return i, field.Name, ""
-		}
-	}
-	return -1, jsonName, jsonName
-}
 func ExtractBySchema(value interface{}, columns []string, schema map[string]FieldDB) (map[string]interface{}, map[string]interface{}, map[string]interface{}, error) {
 	rv := reflect.ValueOf(value)
 	if rv.Kind() == reflect.Ptr {
@@ -761,28 +736,6 @@ func Exist(ctx context.Context, db *sql.DB, sql string, args ...interface{}) (bo
 		return true, nil
 	}
 	return false, nil
-}
-func MapModels(ctx context.Context, models interface{}, mp func(context.Context, interface{}) (interface{}, error)) (interface{}, error) {
-	vo := reflect.Indirect(reflect.ValueOf(models))
-	if vo.Kind() == reflect.Ptr {
-		vo = reflect.Indirect(vo)
-	}
-	if vo.Kind() == reflect.Slice {
-		le := vo.Len()
-		for i := 0; i < le; i++ {
-			x := vo.Index(i)
-			k := x.Kind()
-			if k == reflect.Struct {
-				y := x.Addr().Interface()
-				mp(ctx, y)
-			} else {
-				y := x.Interface()
-				mp(ctx, y)
-			}
-
-		}
-	}
-	return models, nil
 }
 func HandleError(tx *sql.Tx, err *error) {
 	if re := recover(); re != nil {

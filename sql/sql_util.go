@@ -9,6 +9,73 @@ import (
 	"strings"
 )
 
+const IgnoreReadWrite = "-"
+const txs = "tx"
+
+type Executor interface {
+	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+}
+func GetExec(ctx context.Context, db *sql.DB, opts...string) Executor {
+	name := txs
+	if len(opts) > 0 && len(opts[0]) > 0 {
+		name = opts[0]
+	}
+	txi := ctx.Value(name)
+	if txi != nil {
+		txx, ok := txi.(*sql.Tx)
+		if ok {
+			return txx
+		}
+	}
+	return db
+}
+func GetTx(ctx context.Context) *sql.Tx {
+	txi := ctx.Value(txs)
+	if txi != nil {
+		txx, ok := txi.(*sql.Tx)
+		if ok {
+			return txx
+		}
+	}
+	return nil
+}
+func GetTxId(ctx context.Context) *string {
+	txi := ctx.Value("txId")
+	if txi != nil {
+		txx, ok := txi.(*string)
+		if ok {
+			return txx
+		}
+	}
+	return nil
+}
+func GetFieldByJson(modelType reflect.Type, jsonName string) (int, string, string) {
+	numField := modelType.NumField()
+	for i := 0; i < numField; i++ {
+		field := modelType.Field(i)
+		tag1, ok1 := field.Tag.Lookup("json")
+		if ok1 && strings.Split(tag1, ",")[0] == jsonName {
+			if tag2, ok2 := field.Tag.Lookup("gorm"); ok2 {
+				if has := strings.Contains(tag2, "column"); has {
+					str1 := strings.Split(tag2, ";")
+					num := len(str1)
+					for k := 0; k < num; k++ {
+						str2 := strings.Split(str1[k], ":")
+						for j := 0; j < len(str2); j++ {
+							if str2[j] == "column" {
+								return i, field.Name, str2[j+1]
+							}
+						}
+					}
+				}
+			}
+			return i, field.Name, ""
+		}
+	}
+	return -1, jsonName, jsonName
+}
 func Count(ctx context.Context, db *sql.DB, sql string, values ...interface{}) (int64, error) {
 	var total int64
 	row := db.QueryRowContext(ctx, sql, values...)
@@ -144,6 +211,12 @@ func Exec(ctx context.Context, db *sql.DB, query string, args ...interface{}) (i
 		res, err := db.ExecContext(ctx, query, args...)
 		return RowsAffected(res, err)
 	}
+}
+func RowsAffected(res sql.Result, err error) (int64, error) {
+	if err != nil {
+		return -1, err
+	}
+	return res.RowsAffected()
 }
 func SelectContext(ctx context.Context, db *sql.DB, results interface{}, sql string, values ...interface{}) error {
 	return SelectContextWithArray(ctx, db, results, nil, sql, values...)
@@ -484,21 +557,6 @@ func GetColumnsSelect(modelType reflect.Type) []string {
 	}
 	return columnNameKeys
 }
-func GetColumnNameForSearch(modelType reflect.Type, sortField string) string {
-	sortField = strings.TrimSpace(sortField)
-	i, _, column := GetFieldByJson(modelType, sortField)
-	if i > -1 {
-		return column
-	}
-	return ""
-}
-func GetSortType(sortType string) string {
-	if sortType == "-" {
-		return desc
-	} else {
-		return asc
-	}
-}
 func GetColumns(cols []string, err error) ([]string, error) {
 	if cols == nil || err != nil {
 		return cols, err
@@ -721,6 +779,28 @@ func ScanRowsWithArray(rows *sql.Rows, structType reflect.Type, fieldsIndex map[
 	return
 }
 
+func MapModels(ctx context.Context, models interface{}, mp func(context.Context, interface{}) (interface{}, error)) (interface{}, error) {
+	vo := reflect.Indirect(reflect.ValueOf(models))
+	if vo.Kind() == reflect.Ptr {
+		vo = reflect.Indirect(vo)
+	}
+	if vo.Kind() == reflect.Slice {
+		le := vo.Len()
+		for i := 0; i < le; i++ {
+			x := vo.Index(i)
+			k := x.Kind()
+			if k == reflect.Struct {
+				y := x.Addr().Interface()
+				mp(ctx, y)
+			} else {
+				y := x.Interface()
+				mp(ctx, y)
+			}
+
+		}
+	}
+	return models, nil
+}
 //Row
 func ScanRowWithArray(row *sql.Row, structType reflect.Type, toArray func(interface{}) interface {
 	driver.Valuer
@@ -744,89 +824,4 @@ func ToCamelCase(s string) string {
 		}
 	}
 	return s1
-}
-
-type Proxy interface {
-	BeginTransaction(ctx context.Context, timeout int64) (string, error)
-	CommitTransaction(ctx context.Context, tx string) error
-	RollbackTransaction(ctx context.Context, tx string) error
-	Exec(ctx context.Context, query string, values ...interface{}) (int64, error)
-	ExecBatch(ctx context.Context, master bool, stm ...Statement) (int64, error)
-	Query(ctx context.Context, result interface{}, query string, values ...interface{}) error
-	QueryOne(ctx context.Context, result interface{}, query string, values ...interface{}) error
-	ExecTx(ctx context.Context, tx string, commit bool, query string, values ...interface{}) (int64, error)
-	ExecBatchTx(ctx context.Context, tx string, commit bool, master bool, stm ...Statement) (int64, error)
-	QueryTx(ctx context.Context, tx string, commit bool, result interface{}, query string, values ...interface{}) error
-	QueryOneTx(ctx context.Context, tx string, commit bool, result interface{}, query string, values ...interface{}) error
-
-	Insert(ctx context.Context, table string, model interface{}, buildParam func(int) string, boolSupport bool, options...*Schema) (int64, error)
-	Update(ctx context.Context, table string, model interface{}, buildParam func(int) string, boolSupport bool, options...*Schema) (int64, error)
-	Save(ctx context.Context, table string, model interface{}, driver string, options...*Schema) (int64, error)
-	InsertBatch(ctx context.Context, table string, models interface{}, driver string, options...*Schema) (int64, error)
-	UpdateBatch(ctx context.Context, table string, models interface{}, buildParam func(int) string, boolSupport bool, options...*Schema) (int64, error)
-	SaveBatch(ctx context.Context, table string, models interface{}, driver string, options...*Schema) (int64, error)
-
-	InsertTx(ctx context.Context, tx string, commit bool, table string, model interface{}, buildParam func(int) string, boolSupport bool, options...*Schema) (int64, error)
-	UpdateTx(ctx context.Context, tx string, commit bool, table string, model interface{}, buildParam func(int) string, boolSupport bool, options...*Schema) (int64, error)
-	SaveTx(ctx context.Context, tx string, commit bool, table string, model interface{}, driver string, options...*Schema) (int64, error)
-	InsertBatchTx(ctx context.Context, tx string, commit bool, table string, models interface{}, driver string, options...*Schema) (int64, error)
-	UpdateBatchTx(ctx context.Context, tx string, commit bool, table string, models interface{}, buildParam func(int) string, boolSupport bool, options...*Schema) (int64, error)
-	SaveBatchTx(ctx context.Context, tx string, commit bool, table string, models interface{}, driver string, options...*Schema) (int64, error)
-
-	InsertAndCommit(ctx context.Context, tx string, table string, model interface{}, buildParam func(int) string, boolSupport bool, options...*Schema) (int64, error)
-	UpdateAndCommit(ctx context.Context, tx string, table string, model interface{}, driver string, buildParam func(int) string, boolSupport bool, options...*Schema) (int64, error)
-	SaveAndCommit(ctx context.Context, tx string, table string, model interface{}, driver string, options...*Schema) (int64, error)
-	InsertBatchAndCommit(ctx context.Context, tx string, table string, models interface{}, driver string, options...*Schema) (int64, error)
-	UpdateBatchAndCommit(ctx context.Context, tx string, table string, models interface{}, buildParam func(int) string, boolSupport bool, options...*Schema) (int64, error)
-	SaveBatchAndCommit(ctx context.Context, tx string, table string, models interface{}, driver string, options...*Schema) (int64, error)
-}
-const Timeout int64 = 5000000000
-func BeginTx(ctx context.Context, proxy Proxy, timeouts... int64) (context.Context, string, error) {
-	timeout := Timeout
-	if len(timeouts) > 0 && timeouts[0] > 0 {
-		timeout = timeouts[0]
-	}
-	tx, err := proxy.BeginTransaction(ctx, timeout)
-	if err != nil {
-		return ctx, tx, err
-	}
-	c2 := context.WithValue(ctx, "txId", &tx)
-	return c2, tx, nil
-}
-func CommitTx(ctx context.Context, proxy Proxy, tx string, err error, options...bool) error {
-	if err != nil {
-		if !(len(options) > 0 && options[0] == false) {
-			er := proxy.RollbackTransaction(ctx, tx)
-			if er != nil {
-				return er
-			}
-		}
-		return err
-	}
-	return proxy.CommitTransaction(ctx, tx)
-}
-func EndTx(ctx context.Context, proxy Proxy, tx string, res int64, err error, options...bool) (int64, error) {
-	er := CommitTx(ctx, proxy, tx, err, options...)
-	return res, er
-}
-func ExecProxy(ctx context.Context, proxy Proxy, query string, args ...interface{}) (int64, error) {
-	tx := GetTxId(ctx)
-	if tx == nil {
-		return proxy.Exec(ctx, query, args...)
-	}
-	return proxy.ExecTx(ctx, *tx, false, query, args...)
-}
-func QueryProxy(ctx context.Context, proxy Proxy, result interface{}, query string, args ...interface{}) error {
-	tx := GetTxId(ctx)
-	if tx == nil {
-		return proxy.Query(ctx, result, query, args...)
-	}
-	return proxy.QueryTx(ctx, *tx, false, result, query, args...)
-}
-func QueryOneProxy(ctx context.Context, proxy Proxy, result interface{}, query string, args ...interface{}) error {
-	tx := GetTxId(ctx)
-	if tx == nil {
-		return proxy.QueryOne(ctx, result, query, args...)
-	}
-	return proxy.QueryOneTx(ctx, *tx, false, result, query, args...)
 }

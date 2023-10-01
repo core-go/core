@@ -21,7 +21,7 @@ func NewFirestoreHealthChecker(name string, projectId string, opts ...option.Cli
 func NewHealthCheckerWithProjectId(projectId string, opts ...option.ClientOption) *HealthChecker {
 	return NewFirestoreHealthChecker("firestore", projectId, opts...)
 }
-func NewHealthChecker(ctx context.Context, credentials []byte, projectId string, options ...string) *HealthChecker {
+func NewHealthChecker(ctx context.Context, credentials []byte, options ...string) *HealthChecker {
 	var name string
 	if len(options) > 0 && len(options[0]) > 0 {
 		name = options[0]
@@ -36,7 +36,7 @@ func NewHealthChecker(ctx context.Context, credentials []byte, projectId string,
 	if creds == nil {
 		panic("Error: creds is nil")
 	}
-	return NewFirestoreHealthChecker(name, projectId, opts)
+	return NewFirestoreHealthChecker(name, creds.ProjectID, opts)
 }
 func (s HealthChecker) Name() string {
 	return s.name

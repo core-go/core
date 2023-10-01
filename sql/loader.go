@@ -10,46 +10,43 @@ import (
 	"strings"
 )
 
-const txs = "tx"
-
-type Executor interface {
-	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
-	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+func BuildFields(modelType reflect.Type) string {
+	columns := GetFields(modelType)
+	return strings.Join(columns, ",")
 }
-func GetExec(ctx context.Context, db *sql.DB, opts...string) Executor {
-	name := txs
-	if len(opts) > 0 && len(opts[0]) > 0 {
-		name = opts[0]
+func GetFields(modelType reflect.Type) []string {
+	m := modelType
+	if m.Kind() == reflect.Ptr {
+		m = m.Elem()
 	}
-	txi := ctx.Value(name)
-	if txi != nil {
-		txx, ok := txi.(*sql.Tx)
-		if ok {
-			return txx
+	numField := m.NumField()
+	columns := make([]string, 0)
+	for idx := 0; idx < numField; idx++ {
+		field := m.Field(idx)
+		tag, _ := field.Tag.Lookup("gorm")
+		if !strings.Contains(tag, IgnoreReadWrite) {
+			if has := strings.Contains(tag, "column"); has {
+				json := field.Name
+				col := json
+				str1 := strings.Split(tag, ";")
+				num := len(str1)
+				for i := 0; i < num; i++ {
+					str2 := strings.Split(str1[i], ":")
+					for j := 0; j < len(str2); j++ {
+						if str2[j] == "column" {
+							col = str2[j+1]
+							columns = append(columns, col)
+						}
+					}
+				}
+			}
 		}
 	}
-	return db
+	return columns
 }
-func GetTx(ctx context.Context) *sql.Tx {
-	txi := ctx.Value(txs)
-	if txi != nil {
-		txx, ok := txi.(*sql.Tx)
-		if ok {
-			return txx
-		}
-	}
-	return nil
-}
-func GetTxId(ctx context.Context) *string {
-	txi := ctx.Value("txId")
-	if txi != nil {
-		txx, ok := txi.(*string)
-		if ok {
-			return txx
-		}
-	}
-	return nil
+func BuildQuery(table string, modelType reflect.Type) string {
+	columns := GetFields(modelType)
+	return "select " + strings.Join(columns, ",") + " from " + table + " "
 }
 func InitFields(modelType reflect.Type, db *sql.DB) (map[string]int, string, func(i int) string, string, error) {
 	fieldsIndex, err := GetColumnIndexes(modelType)
