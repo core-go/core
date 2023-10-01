@@ -13,6 +13,12 @@ type SearchFn func(ctx context.Context, filter interface{}, results interface{},
 type Generate func(context.Context) (string, error)
 type Sequence func(context.Context, string) (int64, error)
 
+type ResultInfo struct {
+	Status  int            `yaml:"status" mapstructure:"status" json:"status" gorm:"column:status" bson:"status" dynamodbav:"status" firestore:"status"`
+	Errors  []ErrorMessage `yaml:"errors" mapstructure:"errors" json:"errors,omitempty" gorm:"column:errors" bson:"errors,omitempty" dynamodbav:"errors,omitempty" firestore:"errors,omitempty"`
+	Value   interface{}    `yaml:"value" mapstructure:"value" json:"value,omitempty" gorm:"column:value" bson:"value,omitempty" dynamodbav:"value,omitempty" firestore:"value,omitempty"`
+	Message string         `yaml:"message" mapstructure:"message" json:"message,omitempty" gorm:"column:message" bson:"message,omitempty" dynamodbav:"message,omitempty" firestore:"message,omitempty"`
+}
 type ErrorMessage struct {
 	Field   string `yaml:"field" mapstructure:"field" json:"field,omitempty" gorm:"column:field" bson:"field,omitempty" dynamodbav:"field,omitempty" firestore:"field,omitempty"`
 	Code    string `yaml:"code" mapstructure:"code" json:"code,omitempty" gorm:"column:code" bson:"code,omitempty" dynamodbav:"code,omitempty" firestore:"code,omitempty"`
@@ -71,20 +77,56 @@ func lcFirstChar(s string) string {
 	}
 	return s
 }
-func BuildErrorDetails(errors []ErrorMessage, ignoreField bool) []ErrorDetail {
+func Map(errors []ErrorMessage, mp map[string]string) []ErrorMessage {
+	if mp != nil && len(mp) > 0 {
+		l := len(errors)
+		for i := 0; i < l; i++ {
+			nv, ok := mp[errors[i].Code]
+			if ok {
+				errors[i].Code = nv
+			}
+		}
+	}
+	return errors
+}
+func BuildErrorDetails(errors []ErrorMessage, ignoreField bool, opts ...map[string]string) []ErrorDetail {
 	errs := make([]ErrorDetail, 0)
 	if errors == nil || len(errors) == 0 {
 		return errs
 	}
 	if ignoreField {
-		for _, s := range errors {
-			d := ErrorDetail{ErrorCode: s.Code, ErrorDesc: s.Message}
-			errs = append(errs, d)
+		if len(opts) > 0 && opts[0] != nil {
+			mp := opts[0]
+			for _, s := range errors {
+				d := ErrorDetail{ErrorCode: s.Code, ErrorDesc: s.Message}
+				nv, ok := mp[s.Code]
+				if ok {
+					d.ErrorCode = nv
+				}
+				errs = append(errs, d)
+			}
+		} else {
+			for _, s := range errors {
+				d := ErrorDetail{ErrorCode: s.Code, ErrorDesc: s.Message}
+				errs = append(errs, d)
+			}
 		}
 	} else {
-		for _, s := range errors {
-			d := ErrorDetail{ErrorCode: s.Code, ErrorField: s.Field, ErrorDesc: s.Message}
-			errs = append(errs, d)
+		if len(opts) > 0 && opts[0] != nil {
+			mp := opts[0]
+			for _, s := range errors {
+				d := ErrorDetail{ErrorCode: s.Code, ErrorField: s.Field, ErrorDesc: s.Message}
+				nv, ok := mp[s.Code]
+				if ok {
+					d.ErrorCode = nv
+				}
+				errs = append(errs, d)
+			}
+		} else {
+			for _, s := range errors {
+				d := ErrorDetail{ErrorCode: s.Code, ErrorField: s.Field, ErrorDesc: s.Message}
+				errs = append(errs, d)
+			}
 		}
 	}
 	return errs

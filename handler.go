@@ -69,7 +69,7 @@ type SimpleService interface {
 	Patch(ctx context.Context, model map[string]interface{}) (int64, error)
 	Delete(ctx context.Context, id interface{}) (int64, error)
 }
-/*
+
 func ReturnStatus(status int) ResultInfo {
 	r := ResultInfo{Status: status}
 	return r
@@ -79,12 +79,12 @@ func SetStatus(obj interface{}, status int) ResultInfo {
 	r := ResultInfo{Status: status, Value: obj}
 	return r
 }
-*/
+
 type WriterConfig struct {
-	// Status *StatusConfig `yaml:"status" mapstructure:"status" json:"status,omitempty" gorm:"column:status" bson:"status,omitempty" dynamodbav:"status,omitempty" firestore:"status,omitempty"`
+	Status *StatusConfig `yaml:"status" mapstructure:"status" json:"status,omitempty" gorm:"column:status" bson:"status,omitempty" dynamodbav:"status,omitempty" firestore:"status,omitempty"`
 	Action *ActionConfig `yaml:"action" mapstructure:"action" json:"action,omitempty" gorm:"column:action" bson:"action,omitempty" dynamodbav:"action,omitempty" firestore:"action,omitempty"`
 }
-/*
+
 type StatusConfig struct {
 	DuplicateKey    int  `yaml:"duplicate_key" mapstructure:"duplicate_key" json:"duplicateKey" gorm:"column:duplicatekey" bson:"duplicateKey" dynamodbav:"duplicateKey" firestore:"duplicateKey"`
 	NotFound        int  `yaml:"not_found" mapstructure:"not_found" json:"notFound" gorm:"column:notfound" bson:"notFound" dynamodbav:"notFound" firestore:"notFound"`
@@ -93,7 +93,7 @@ type StatusConfig struct {
 	ValidationError *int `yaml:"validation_error" mapstructure:"validation_error" json:"validationError" gorm:"column:validationerror" bson:"validationError" dynamodbav:"validationError" firestore:"validationError"`
 	Error           int  `yaml:"error" mapstructure:"error" json:"error" gorm:"column:error" bson:"error" dynamodbav:"error" firestore:"error"`
 }
- */
+
 type ActionConfig struct {
 	Load   *string `yaml:"load" mapstructure:"load" json:"load,omitempty" gorm:"column:load" bson:"load,omitempty" dynamodbav:"load,omitempty" firestore:"load,omitempty"`
 	Create string  `yaml:"create" mapstructure:"create" json:"create,omitempty" gorm:"column:create" bson:"create,omitempty" dynamodbav:"create,omitempty" firestore:"create,omitempty"`
@@ -101,7 +101,14 @@ type ActionConfig struct {
 	Patch  string  `yaml:"patch" mapstructure:"patch" json:"patch,omitempty" gorm:"column:patch" bson:"patch,omitempty" dynamodbav:"patch,omitempty" firestore:"patch,omitempty"`
 	Delete string  `yaml:"delete" mapstructure:"delete" json:"delete,omitempty" gorm:"column:delete" bson:"delete,omitempty" dynamodbav:"delete,omitempty" firestore:"delete,omitempty"`
 }
-/*
+type ActionConf struct {
+	Search *string `yaml:"search" mapstructure:"search" json:"search,omitempty" gorm:"column:search" bson:"search,omitempty" dynamodbav:"search,omitempty" firestore:"search,omitempty"`
+	Load   *string `yaml:"load" mapstructure:"load" json:"load,omitempty" gorm:"column:load" bson:"load,omitempty" dynamodbav:"load,omitempty" firestore:"load,omitempty"`
+	Create string  `yaml:"create" mapstructure:"create" json:"create,omitempty" gorm:"column:create" bson:"create,omitempty" dynamodbav:"create,omitempty" firestore:"create,omitempty"`
+	Update string  `yaml:"update" mapstructure:"update" json:"update,omitempty" gorm:"column:update" bson:"update,omitempty" dynamodbav:"update,omitempty" firestore:"update,omitempty"`
+	Patch  string  `yaml:"patch" mapstructure:"patch" json:"patch,omitempty" gorm:"column:patch" bson:"patch,omitempty" dynamodbav:"patch,omitempty" firestore:"patch,omitempty"`
+	Delete string  `yaml:"delete" mapstructure:"delete" json:"delete,omitempty" gorm:"column:delete" bson:"delete,omitempty" dynamodbav:"delete,omitempty" firestore:"delete,omitempty"`
+}
 func InitializeStatus(status *StatusConfig) StatusConfig {
 	var s StatusConfig
 	if status != nil {
@@ -121,7 +128,38 @@ func InitializeStatus(status *StatusConfig) StatusConfig {
 	}
 	return s
 }
- */
+func InitAction(conf *ActionConf) ActionConf {
+	var c ActionConf
+	if conf != nil {
+		c.Search = conf.Search
+		c.Load = conf.Load
+		c.Create = conf.Create
+		c.Update = conf.Update
+		c.Patch = conf.Patch
+		c.Delete = conf.Delete
+	}
+	if c.Search == nil {
+		x := "search"
+		c.Search = &x
+	}
+	if c.Load == nil {
+		x := "load"
+		c.Load = &x
+	}
+	if len(c.Create) == 0 {
+		c.Create = "create"
+	}
+	if len(c.Update) == 0 {
+		c.Update = "update"
+	}
+	if len(c.Patch) == 0 {
+		c.Patch = "patch"
+	}
+	if len(c.Delete) == 0 {
+		c.Delete = "delete"
+	}
+	return c
+}
 func InitializeAction(conf *ActionConfig) ActionConfig {
 	var c ActionConfig
 	if conf != nil {
@@ -149,7 +187,29 @@ func InitializeAction(conf *ActionConfig) ActionConfig {
 	}
 	return c
 }
-
+type Parameters struct {
+	Keys      []string
+	Indexes   map[string]int
+	ModelType reflect.Type
+	Resource  string
+	Action    ActionConfig
+	Error     func(context.Context, string, ...map[string]interface{})
+	Log       func(context.Context, string, string, bool, string) error
+	Validate  func(context.Context, interface{}) ([]ErrorMessage, error)
+	ParamIndex  map[string]int
+	FilterIndex int
+	CSVIndex    map[string]int
+}
+func CreateParameters(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]ErrorMessage, error), action *ActionConfig, paramIndex map[string]int, filterIndex int, csvIndex map[string]int, options ...func(context.Context, string, string, bool, string) error) *Parameters {
+	var writeLog func(context.Context, string, string, bool, string) error
+	if len(options) > 0 {
+		writeLog = options[0]
+	}
+	a := InitializeAction(action)
+	resource := BuildResourceName(modelType.Name())
+	keys, indexes, _ := BuildMapField(modelType)
+	return &Parameters{Keys: keys, Indexes: indexes, ModelType: modelType, Resource: resource, Action: a, Error: logError, Log: writeLog, Validate: validate, ParamIndex: paramIndex, FilterIndex: filterIndex, CSVIndex: csvIndex}
+}
 type Params struct {
 	Keys      []string
 	Indexes   map[string]int

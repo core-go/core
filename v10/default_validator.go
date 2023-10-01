@@ -22,11 +22,18 @@ type DefaultValidator struct {
 	Trans              *ut.Translator
 	CustomValidateList []CustomValidate
 	IgnoreField        bool
+	Map                map[string]string
 }
 func NewChecker(opts ...bool) (*DefaultValidator, error) {
-	return NewValidator(opts...)
+	return NewValidatorWithMap(nil, opts...)
+}
+func NewCheckerWithMap(mp map[string]string, opts ...bool) (*DefaultValidator, error) {
+	return NewValidatorWithMap(mp, opts...)
 }
 func NewValidator(opts ...bool) (*DefaultValidator, error) {
+	return NewValidatorWithMap(nil, opts...)
+}
+func NewValidatorWithMap(mp map[string]string, opts ...bool) (*DefaultValidator, error) {
 	register := true
 	if len(opts) > 0 {
 		register = opts[0]
@@ -40,7 +47,7 @@ func NewValidator(opts ...bool) (*DefaultValidator, error) {
 		return nil, err
 	}
 	list := GetCustomValidateList()
-	validator := &DefaultValidator{validate: uValidate, Trans: &uTranslator, CustomValidateList: list, IgnoreField: ignoreField}
+	validator := &DefaultValidator{Map: mp, validate: uValidate, Trans: &uTranslator, CustomValidateList: list, IgnoreField: ignoreField}
 	if register {
 		err2 := validator.RegisterCustomValidate()
 		if err2 != nil {
@@ -91,7 +98,25 @@ func (p *DefaultValidator) Validate(ctx context.Context, model interface{}) ([]s
 		if ok {
 			if v2 == patch {
 				errs := s.RemoveRequiredError(errors)
+				if p.Map != nil {
+					l := len(errs)
+					for i := 0; i < l; i++ {
+						nv, ok := p.Map[errs[i].Code]
+						if ok {
+							errs[i].Code = nv
+						}
+					}
+				}
 				return errs, nil
+			}
+		}
+	}
+	if p.Map != nil {
+		l := len(errors)
+		for i := 0; i < l; i++ {
+			nv, ok := p.Map[errors[i].Code]
+			if ok {
+				errors[i].Code = nv
 			}
 		}
 	}
