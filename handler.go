@@ -192,7 +192,7 @@ type Parameters struct {
 	Indexes   map[string]int
 	ModelType reflect.Type
 	Resource  string
-	Action    ActionConfig
+	Action    ActionConf
 	Error     func(context.Context, string, ...map[string]interface{})
 	Log       func(context.Context, string, string, bool, string) error
 	Validate  func(context.Context, interface{}) ([]ErrorMessage, error)
@@ -200,12 +200,12 @@ type Parameters struct {
 	FilterIndex int
 	CSVIndex    map[string]int
 }
-func CreateParameters(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]ErrorMessage, error), action *ActionConfig, paramIndex map[string]int, filterIndex int, csvIndex map[string]int, options ...func(context.Context, string, string, bool, string) error) *Parameters {
+func CreateParameters(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]ErrorMessage, error), action *ActionConf, paramIndex map[string]int, filterIndex int, csvIndex map[string]int, options ...func(context.Context, string, string, bool, string) error) *Parameters {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 {
 		writeLog = options[0]
 	}
-	a := InitializeAction(action)
+	a := InitAction(action)
 	resource := BuildResourceName(modelType.Name())
 	keys, indexes, _ := BuildMapField(modelType)
 	return &Parameters{Keys: keys, Indexes: indexes, ModelType: modelType, Resource: resource, Action: a, Error: logError, Log: writeLog, Validate: validate, ParamIndex: paramIndex, FilterIndex: filterIndex, CSVIndex: csvIndex}
