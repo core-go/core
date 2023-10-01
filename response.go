@@ -14,11 +14,25 @@ func JSON(w http.ResponseWriter, code int, result interface{}) error {
 	err := json.NewEncoder(w).Encode(result)
 	return err
 }
-func GetStatus(status int64) int {
-	if status <= 0 {
+func GetStatus(status int64, opts ...int) int {
+	if status > 0 {
+		if len(opts) > 0 {
+			return opts[0]
+		}
+		return http.StatusOK
+	}
+	if status == 0 {
+		if len(opts) > 1 {
+			return opts[1]
+		}
 		return http.StatusNotFound
 	}
-	return http.StatusOK
+	if len(opts) > 2 {
+		return opts[2]
+	} else if len(opts) > 1 {
+		return opts[1]
+	}
+	return http.StatusConflict
 }
 func IsFound(res interface{}) int {
 	if IsNil(res) {

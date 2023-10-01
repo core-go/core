@@ -26,7 +26,7 @@ func (e *Error) Error() string {
 	return e.Message
 }
 
-func W(err error) *Error {
+func Wrap(err error) *Error {
 	if err == nil {
 		return nil
 	}
@@ -38,7 +38,9 @@ func W(err error) *Error {
 		error:   err,
 	}
 }
-
+func W(err error) *Error {
+	return Wrap(err)
+}
 func (e *Error) WithCode(code int) *Error {
 	e.Code = code
 	return e
