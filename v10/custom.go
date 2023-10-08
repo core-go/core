@@ -3,6 +3,7 @@ package validator
 import (
 	s "github.com/core-go/core"
 	"github.com/go-playground/validator/v10"
+	"time"
 )
 
 type CustomValidate struct {
@@ -33,6 +34,8 @@ var translations = map[string]string{
 	"country_code": "{0} must be a valid country code",
 	"username":     "{0} must be a valid username",
 	"regex":        "{0} must match the provided regex pattern",
+	"after_now":    "{0} must be after now",
+	"now_or_after": "{0} must be now or after",
 }
 
 func GetCustomValidateList() (list []CustomValidate) {
@@ -52,6 +55,8 @@ func GetCustomValidateList() (list []CustomValidate) {
 	list = append(list, CustomValidate{Fn: CheckCountryCode, Tag: "country_code"})
 	list = append(list, CustomValidate{Fn: CheckUsername, Tag: "username"})
 	list = append(list, CustomValidate{Fn: CheckPattern, Tag: "regex"})
+	list = append(list, CustomValidate{Fn: CheckAfterNow, Tag: "after_now"})
+	list = append(list, CustomValidate{Fn: CheckNowOrAfter, Tag: "now_or_after"})
 	return
 }
 func CheckString(fl validator.FieldLevel, fn func(string) bool) bool {
@@ -113,4 +118,47 @@ func CheckPattern(fl validator.FieldLevel) bool {
 	} else {
 		panic("invalid pattern")
 	}
+}
+// CheckAfterNow validates if the given time is greater than the current time
+func CheckAfterNow(fl validator.FieldLevel) bool {
+	var inputTime time.Time
+
+	switch t := fl.Field().Interface().(type) {
+	case string:
+		parsedTime, err := time.Parse(time.RFC3339, t)
+		if err != nil {
+			return false
+		}
+		inputTime = parsedTime
+	case time.Time:
+		inputTime = t
+	case *time.Time:
+		inputTime = *t
+	default:
+		return false
+	}
+
+	return inputTime.UTC().After(time.Now().UTC())
+}
+
+// CheckNowOrAfter validates if the given time is greater or equal than the current time
+func CheckNowOrAfter(fl validator.FieldLevel) bool {
+	var inputTime time.Time
+
+	switch t := fl.Field().Interface().(type) {
+	case string:
+		parsedTime, err := time.Parse(time.RFC3339, t)
+		if err != nil {
+			return false
+		}
+		inputTime = parsedTime
+	case time.Time:
+		inputTime = t
+	case *time.Time:
+		inputTime = *t
+	default:
+		return false
+	}
+
+	return inputTime.UTC().After(time.Now().UTC()) || inputTime.UTC().Equal(time.Now().UTC())
 }
