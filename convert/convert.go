@@ -268,10 +268,17 @@ func ToMapOmitEmpty(model interface{}, checkOmit bool, ignoreFields ...string) m
 	}
 	return fields
 }
-func ToObject(ms map[string]interface{}, result interface{}) error {
-	bytes, err := json.Marshal(ms)
+func ToObject(ms map[string]interface{}, res interface{}) error {
+	b, err := json.Marshal(ms)
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(bytes, result)
+	return json.Unmarshal(b, &res)
+}
+func Copy(src interface{}, des interface{}) error {
+	b, err := json.Marshal(src)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, &des)
 }

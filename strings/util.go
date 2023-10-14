@@ -88,3 +88,9 @@ func IndexOf(element string, data []string) int {
 	}
 	return -1 //not found.
 }
+func URL(moduleName string) string {
+	return strings.ReplaceAll(moduleName, "_", "-")
+}
+func Module(url string) string {
+	return strings.ReplaceAll(url, "-", "_")
+}
