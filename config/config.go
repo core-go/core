@@ -15,6 +15,9 @@ import (
 func Load(c interface{}, fileNames ...string) error {
 	env := os.Getenv("ENV")
 	if len(env) == 0 {
+		env = os.Getenv("env")
+	}
+	if len(env) == 0 {
 		env = os.Getenv("APP_ENV")
 	}
 	if len(env) == 0 {
@@ -22,6 +25,9 @@ func Load(c interface{}, fileNames ...string) error {
 	}
 	if len(env) == 0 {
 		env = os.Getenv("STATE")
+	}
+	if len(env) == 0 {
+		env = os.Getenv("state")
 	}
 	if len(env) == 0 {
 		env = os.Getenv("APP_STATE")
