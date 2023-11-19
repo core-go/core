@@ -56,12 +56,12 @@ func (h *SessionAuthorizer) Authorize(next http.Handler, skipRefreshTTL bool) ht
 		// case if set sessionID in cookie, need get token from cookie
 		cookie, err := r.Cookie(h.CookieName)
 		if err != nil {
-			http.Error(w, "invalid Authorization token", http.StatusUnauthorized)
+			http.Error(w, "invalid authorization token", http.StatusUnauthorized)
 			return
 		}
 
 		if cookie == nil || cookie.Value == "" {
-			http.Error(w, "invalid Authorization token", http.StatusUnauthorized)
+			http.Error(w, "invalid authorization token", http.StatusUnauthorized)
 			return
 		}
 		sessionId = cookie.Value
