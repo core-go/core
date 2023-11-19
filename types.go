@@ -13,3 +13,4 @@ type SearchFn func(ctx context.Context, filter interface{}, results interface{},
 type Generate func(context.Context) (string, error)
 type Sequence func(context.Context, string) (int64, error)
 type HandleFn func(w http.ResponseWriter, r *http.Request)
+type CreateMap func(string, string, *string) map[string]interface{}

@@ -14,6 +14,13 @@ const (
 	Update = "update"
 	Patch  = "patch"
 )
+func IsPatch(ctx context.Context) bool {
+	m := ctx.Value(Method)
+	if m != nil && m.(string) == Patch {
+		return true
+	}
+	return false
+}
 func CreatePatchAndParams(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), patch func(context.Context, map[string]interface{}) (int64, error), validate func(context.Context, interface{}) ([]sv.ErrorMessage, error), build func(context.Context, interface{}) (interface{}, error), action *sv.ActionConfig, options ...func(context.Context, string, string, bool, string) error) (*PatchHandler, *sv.Params) {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 {

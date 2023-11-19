@@ -232,7 +232,7 @@ var userId = "userId"
 func ApplyUserId(str string) {
 	userId = str
 }
-func GetUser(ctx context.Context, opt...string) string {
+func GetUser(ctx context.Context, opt...string) (string, bool) {
 	user := userId
 	if len(opt) > 0 && len(opt[0]) > 0 {
 		user = opt[0]
@@ -241,20 +241,20 @@ func GetUser(ctx context.Context, opt...string) string {
 	if u != nil {
 		u2, ok2 := u.(string)
 		if ok2 {
-			return u2
+			return u2, ok2
 		}
 	}
-	return ""
+	return "", false
 }
-func GetString(ctx context.Context, key string) string {
+func GetString(ctx context.Context, key string) (string, bool) {
 	u := ctx.Value(key)
 	if u != nil {
 		u2, ok2 := u.(string)
 		if ok2 {
-			return u2
+			return u2, true
 		}
 	}
-	return ""
+	return "", false
 }
 func Decode(r *http.Request, filter interface{}, paramIndex map[string]int, options...int) error {
 	method := r.Method

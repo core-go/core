@@ -2,9 +2,12 @@ package date
 
 import (
 	"database/sql/driver"
+	"encoding/xml"
 	"strings"
 	"time"
 )
+
+const format = "2006-01-02"
 
 func Today() Date {
 	today := time.Now().Truncate(24 * time.Hour)
@@ -32,6 +35,20 @@ func (d *Date) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
+	*d = Date(t)
+	return nil
+}
+
+func (d *Date) UnmarshalXML(de *xml.Decoder, start xml.StartElement) error {
+	var v string
+	err := de.DecodeElement(&v, &start)
+	if err != nil {
+		return err
+	}
+	t, err := time.Parse(format, v)
+	if err != nil {
+		return err
+	}
 	*d = Date(t)
 	return nil
 }
