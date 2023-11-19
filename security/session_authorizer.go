@@ -3,6 +3,7 @@ package security
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -15,17 +16,17 @@ type ICacheService interface {
 	Expire(ctx context.Context, key string, timeToLive time.Duration) (bool, error)
 }
 
-type SessionHandler struct {
+type SessionAuthorizer struct {
 	PrefixSessionIndex string
 	SecretKey          string
 	CookieName         string
 	VerifyToken        func(tokenString string, secret string) (map[string]interface{}, int64, int64, error)
 	Cache              ICacheService
 	sessionExpiredTime time.Duration
-	LogError           func(ctx context.Context, format string, args ...interface{})
+	LogError           func(ctx context.Context, msg string, opts ...map[string]interface{})
 }
 
-func NewSessionHandler(secretKey string, verifyToken func(tokenString string, secret string) (map[string]interface{}, int64, int64, error), cache ICacheService, sessionExpiredTime time.Duration, enableSession bool, logError func(ctx context.Context, format string, args ...interface{}), opts ...string) *SessionHandler {
+func NewSessionAuthorizer(secretKey string, verifyToken func(tokenString string, secret string) (map[string]interface{}, int64, int64, error), cache ICacheService, sessionExpiredTime time.Duration, logError func(ctx context.Context, msg string, opts ...map[string]interface{}), opts ...string) *SessionAuthorizer {
 	var prefixSessionIndex, cookieName string
 	if len(opts) > 0 {
 		prefixSessionIndex = opts[0]
@@ -37,7 +38,7 @@ func NewSessionHandler(secretKey string, verifyToken func(tokenString string, se
 	} else {
 		cookieName = "id"
 	}
-	newHandler := &SessionHandler{
+	newHandler := &SessionAuthorizer{
 		VerifyToken:        verifyToken,
 		SecretKey:          secretKey,
 		PrefixSessionIndex: prefixSessionIndex,
@@ -49,7 +50,7 @@ func NewSessionHandler(secretKey string, verifyToken func(tokenString string, se
 	return newHandler
 }
 
-func (h *SessionHandler) Handle(next http.Handler, skipRefreshTTL bool) http.Handler {
+func (h *SessionAuthorizer) Authorize(next http.Handler, skipRefreshTTL bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sessionId := ""
 		// case if set sessionID in cookie, need get token from cookie
@@ -75,7 +76,7 @@ func (h *SessionHandler) Handle(next http.Handler, skipRefreshTTL bool) http.Han
 			err2 := json.Unmarshal([]byte(s), &sessionData)
 			if err2 != nil {
 				if h.LogError != nil {
-					h.LogError(r.Context(), "error unmarshal: %s ", err2.Error())
+					h.LogError(r.Context(), fmt.Sprintf("error unmarshal: %s ", err2.Error()))
 				}
 				http.Error(w, "Session is expired", http.StatusUnauthorized)
 				return
@@ -90,7 +91,7 @@ func (h *SessionHandler) Handle(next http.Handler, skipRefreshTTL bool) http.Han
 				err2 := json.Unmarshal([]byte(s), &uData)
 				if err2 != nil {
 					if h.LogError != nil {
-						h.LogError(r.Context(), "error unmarshal: %s ", err2.Error())
+						h.LogError(r.Context(), fmt.Sprintf("error unmarshal: %s ", err2.Error()))
 					}
 					http.Error(w, "Session is expired", http.StatusInternalServerError)
 					return
@@ -118,7 +119,7 @@ func (h *SessionHandler) Handle(next http.Handler, skipRefreshTTL bool) http.Han
 	})
 }
 
-func (h *SessionHandler) Verify(next http.Handler, skipRefreshTTL bool, sessionId string) http.Handler {
+func (h *SessionAuthorizer) Verify(next http.Handler, skipRefreshTTL bool, sessionId string) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		authorizationToken, exists := ctx.Value("token").(string)
@@ -145,7 +146,7 @@ func (h *SessionHandler) Verify(next http.Handler, skipRefreshTTL bool, sessionI
 				if h.LogError != nil {
 					h.LogError(ctx, err.Error())
 				}
-				http.Error(writer, "error set expire sessionId", http.StatusInternalServerError)
+				http.Error(writer, "error to set expire sessionId", http.StatusInternalServerError)
 				return
 			}
 		}
