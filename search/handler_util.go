@@ -246,6 +246,16 @@ func GetUser(ctx context.Context, opt...string) string {
 	}
 	return ""
 }
+func GetString(ctx context.Context, key string) string {
+	u := ctx.Value(key)
+	if u != nil {
+		u2, ok2 := u.(string)
+		if ok2 {
+			return u2
+		}
+	}
+	return ""
+}
 func Decode(r *http.Request, filter interface{}, paramIndex map[string]int, options...int) error {
 	method := r.Method
 	if method == http.MethodGet {
