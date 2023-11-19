@@ -1,6 +1,7 @@
 package search
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -227,12 +228,16 @@ func BuildFilter(r *http.Request, filterType reflect.Type, paramIndex map[string
 	SetUserId(filter, userId)
 	return filter, x, nil
 }
-func GetUser(r *http.Request, opt...string) string {
-	user := "userId"
+var userId = "userId"
+func ApplyUserId(str string) {
+	userId = str
+}
+func GetUser(ctx context.Context, opt...string) string {
+	user := userId
 	if len(opt) > 0 && len(opt[0]) > 0 {
 		user = opt[0]
 	}
-	u := r.Context().Value(user)
+	u := ctx.Value(user)
 	if u != nil {
 		u2, ok2 := u.(string)
 		if ok2 {
