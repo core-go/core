@@ -2,6 +2,7 @@ package v9
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"github.com/redis/go-redis/v9"
@@ -115,6 +116,9 @@ func NewFailoverClient(c FailoverConfig) *redis.Client {
 
 type Config struct {
 	Url             string         `yaml:"url" mapstructure:"url" json:"url,omitempty" gorm:"column:url" bson:"url,omitempty" dynamodbav:"url,omitempty" firestore:"url,omitempty"`
+	Addr            string         `yaml:"addr" mapstructure:"addr" json:"addr,omitempty" gorm:"column:addr" bson:"addr,omitempty" dynamodbav:"addr,omitempty" firestore:"addr,omitempty"`
+	Password        *string        `yaml:"password" mapstructure:"password" json:"password,omitempty" gorm:"column:password" bson:"password,omitempty" dynamodbav:"password,omitempty" firestore:"password,omitempty"`
+	TLSConfig       *bool          `yaml:"tls_config" mapstructure:"tls_config" json:"tlsConfig,omitempty" gorm:"column:tls_config" bson:"tlsConfig,omitempty" dynamodbav:"tlsConfig,omitempty" firestore:"tlsConfig,omitempty"`
 	MaxRetries      int            `yaml:"max_retries" mapstructure:"max_retries" json:"maxRetries,omitempty" gorm:"column:maxretries" bson:"maxRetries,omitempty" dynamodbav:"maxRetries,omitempty" firestore:"maxRetries,omitempty"`
 	PoolSize        int            `yaml:"pool_size" mapstructure:"pool_size" json:"poolSize,omitempty" gorm:"column:poolsize" bson:"poolSize,omitempty" dynamodbav:"poolSize,omitempty" firestore:"poolSize,omitempty"`
 	DialTimeout     *time.Duration `yaml:"dial_timeout" mapstructure:"dial_timeout" json:"dialTimeout,omitempty" gorm:"column:dialtimeout" bson:"dialTimeout,omitempty" dynamodbav:"dialTimeout,omitempty" firestore:"dialTimeout,omitempty"`
@@ -128,14 +132,24 @@ type Config struct {
 }
 
 func NewRedisClientByConfig(c Config) (*redis.Client, error) {
-	rUrl, er1 := url.Parse(c.Url)
-	if er1 != nil {
-		return nil, er1
+	options := redis.Options{}
+	if len(c.Url) > 0 {
+		rUrl, er1 := url.Parse(c.Url)
+		if er1 != nil {
+			return nil, er1
+		}
+		redisPassword, _ := rUrl.User.Password()
+		options.Addr = rUrl.Host
+		options.Password = redisPassword
 	}
-	redisPassword, _ := rUrl.User.Password()
-	options := redis.Options{
-		Addr:     rUrl.Host,
-		Password: redisPassword,
+	if len(c.Addr) > 0 {
+		options.Addr = c.Addr
+	}
+	if c.Password != nil && len(*c.Password) > 0 {
+		options.Password = *c.Password
+	}
+	if c.TLSConfig != nil && *c.TLSConfig == true {
+		options.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12}
 	}
 	if c.DB > 0 {
 		options.DB = c.DB

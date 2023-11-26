@@ -133,7 +133,7 @@ func (h *SessionAuthorizer) Authorize(next http.Handler, skipRefreshTTL bool) ht
 					return
 				}
 			} else {
-				if _, ok := sessionData[h.Id]; ok {
+				if _, ok := sessionData[h.Id]; !ok {
 					http.Error(w, "Session is expired", http.StatusUnauthorized)
 					return
 				}

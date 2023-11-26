@@ -19,9 +19,13 @@ func NewCurrency(val float64) Currency {
 }
 
 func (c Currency) MarshalJSON() (text []byte, err error)  {
-	return json.Marshal(c.Text('f', 2))
+	b := c.Round(2)
+	return b, nil
 }
-
+func (c Currency) Round(prec int) []byte {
+	var buf []byte
+	return c.Float.Append(buf, 'f', prec)
+}
 func (c *Currency) UnmarshalJSON(data []byte) error {
 	err := c.UnmarshalText(data)
 	if err != nil {

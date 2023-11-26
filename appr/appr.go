@@ -68,19 +68,26 @@ func HandleResult(w http.ResponseWriter, r *http.Request, id string, res int64, 
 		http.Error(w, internalServerError, http.StatusInternalServerError)
 		return
 	}
+	Return(r.Context(), w, id, res, resource, action, writeLog)
+}
+func Return(ctx context.Context, w http.ResponseWriter, id string, res int64, resource string, action string, opts...func(context.Context, string, string, bool, string) error) {
+	var writeLog func(context.Context, string, string, bool, string) error
+	if len(opts) > 0 {
+		writeLog = opts[0]
+	}
 	if res > 0 {
 		if writeLog != nil {
-			writeLog(r.Context(), resource, action, true, "")
+			writeLog(ctx, resource, action, true, "")
 		}
 		JSON(w, http.StatusOK, res)
 	} else if res == 0 {
 		if writeLog != nil {
-			writeLog(r.Context(), resource, action, false, fmt.Sprintf("not found '%s'", id))
+			writeLog(ctx, resource, action, false, fmt.Sprintf("not found '%s'", id))
 		}
 		JSON(w, http.StatusNotFound, res)
 	} else {
 		if writeLog != nil {
-			writeLog(r.Context(), resource, action, false, fmt.Sprintf("conflict '%s'", id))
+			writeLog(ctx, resource, action, false, fmt.Sprintf("conflict '%s'", id))
 		}
 		JSON(w, http.StatusConflict, res)
 	}

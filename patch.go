@@ -9,6 +9,14 @@ import (
 	"strings"
 )
 
+func IsPatch(ctx context.Context) bool {
+	m := ctx.Value(Method)
+	if m != nil && m.(string) == Patch {
+		return true
+	}
+	return false
+}
+
 type Builder interface {
 	Create(ctx context.Context, model interface{}) (interface{}, error)
 	Update(ctx context.Context, model interface{}) (interface{}, error)
