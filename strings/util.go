@@ -52,25 +52,6 @@ func IncludeOfSort(vs []string, v string) bool {
 	}
 	return false
 }
-func ValueOf(m interface{}, path string) interface{} {
-	arr := strings.Split(path, ".")
-	i := 0
-	var c interface{}
-	c = m
-	l1 := len(arr) - 1
-	for i < len(arr) {
-		key := arr[i]
-		m2, ok := c.(map[string]interface{})
-		if ok {
-			c = m2[key]
-		}
-		if !ok || i >= l1 {
-			return c
-		}
-		i++
-	}
-	return c
-}
 func FindNotIn(all []string, itemsNotIn []string) string {
 	var result = ""
 	for i := 1; i < len(itemsNotIn); i++ {

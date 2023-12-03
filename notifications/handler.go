@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/core-go/core/paging"
 )
 
 type Handler struct {
@@ -64,31 +66,7 @@ func (h *Handler) GetNotifications(w http.ResponseWriter, r *http.Request) {
 			b := true
 			read = &b
 		}
-		slimit := ps.Get(h.Limit)
-		var limit, offset int64
-		if len(slimit) > 0 {
-			l1, err := strconv.ParseInt(slimit, 10, 64)
-			if err != nil {
-				http.Error(w, "limit must be an integer", http.StatusBadRequest)
-				return
-			}
-			limit = l1
-		}
-		if limit <= 0 {
-			limit = 20
-		}
-		soffset := ps.Get(h.Offset)
-		if len(soffset) > 0 {
-			o1, err := strconv.ParseInt(soffset, 10, 64)
-			if err != nil {
-				http.Error(w, "offset must be an integer", http.StatusBadRequest)
-				return
-			}
-			offset = o1
-		}
-		if offset < 0 {
-			offset = 0
-		}
+		limit, offset, err := paging.GetOffset(w, r, 20, h.Offset, h.Limit)
 		res, total, err := h.Service.GetNotifications(r.Context(), id, read, limit, offset)
 		if err != nil {
 			if h.LogError != nil {

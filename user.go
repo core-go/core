@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"net/http"
+	"time"
 )
 
 var Id = "id"
@@ -10,6 +11,10 @@ var UserID = "userID"
 var UserId = "userId"
 func ApplyUserId(str string) {
 	UserId = str
+}
+func Now() *time.Time {
+	n := time.Now()
+	return &n
 }
 func GetUser(ctx context.Context, opt...string) (string, bool) {
 	user := UserId

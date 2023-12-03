@@ -282,3 +282,40 @@ func Copy(src interface{}, des interface{}) error {
 	}
 	return json.Unmarshal(b, &des)
 }
+func ValueOf(m interface{}, path string) interface{} {
+	arr := strings.Split(path, ".")
+	i := 0
+	var c interface{}
+	c = m
+	l1 := len(arr) - 1
+	for i < len(arr) {
+		key := arr[i]
+		m2, ok := c.(map[string]interface{})
+		if ok {
+			c = m2[key]
+		}
+		if !ok || i >= l1 {
+			return c
+		}
+		i++
+	}
+	return c
+}
+func Merge(m map[string]interface{}, sub map[string]interface{}, opts...bool) map[string]interface{} {
+	if m == nil {
+		return sub
+	}
+	if len(opts) > 0 && opts[0] == true {
+		for k, v := range sub {
+			m[k] = v
+		}
+	} else {
+		for k, v := range sub {
+			_, ok := m[k]
+			if ok {
+				m[k] = v
+			}
+		}
+	}
+	return m
+}

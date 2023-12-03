@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	n "github.com/core-go/core/notification"
@@ -85,6 +86,9 @@ func (a *NotificationAdapter) Push(ctx context.Context, noti *n.Notification) (i
 }
 func (a *NotificationAdapter) PushNotifications(ctx context.Context, ns []*n.Notification) (int64, error) {
 	l := len(ns)
+	if l == 0 {
+		return 0, nil
+	}
 	for i :=0; i < l; i++ {
 		id, err := a.Generate(ctx)
 		if err != nil {
@@ -93,24 +97,29 @@ func (a *NotificationAdapter) PushNotifications(ctx context.Context, ns []*n.Not
 		ns[i].Id = id
 	}
 	now := time.Now()
-	query := fmt.Sprintf("insert into %s(%s,%s,%s,%s,%s,%s %s) values (%s,%s,%s,%s,%s,%s %s)", a.Table,
-		a.Id, a.Sender, a.Receiver, a.Message, a.Url, a.Time, a.SuffixColumn,
-		a.BuildParam(1), a.BuildParam(2), a.BuildParam(3), a.BuildParam(4), a.BuildParam(5),a.BuildParam(6),a.SuffixValue)
-	tx := GetExec(ctx, a.DB, a.Tx)
-	var sum int64
-	sum = 0
+	ss := make([]string, 0)
+	args := make([]interface{}, 0)
+
+	k := 1
 	for i :=0; i < l; i++ {
-		res, err := tx.ExecContext(ctx, query, ns[i].Id, ns[i].Sender, ns[i].Receiver, ns[i].Message, ns[i].Url, now)
-		if err != nil {
-			return -1, err
-		}
-		count, er2 := res.RowsAffected()
-		if er2 != nil {
-			return sum, er2
-		}
-		sum = sum + count
+		args = append(args, ns[i].Id)
+		args = append(args, ns[i].Sender)
+		args = append(args, ns[i].Receiver)
+		args = append(args, ns[i].Message)
+		args = append(args, ns[i].Url)
+		args = append(args, now)
+		k = k + 6
+		s := fmt.Sprintf("(%s,%s,%s,%s,%s,%s %s)", a.BuildParam(k), a.BuildParam(k+1), a.BuildParam(k+2), a.BuildParam(k+3), a.BuildParam(k+4),a.BuildParam(k+5),a.SuffixValue)
+		ss = append(ss, s)
 	}
-	return sum, nil
+	query := fmt.Sprintf("insert into %s(%s,%s,%s,%s,%s,%s %s) values %s", a.Table,
+		a.Id, a.Sender, a.Receiver, a.Message, a.Url, a.Time, a.SuffixColumn, strings.Join(ss, ","))
+	tx := GetExec(ctx, a.DB, a.Tx)
+	res, err := tx.ExecContext(ctx, query, args...)
+	if err != nil {
+		return -1, err
+	}
+	return res.RowsAffected()
 }
 type Executor interface {
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)

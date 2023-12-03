@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/core-go/core/paging"
 )
 
 type Handler struct {
@@ -49,46 +51,23 @@ func NewHistoriesHandler(resource string, index int, getHistories func(ctx conte
 func (h *Handler) GetHistories(w http.ResponseWriter, r *http.Request) {
 	id := GetRequiredParam(w, r, h.Index)
 	if len(id) > 0 {
-		ps := r.URL.Query()
-		slimit := ps.Get(h.Limit)
-		var limit, offset int64
-		if len(slimit) > 0 {
-			l1, err := strconv.ParseInt(slimit, 10, 64)
-			if err != nil {
-				http.Error(w, "limit must be an integer", http.StatusBadRequest)
-				return
-			}
-			limit = l1
-		}
-		if limit <= 0 {
-			limit = 20
-		}
-		soffset := ps.Get(h.Offset)
-		if len(soffset) > 0 {
-			o1, err := strconv.ParseInt(soffset, 10, 64)
-			if err != nil {
-				http.Error(w, "offset must be an integer", http.StatusBadRequest)
-				return
-			}
-			offset = o1
-		}
-		if offset < 0 {
-			offset = 0
-		}
-		res, total, err := h.Load(r.Context(), h.Resource, id, limit, offset)
+		limit, offset, err := paging.GetOffset(w, r, 20, h.Offset, h.Limit)
 		if err != nil {
-			if h.LogError != nil {
-				h.LogError(r.Context(), err.Error())
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			} else {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+			res, total, err := h.Load(r.Context(), h.Resource, id, limit, offset)
+			if err != nil {
+				if h.LogError != nil {
+					h.LogError(r.Context(), err.Error())
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				} else {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+				}
+				return
 			}
-			return
+			m := make(map[string]interface{})
+			m[h.List] = res
+			m[h.Total] = total
+			JSON(w, 200, m)
 		}
-		m := make(map[string]interface{})
-		m[h.List] = res
-		m[h.Total] = total
-		JSON(w, 200, m)
 	}
 }
 func JSON(w http.ResponseWriter, code int, result interface{}) error {

@@ -3,6 +3,9 @@ package mux
 import (
 	"github.com/gorilla/mux"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 const (
@@ -74,4 +77,15 @@ func Register(r *mux.Router, prefix string, handler Handler, options...bool)  {
 	if includeDelete {
 		s.HandleFunc("/{id}", handler.Delete).Methods(dELETE)
 	}
+}
+
+func HandleFiles(r *mux.Router, prefix string, static string) {
+	dir, _ := filepath.Abs(".")
+	if _, err := os.Stat(filepath.Join(dir, static)); !os.IsNotExist(err) {
+		dir = filepath.Join(dir, static)
+	}
+	dir = strings.TrimRight(dir, "/")
+
+	h := http.StripPrefix(prefix, http.FileServer(http.Dir(dir)))
+	r.PathPrefix(prefix).Handler(h)
 }
