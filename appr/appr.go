@@ -58,6 +58,23 @@ func (h *ApprHandler) Reject(w http.ResponseWriter, r *http.Request) {
 		response.HandleResult(w, r, id, res, err, h.Resource, h.ActionReject, h.LogError, h.WriteLog)
 	}
 }
+func GetParams(w http.ResponseWriter, r *http.Request, index int, opts...string) (string, string, string, int32, bool) {
+	id := GetRequiredParam(w, r, index)
+	if len(id) > 0 {
+		var userId = UserId
+		if len(opts) > 0 {
+			userId = opts[0]
+		}
+		user, ok := RequireUser(r.Context(), w, userId)
+		if ok {
+			note, version, ok2 := GetBodyWithVersion(w, r)
+			return id, user, note, version, ok2
+		} else {
+			return id, user, "", 0, false
+		}
+	}
+	return id, "", "", 0, false
+}
 func GetParameters(w http.ResponseWriter, r *http.Request, index int, opts...string) (string, string, string, bool) {
 	id := GetRequiredParam(w, r, index)
 	if len(id) > 0 {
@@ -101,6 +118,43 @@ func GetBodyField(w http.ResponseWriter, r *http.Request) (string, bool) {
 			}
 			http.Error(w, "invalid body", http.StatusBadRequest)
 			return "", false
+		}
+	}
+}
+func GetBodyWithVersion(w http.ResponseWriter, r *http.Request) (string, int32, bool) {
+	body := make(map[string]interface{})
+	er1 := json.NewDecoder(r.Body).Decode(&body)
+	defer r.Body.Close()
+	if er1 != nil {
+		http.Error(w, er1.Error(), http.StatusBadRequest)
+		return "", 0, false
+	} else {
+		if len(body) != 2 {
+			http.Error(w, "invalid body", http.StatusBadRequest)
+			return "", 0, false
+		} else {
+			var note string
+			var version int32
+			count := 0
+			for _, k := range body {
+				u2, ok2 := k.(string)
+				if ok2 {
+					note = u2
+					count = count + 1
+				} else {
+					u3, ok3 := k.(float64)
+					if ok3 {
+						version = int32(u3)
+						count = count + 1
+					}
+				}
+			}
+			if count != 2 {
+				http.Error(w, "invalid body", http.StatusBadRequest)
+				return note, version, false
+			} else {
+				return note, version, true
+			}
 		}
 	}
 }
