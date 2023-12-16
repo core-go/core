@@ -40,6 +40,6 @@ type Notifier struct {
 }
 
 type NotificationsPort interface {
-	GetNotifications(ctx context.Context, receiver string, read *bool, limit int64, offset int64) ([]Notification, int64, error)
+	GetNotifications(ctx context.Context, receiver string, read *bool, limit int64, nextPageToken string) ([]Notification, string, error)
 	SetRead(ctx context.Context, id string, v bool) (int64, error)
 }

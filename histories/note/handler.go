@@ -4,85 +4,69 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"strings"
+
+	"github.com/core-go/core/paging"
 )
 
 type Handler struct {
 	Resource string
 	Index    int
-	Load func(ctx context.Context, resource string, id string, limit int64, offset int64) ([]History, int64, error)
+	Load func(ctx context.Context, resource string, id string, limit int64, nextPageToken string) ([]History, string, error)
+	LogError func(context.Context, string, ...map[string]interface{})
 	Limit string
-	Offset string
+	NextPageToken string
 	List string
-	Total string
+	Next string
 }
 
 type GetHistories func(ctx context.Context, resource string, id string, limit int64, offset int64) ([]History, int64, error)
 
-func NewHistoriesHandler(resource string, getHistories func(ctx context.Context, resource string, id string, limit int64, offset int64) ([]History, int64, error), opts...string) *Handler {
-	var list, total, limit, offset string
+func NewHistoriesHandler(resource string, index int, getHistories func(ctx context.Context, resource string, id string, limit int64, nextPageToken string) ([]History, string, error), logError func(context.Context, string, ...map[string]interface{}), opts...string) *Handler {
+	var list, next, limit, nextPageToken string
 	if len(opts) > 0 {
 		list = opts[0]
 	} else {
 		list = "list"
 	}
 	if len(opts) > 1 {
-		total = opts[1]
+		next = opts[1]
 	} else {
-		total = "total"
+		next = "next"
 	}
 	if len(opts) > 2 {
 		limit = opts[2]
 	} else {
 		limit = "limit"
 	}
-	if len(opts) > 2 {
-		offset = opts[2]
+	if len(opts) > 3 {
+		nextPageToken = opts[3]
 	} else {
-		offset = "offset"
+		nextPageToken = "next"
 	}
-	return &Handler{Resource: resource, Load: getHistories, List: list, Total: total, Limit: limit, Offset: offset}
+	return &Handler{Resource: resource, Index: index, Load: getHistories, LogError: logError, List: list, Next: next, Limit: limit, NextPageToken: nextPageToken}
 }
 
 func (h *Handler) GetHistories(w http.ResponseWriter, r *http.Request) {
 	id := GetRequiredParam(w, r, h.Index)
 	if len(id) > 0 {
-		ps := r.URL.Query()
-		slimit := ps.Get(h.Limit)
-		var limit, offset int64
-		if len(slimit) > 0 {
-			l1, err := strconv.ParseInt(slimit, 10, 64)
-			if err != nil {
-				http.Error(w, "limit must be an integer", http.StatusBadRequest)
-				return
-			}
-			limit = l1
-		}
-		if limit <= 0 {
-			limit = 20
-		}
-		soffset := ps.Get(h.Offset)
-		if len(soffset) > 0 {
-			o1, err := strconv.ParseInt(soffset, 10, 64)
-			if err != nil {
-				http.Error(w, "offset must be an integer", http.StatusBadRequest)
-				return
-			}
-			offset = o1
-		}
-		if offset < 0 {
-			offset = 0
-		}
-		res, total, err := h.Load(r.Context(), h.Resource, id, limit, offset)
+		limit, nextPageToken, err := paging.GetNext(w, r, 20, h.NextPageToken, h.Limit)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			res, next, err := h.Load(r.Context(), h.Resource, id, limit, nextPageToken)
+			if err != nil {
+				if h.LogError != nil {
+					h.LogError(r.Context(), err.Error())
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				} else {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+				}
+				return
+			}
+			m := make(map[string]interface{})
+			m[h.List] = res
+			m[h.Next] = next
+			JSON(w, 200, m)
 		}
-		m := make(map[string]interface{})
-		m[h.List] = res
-		m[h.Total] = total
-		JSON(w, 200, m)
 	}
 }
 func JSON(w http.ResponseWriter, code int, result interface{}) error {
@@ -113,17 +97,4 @@ func GetRequiredParam(w http.ResponseWriter,r *http.Request, options ...int) str
 		return ""
 	}
 	return p
-}
-func GetRequiredInt64(w http.ResponseWriter,r *http.Request, options ...int) *int64 {
-	p := GetParam(r, options...)
-	if len(p) == 0 {
-		http.Error(w, "parameter is required", http.StatusBadRequest)
-		return nil
-	}
-	i, err := strconv.ParseInt(p, 10, 64)
-	if err != nil {
-		http.Error(w, "parameter must be an integer", http.StatusBadRequest)
-		return nil
-	}
-	return &i
 }

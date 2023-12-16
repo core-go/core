@@ -4,25 +4,24 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/core-go/core/paging"
 )
 
 type Handler struct {
-	Service NotificationsPort
+	Service  NotificationsPort
 	LogError func(context.Context, string, ...map[string]interface{})
-	UserId string
-	Read string
-	Limit string
-	Offset string
-	List string
-	Total string
+	UserId   string
+	Read     string
+	Limit    string
+	NextPageToken string
+	List     string
+	Next     string
 }
 
 func NewNotificationsHandler(service NotificationsPort, logError func(context.Context, string, ...map[string]interface{}), opts...string) *Handler {
-	var userId, read, list, total, limit, offset string
+	var userId, read, list, next, limit, nextPageToken string
 	if len(opts) > 1 {
 		userId = opts[1]
 	} else {
@@ -39,9 +38,9 @@ func NewNotificationsHandler(service NotificationsPort, logError func(context.Co
 		list = "list"
 	}
 	if len(opts) > 3 {
-		total = opts[3]
+		next = opts[3]
 	} else {
-		total = "total"
+		next = "next"
 	}
 	if len(opts) > 4 {
 		limit = opts[4]
@@ -49,11 +48,11 @@ func NewNotificationsHandler(service NotificationsPort, logError func(context.Co
 		limit = "limit"
 	}
 	if len(opts) > 5 {
-		offset = opts[5]
+		nextPageToken = opts[5]
 	} else {
-		offset = "offset"
+		nextPageToken = "next"
 	}
-	return &Handler{Service: service, LogError: logError, UserId: userId, Read: read, List: list, Total: total, Limit: limit, Offset: offset}
+	return &Handler{Service: service, LogError: logError, UserId: userId, Read: read, List: list, Next: next, Limit: limit, NextPageToken: nextPageToken}
 }
 
 func (h *Handler) GetNotifications(w http.ResponseWriter, r *http.Request) {
@@ -66,8 +65,8 @@ func (h *Handler) GetNotifications(w http.ResponseWriter, r *http.Request) {
 			b := true
 			read = &b
 		}
-		limit, offset, err := paging.GetOffset(w, r, 20, h.Offset, h.Limit)
-		res, total, err := h.Service.GetNotifications(r.Context(), id, read, limit, offset)
+		limit, nextPageToken, err := paging.GetNext(w, r, 20, h.NextPageToken, h.Limit)
+		res, next, err := h.Service.GetNotifications(r.Context(), id, read, limit, nextPageToken)
 		if err != nil {
 			if h.LogError != nil {
 				h.LogError(r.Context(), err.Error())
@@ -79,7 +78,7 @@ func (h *Handler) GetNotifications(w http.ResponseWriter, r *http.Request) {
 		}
 		m := make(map[string]interface{})
 		m[h.List] = res
-		m[h.Total] = total
+		m[h.Next] = next
 		JSON(w, 200, m)
 	}
 }
@@ -157,17 +156,4 @@ func GetRequiredParam(w http.ResponseWriter,r *http.Request, options ...int) str
 		return ""
 	}
 	return p
-}
-func GetRequiredInt64(w http.ResponseWriter,r *http.Request, options ...int) *int64 {
-	p := GetParam(r, options...)
-	if len(p) == 0 {
-		http.Error(w, "parameter is required", http.StatusBadRequest)
-		return nil
-	}
-	i, err := strconv.ParseInt(p, 10, 64)
-	if err != nil {
-		http.Error(w, "parameter must be an integer", http.StatusBadRequest)
-		return nil
-	}
-	return &i
 }

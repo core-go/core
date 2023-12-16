@@ -89,6 +89,9 @@ func loadTemplates(trim func(string) string, files ...string) (map[string]*Templ
 			if err != nil {
 				return templates, err
 			}
+			if trim != nil {
+				file = trim(file)
+			}
 			sub, er := BuildTemplates(file)
 			if er0 != nil {
 				return templates, er

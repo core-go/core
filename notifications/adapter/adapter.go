@@ -23,7 +23,7 @@ type NotificationAdapter struct {
 	ReadValue interface{}
 	GetUsers func(ctx context.Context, ids []string) ([]u.User, error)
 }
-func UseNotification(db *sql.DB, buildParam func(int)string, getUsers func(ctx context.Context, ids []string) ([]u.User, error), readValue interface{}, table string, opts...string) func(ctx context.Context, receiver string, read *bool, limit int64, offset int64) ([]n.Notification, int64, error) {
+func UseNotification(db *sql.DB, buildParam func(int)string, getUsers func(ctx context.Context, ids []string) ([]u.User, error), readValue interface{}, table string, opts...string) func(ctx context.Context, receiver string, read *bool, limit int64, nextPageToken string) ([]n.Notification, string, error) {
 	adapter := NewNotificationAdapter(db, buildParam, getUsers, readValue, table, opts...)
 	return adapter.GetNotifications
 }
@@ -61,35 +61,46 @@ func NewNotificationAdapter(db *sql.DB, buildParam func(int)string, getUsers fun
 	}
 	return &NotificationAdapter{DB: db, BuildParam: buildParam, Table: table, ReadValue: readValue, Receiver: receiver, Sender: sender, Time: time, Message: message, Url: url, Id: id, GetUsers: getUsers}
 }
-func (a *NotificationAdapter) GetNotifications(ctx context.Context, receiver string, read *bool, limit int64, offset int64) ([]n.Notification, int64, error) {
+func (a *NotificationAdapter) GetNotifications(ctx context.Context, receiver string, read *bool, limit int64, nextPageToken string) ([]n.Notification, string, error) {
 	if limit <= 0 {
 		limit = 20
 	}
-	if offset < 0 {
-		offset = 0
-	}
 	var items []n.Notification
-	countQuery := fmt.Sprintf("select count(*) from %s where %s = %s", a.Table, a.Receiver, a.BuildParam(1))
-	var row *sql.Row
 	var whereRead = ""
 	if read != nil && *read == true {
 		whereRead = fmt.Sprintf(" and %s = %s", a.Read, a.BuildParam(2))
-		countQuery = countQuery + whereRead
-		row = a.DB.QueryRowContext(ctx, countQuery, receiver, a.ReadValue)
+	}
+	var offset int64
+	if len(nextPageToken) > 0 {
+		k := 2
+		if read != nil && *read == true {
+			k = 3
+		}
+		positionQuery := fmt.Sprintf("select position from (select %s, row_number() over(order by %s desc) as position from %s where %s = %s %s) result where %s = %s",
+			a.Id, a.Time, a.Table, a.Receiver, a.BuildParam(1), whereRead, a.Id, a.BuildParam(k))
+		var row *sql.Row
+		if read != nil && *read == true {
+			row = a.DB.QueryRowContext(ctx, positionQuery, receiver, a.ReadValue, nextPageToken)
+		} else {
+			row = a.DB.QueryRowContext(ctx, positionQuery, receiver, nextPageToken)
+		}
+		if row.Err() != nil {
+			return items, "", row.Err()
+		}
+		err := row.Scan(&offset)
+		if offset < 0 {
+			offset = 0
+		}
+		if err != nil {
+			return items, "", err
+		}
 	} else {
-		row = a.DB.QueryRowContext(ctx, countQuery, receiver)
-	}
-	if row.Err() != nil {
-		return items, 0, row.Err()
-	}
-	var total int64
-	err := row.Scan(&total)
-	if err != nil || total == 0 {
-		return items, total, err
+		offset = 0
 	}
 	query := fmt.Sprintf("select %s, %s, %s, %s, %s, %s from %s where %s = %s %s order by %s desc limit %d offset %d",
 		a.Id, a.Time, a.Read, a.Sender, a.Message, a.Url, a.Table, a.Receiver, a.BuildParam(1), whereRead, a.Time, limit, offset)
 	var rows *sql.Rows
+	var err error
 	if read != nil && *read == true {
 		rows, err = a.DB.QueryContext(ctx, query, receiver, a.ReadValue)
 	} else {
@@ -100,9 +111,12 @@ func (a *NotificationAdapter) GetNotifications(ctx context.Context, receiver str
 		var item n.Notification
 		err = rows.Scan(&item.Id, &item.Time, &item.Read, &item.Sender, &item.Message, &item.Url)
 		if err != nil {
-			return items, total, err
+			return items, "", err
 		}
 		items = append(items, item)
+	}
+	if len(items) == 0 {
+		return items, "", nil
 	}
 	if a.GetUsers != nil {
 		var userIds []string
@@ -112,7 +126,7 @@ func (a *NotificationAdapter) GetNotifications(ctx context.Context, receiver str
 		ids := u.Unique(userIds)
 		users, err := a.GetUsers(ctx, ids)
 		if err != nil {
-			return items, total, err
+			return items, "", err
 		}
 		usersMap := u.ToMap(users)
 		l := len(items)
@@ -124,7 +138,7 @@ func (a *NotificationAdapter) GetNotifications(ctx context.Context, receiver str
 			}
 		}
 	}
-	return items, total, nil
+	return items, items[len(items) - 1].Id, nil
 }
 func (a *NotificationAdapter) SetRead(ctx context.Context, id string, v bool) (int64, error) {
 	p := "null"

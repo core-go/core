@@ -23,6 +23,7 @@ type Languages struct {
 	It string `yaml:"it" mapstructure:"it" json:"it,omitempty" gorm:"column:it" bson:"it,omitempty" dynamodbav:"it,omitempty" firestore:"it,omitempty"`
 	Es string `yaml:"es" mapstructure:"es" json:"es,omitempty" gorm:"column:es" bson:"es,omitempty" dynamodbav:"es,omitempty" firestore:"es,omitempty"`
 	Pt string `yaml:"pt" mapstructure:"pt" json:"pt,omitempty" gorm:"column:pt" bson:"pt,omitempty" dynamodbav:"pt,omitempty" firestore:"pt,omitempty"`
+	Ru string `yaml:"ru" mapstructure:"ru" json:"ru,omitemruy" gorm:"column:ru" bson:"ru,omitempty" dynamodbav:"ru,omitempty" firestore:"ru,omitempty"`
 }
 
 func (l Languages) Value() (driver.Value, error) {
