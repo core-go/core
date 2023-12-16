@@ -7,13 +7,14 @@ type Tracker struct {
 	User  string
 	Time  string
 	Status  string
+	Version string
 }
 func UseMap(opts...string) func(string, string, *string)map[string]interface{} {
 	t := NewTracker(opts...)
 	return t.Create
 }
 func NewTracker(opts...string) *Tracker {
-	var id, user, time, status string
+	var id, user, time, status, version string
 	if len(opts) > 0 {
 		id = opts[0]
 	} else {
@@ -34,12 +35,28 @@ func NewTracker(opts...string) *Tracker {
 	} else {
 		status = "status"
 	}
-	return &Tracker{Id: id, User: user, Time: time, Status: status}
+	if len(opts) > 4 {
+		version = opts[4]
+	} else {
+		version = "version"
+	}
+	return &Tracker{Id: id, User: user, Time: time, Status: status, Version: version}
 }
 func (t *Tracker) Create(id string, status string, userId *string) map[string]interface{} {
 	obj := make(map[string]interface{})
 	obj[t.Id] = id
 	obj[t.Status] = status
+	if userId != nil {
+		obj[t.Time] = time.Now()
+		obj[t.User] = *userId
+	}
+	return obj
+}
+func (t *Tracker) CreateMap(id string, status string, version int32, userId *string) map[string]interface{} {
+	obj := make(map[string]interface{})
+	obj[t.Id] = id
+	obj[t.Status] = status
+	obj[t.Version] = version
 	if userId != nil {
 		obj[t.Time] = time.Now()
 		obj[t.User] = *userId

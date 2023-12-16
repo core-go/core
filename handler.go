@@ -524,8 +524,10 @@ func BodyToJson(w http.ResponseWriter, r *http.Request, structBody interface{}, 
 	}
 	return body, err
 }
-func BuildFieldMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int) (*http.Request, map[string]interface{}, error) {
-	r = r.WithContext(context.WithValue(r.Context(), Method, Patch))
+func BuildFieldMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int, ignorePatch bool) (*http.Request, map[string]interface{}, error) {
+	if ignorePatch == false {
+		r = r.WithContext(context.WithValue(r.Context(), Method, Patch))
+	}
 	body, er0 := BuildMapAndStruct(r, obj, w)
 	if er0 != nil {
 		return r, body, er0
@@ -534,7 +536,7 @@ func BuildFieldMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interfa
 	return r, body, er1
 }
 func BuildMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int, options ...func(context.Context, interface{}) (interface{}, error)) (*http.Request, map[string]interface{}, error) {
-	r2, body, er0 := BuildFieldMapAndCheckId(w, r, obj, keysJson, mapIndex)
+	r2, body, er0 := BuildFieldMapAndCheckId(w, r, obj, keysJson, mapIndex, true)
 	if er0 != nil {
 		return r2, body, er0
 	}
@@ -544,7 +546,21 @@ func BuildMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{},
 	}
 	return r2, json, er1
 }
-
+func BuildTrackingMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int, buildPatch func(context.Context, interface{}) (interface{}, error), opts...bool) (*http.Request, map[string]interface{}, error) {
+	ignorePatch := false
+	if len(opts) > 0 {
+		ignorePatch = opts[0]
+	}
+	r2, body, er0 := BuildFieldMapAndCheckId(w, r, obj, keysJson, mapIndex, ignorePatch)
+	if er0 != nil {
+		return r2, body, er0
+	}
+	json, er1 := BodyToJsonMap(r, obj, body, keysJson, mapIndex, buildPatch)
+	if er1 != nil {
+		http.Error(w, er1.Error(), http.StatusBadRequest)
+	}
+	return r2, json, er1
+}
 func HasError(w http.ResponseWriter, r *http.Request, errors []ErrorMessage, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) bool {
 	var resource, action string
 	if len(options) > 0 && len(options[0]) > 0 {

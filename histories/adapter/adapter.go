@@ -84,12 +84,11 @@ func (a *HistoryAdapter) GetHistories(ctx context.Context, resource string, id s
 		if err != nil {
 			return histories, total, err
 		}
+		usersMap := u.ToMap(users)
 		l := len(histories)
 		for i := 0; i < l; i++ {
-			p, _ := u.BinarySearch(histories[i].Author, users)
-			if p >= 0 {
-				us := users[p]
-				ur := h.User{Id: us.Id, Name: us.Name, Email: us.Email, Phone: us.Phone, Url: us.Url}
+			if u, ok := usersMap[histories[i].Author]; ok {
+				ur := h.User{Id: u.Id, Name: u.Name, Email: u.Email, Phone: u.Phone, Url: u.Url}
 				histories[i].User = &ur
 				histories[i].Author = ""
 			}

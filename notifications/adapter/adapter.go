@@ -114,13 +114,12 @@ func (a *NotificationAdapter) GetNotifications(ctx context.Context, receiver str
 		if err != nil {
 			return items, total, err
 		}
+		usersMap := u.ToMap(users)
 		l := len(items)
 		for i := 0; i < l; i++ {
-			p, _ := u.BinarySearch(items[i].Sender, users)
-			if p >= 0 {
-				us := users[p]
-				ur := n.User{Id: us.Id, Name: us.Name, Email: us.Email, Phone: us.Phone, Url: us.Url}
-				items[i].User = &ur
+			if u, ok := usersMap[items[i].Sender]; ok {
+				ur := n.Notifier{Id: u.Id, Name: u.Name, Email: u.Email, Phone: u.Phone, Url: u.Url}
+				items[i].Notifier = &ur
 				items[i].Sender = ""
 			}
 		}
