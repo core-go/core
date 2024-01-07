@@ -10,10 +10,10 @@ import (
 )
 
 type Handler struct {
-	Resource string
-	Index    int
-	Load func(ctx context.Context, resource string, id string, limit int64, nextPageToken string) ([]History, string, error)
-	LogError func(context.Context, string, ...map[string]interface{})
+	resource string
+	index    int
+	load func(ctx context.Context, resource string, id string, limit int64, nextPageToken string) ([]History, string, error)
+	logError func(context.Context, string, ...map[string]interface{})
 	Limit string
 	NextPageToken string
 	List string
@@ -44,18 +44,18 @@ func NewHistoriesHandler(resource string, index int, getHistories func(ctx conte
 	} else {
 		nextPageToken = "next"
 	}
-	return &Handler{Resource: resource, Index: index, Load: getHistories, LogError: logError, List: list, Next: next, Limit: limit, NextPageToken: nextPageToken}
+	return &Handler{resource: resource, index: index, load: getHistories, logError: logError, List: list, Next: next, Limit: limit, NextPageToken: nextPageToken}
 }
 
 func (h *Handler) GetHistories(w http.ResponseWriter, r *http.Request) {
-	id := GetRequiredParam(w, r, h.Index)
+	id := GetRequiredParam(w, r, h.index)
 	if len(id) > 0 {
 		limit, nextPageToken, err := paging.GetNext(w, r, 20, h.NextPageToken, h.Limit)
 		if err != nil {
-			res, next, err := h.Load(r.Context(), h.Resource, id, limit, nextPageToken)
+			res, next, err := h.load(r.Context(), h.resource, id, limit, nextPageToken)
 			if err != nil {
-				if h.LogError != nil {
-					h.LogError(r.Context(), err.Error())
+				if h.logError != nil {
+					h.logError(r.Context(), err.Error())
 					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 				} else {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
