@@ -10,25 +10,26 @@ import (
 )
 
 type NotificationAdapter struct {
-	DB *sql.DB
-	BuildParam func(int)string
-	Table string
-	Id string
-	Time string
-	Receiver string
-	Sender string
-	Message string
-	Url string
-	Read string
-	ReadValue interface{}
-	GetUsers func(ctx context.Context, ids []string) ([]u.User, error)
+	DB         *sql.DB
+	BuildParam func(int) string
+	Table      string
+	Id         string
+	Time       string
+	Receiver   string
+	Sender     string
+	Message    string
+	Url        string
+	Read       string
+	ReadValue  interface{}
+	GetUsers   func(ctx context.Context, ids []string) ([]u.User, error)
 }
-func UseNotification(db *sql.DB, buildParam func(int)string, getUsers func(ctx context.Context, ids []string) ([]u.User, error), readValue interface{}, table string, opts...string) func(ctx context.Context, receiver string, read *bool, limit int64, nextPageToken string) ([]n.Notification, string, error) {
+
+func UseNotification(db *sql.DB, buildParam func(int) string, getUsers func(ctx context.Context, ids []string) ([]u.User, error), readValue interface{}, table string, opts ...string) func(ctx context.Context, receiver string, read *bool, limit int64, nextPageToken string) ([]n.Notification, string, error) {
 	adapter := NewNotificationAdapter(db, buildParam, getUsers, readValue, table, opts...)
 	return adapter.GetNotifications
 }
-func NewNotificationAdapter(db *sql.DB, buildParam func(int)string, getUsers func(ctx context.Context, ids []string) ([]u.User, error), readValue interface{}, table string, opts...string) *NotificationAdapter {
-	var receiver, sender, time, message, url, id string
+func NewNotificationAdapter(db *sql.DB, buildParam func(int) string, getUsers func(ctx context.Context, ids []string) ([]u.User, error), readValue interface{}, table string, opts ...string) *NotificationAdapter {
+	var receiver, sender, time, message, url, id, read string
 	if len(opts) > 0 {
 		receiver = opts[0]
 	} else {
@@ -59,7 +60,12 @@ func NewNotificationAdapter(db *sql.DB, buildParam func(int)string, getUsers fun
 	} else {
 		id = "id"
 	}
-	return &NotificationAdapter{DB: db, BuildParam: buildParam, Table: table, ReadValue: readValue, Receiver: receiver, Sender: sender, Time: time, Message: message, Url: url, Id: id, GetUsers: getUsers}
+	if len(opts) > 6 {
+		read = opts[6]
+	} else {
+		read = "read"
+	}
+	return &NotificationAdapter{DB: db, BuildParam: buildParam, Table: table, ReadValue: readValue, Receiver: receiver, Sender: sender, Time: time, Message: message, Url: url, Id: id, Read: read, GetUsers: getUsers}
 }
 func (a *NotificationAdapter) GetNotifications(ctx context.Context, receiver string, read *bool, limit int64, nextPageToken string) ([]n.Notification, string, error) {
 	if limit <= 0 {
@@ -138,7 +144,7 @@ func (a *NotificationAdapter) GetNotifications(ctx context.Context, receiver str
 			}
 		}
 	}
-	return items, items[len(items) - 1].Id, nil
+	return items, items[len(items)-1].Id, nil
 }
 func (a *NotificationAdapter) SetRead(ctx context.Context, id string, v bool) (int64, error) {
 	p := "null"

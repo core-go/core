@@ -38,5 +38,5 @@ type User struct {
 }
 
 type HistoriesPort interface {
-	GetHistories(ctx context.Context, resource string, id string, limit int64, nextPageToken int64) ([]History, string, error)
+	GetHistories(ctx context.Context, resource string, id string, limit int64, nextPageToken string) ([]History, string, error)
 }

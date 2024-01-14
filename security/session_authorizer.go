@@ -24,13 +24,20 @@ type SessionAuthorizer struct {
 	SId                string
 	Id                 string
 	SingleSession      bool
+	RefreshExpire      func(w http.ResponseWriter, sessionId string) error
+	DecodeSessionID    func(value string) (string, error)
+	EncodeSessionID    func(sid string) string
 	VerifyToken        func(tokenString string, secret string) (map[string]interface{}, int64, int64, error)
 	Cache              ICacheService
 	sessionExpiredTime time.Duration
 	LogError           func(ctx context.Context, msg string, opts ...map[string]interface{})
 }
 
-func NewSessionAuthorizer(secretKey string, verifyToken func(tokenString string, secret string) (map[string]interface{}, int64, int64, error), cache ICacheService, sessionExpiredTime time.Duration, logError func(ctx context.Context, msg string, opts ...map[string]interface{}), singleSession bool, opts ...string) *SessionAuthorizer {
+func NewSessionAuthorizer(secretKey string, verifyToken func(tokenString string, secret string) (map[string]interface{}, int64, int64, error),
+	refreshExpire func(w http.ResponseWriter, sessionId string) error,
+	encodeSessionID func(sid string) string,
+	decodeSessionID func(value string) (string, error),
+	cache ICacheService, sessionExpiredTime time.Duration, logError func(ctx context.Context, msg string, opts ...map[string]interface{}), singleSession bool, opts ...string) *SessionAuthorizer {
 	var userId, sid, id, prefixSessionIndex, cookieName string
 	if len(opts) > 0 {
 		prefixSessionIndex = opts[0]
@@ -66,6 +73,9 @@ func NewSessionAuthorizer(secretKey string, verifyToken func(tokenString string,
 		UserId:             userId,
 		SId:                sid,
 		Id:                 id,
+		EncodeSessionID:    encodeSessionID,
+		DecodeSessionID:    decodeSessionID,
+		RefreshExpire:      refreshExpire,
 		sessionExpiredTime: sessionExpiredTime,
 		Cache:              cache,
 		LogError:           logError,
@@ -88,6 +98,13 @@ func (h *SessionAuthorizer) Authorize(next http.Handler, skipRefreshTTL bool) ht
 			return
 		}
 		sessionId = cookie.Value
+		if h.DecodeSessionID != nil {
+			sessionId, err = h.DecodeSessionID(sessionId)
+			if err != nil {
+				http.Error(w, "invalid sessionid", http.StatusUnauthorized)
+				return
+			}
+		}
 		ctx := r.Context()
 		if h.Cache != nil {
 			var sessionData map[string]string
@@ -176,6 +193,13 @@ func (h *SessionAuthorizer) Verify(next http.Handler, skipRefreshTTL bool, sessi
 				}
 				http.Error(writer, "error to set expire sessionId", http.StatusInternalServerError)
 				return
+			}
+			if h.RefreshExpire != nil {
+				err := h.RefreshExpire(writer, h.EncodeSessionID(sessionId))
+				if err != nil {
+					http.Error(writer, "error to refresh expire sessionId", http.StatusInternalServerError)
+					return
+				}
 			}
 			userId := getFromContext(ctx, h.UserId)
 			if len(userId) > 0 {

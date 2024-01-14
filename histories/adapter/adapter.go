@@ -10,22 +10,23 @@ import (
 )
 
 type HistoryAdapter struct {
-	DB *sql.DB
-	BuildParam func(int)string
-	Table string
-	HistoryId string
-	Resource string
-	Id  string
-	User string
-	Time string
-	Data string
-	GetUsers func(ctx context.Context, ids []string) ([]u.User, error)
+	DB         *sql.DB
+	BuildParam func(int) string
+	Table      string
+	HistoryId  string
+	Resource   string
+	Id         string
+	User       string
+	Time       string
+	Data       string
+	GetUsers   func(ctx context.Context, ids []string) ([]u.User, error)
 }
-func UseHistories(db *sql.DB, buildParam func(int)string, getUsers func(ctx context.Context, ids []string) ([]u.User, error), table string, resource string, user string, time string, opts...string) func(ctx context.Context, resource string, id string, limit int64, nextPageToken string) ([]h.History, string, error) {
+
+func UseHistories(db *sql.DB, buildParam func(int) string, getUsers func(ctx context.Context, ids []string) ([]u.User, error), table string, resource string, user string, time string, opts ...string) func(ctx context.Context, resource string, id string, limit int64, nextPageToken string) ([]h.History, string, error) {
 	adapter := NewHistoryAdapter(db, buildParam, getUsers, table, resource, user, time, opts...)
 	return adapter.GetHistories
 }
-func NewHistoryAdapter(db *sql.DB, buildParam func(int)string, getUsers func(ctx context.Context, ids []string) ([]u.User, error), table string, resource string, user string, time string, opts...string) *HistoryAdapter {
+func NewHistoryAdapter(db *sql.DB, buildParam func(int) string, getUsers func(ctx context.Context, ids []string) ([]u.User, error), table string, resource string, user string, time string, opts ...string) *HistoryAdapter {
 	var historyId, id, data string
 	if len(opts) > 0 {
 		historyId = opts[0]
@@ -52,7 +53,7 @@ func (a *HistoryAdapter) GetHistories(ctx context.Context, resource string, id s
 	var offset int64
 	if len(nextPageToken) > 0 {
 		positionQuery := fmt.Sprintf("select position from (select %s, row_number() over(order by %s desc) as position from %s where %s = %s and %s = %s) result where %s = %s",
-			a.HistoryId, a.Time, a.Table, a.Id, a.BuildParam(1), a.Resource, a.BuildParam(2), a.Id, a.BuildParam(3))
+			a.HistoryId, a.Time, a.Table, a.Id, a.BuildParam(1), a.Resource, a.BuildParam(2), a.HistoryId, a.BuildParam(3))
 		row := a.DB.QueryRowContext(ctx, positionQuery, id, resource, nextPageToken)
 		if row.Err() != nil {
 			return histories, "", row.Err()
@@ -102,5 +103,5 @@ func (a *HistoryAdapter) GetHistories(ctx context.Context, resource string, id s
 			}
 		}
 	}
-	return histories, histories[len(histories) - 1].Id, nil
+	return histories, histories[len(histories)-1].Id, nil
 }
