@@ -92,10 +92,10 @@ func (r *UserAdapter) Query(ctx context.Context, ids []string) ([]User, error) {
 	return users, nil
 }
 
-func ToMap(rows []User) map[string]*User {
-	rs := make(map[string]*User, 0)
+func ToMap(rows []User) map[string]User {
+	rs := make(map[string]User, 0)
 	for _, row := range rows {
-		rs[row.Id] = &row
+		rs[row.Id] = row
 	}
 	return rs
 }

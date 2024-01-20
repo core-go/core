@@ -58,7 +58,7 @@ func (a *HistoryAdapter) GetHistories(ctx context.Context, resource string, id s
 	var offset int64
 	if len(nextPageToken) > 0 {
 		positionQuery := fmt.Sprintf("select position from (select %s, row_number() over(order by %s desc) as position from %s where %s = %s and %s = %s) result where %s = %s",
-			a.HistoryId, a.Time, a.Table, a.Id, a.BuildParam(1), a.Resource, a.BuildParam(2), a.Id, a.BuildParam(3))
+			a.HistoryId, a.Time, a.Table, a.Id, a.BuildParam(1), a.Resource, a.BuildParam(2), a.HistoryId, a.BuildParam(3))
 		row := a.DB.QueryRowContext(ctx, positionQuery, id, resource, nextPageToken)
 		if row.Err() != nil {
 			return histories, "", row.Err()

@@ -64,7 +64,7 @@ func (a *HistoryAdapter) Create(ctx context.Context, id string, userId string, d
 	}
 	now := time.Now()
 	query := fmt.Sprintf("insert into %s(%s,%s,%s,%s,%s,%s,%s) values (%s,%s,%s,%s,%s,%s,%s)", a.Table,
-		hid, a.Type, a.Id, a.User, a.Time, a.Data, a.Note,
+		a.HistoryId, a.Type, a.Id, a.User, a.Time, a.Data, a.Note,
 		a.BuildParam(1), a.BuildParam(2), a.BuildParam(3), a.BuildParam(4), a.BuildParam(5), a.BuildParam(6), a.BuildParam(7))
 	tx := GetExec(ctx, a.DB, a.Tx)
 	res, err := tx.ExecContext(ctx, query, hid, a.Resource, id, userId, now, history.Data, note)
@@ -73,11 +73,13 @@ func (a *HistoryAdapter) Create(ctx context.Context, id string, userId string, d
 	}
 	return res.RowsAffected()
 }
+
 type Executor interface {
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 }
+
 func GetExec(ctx context.Context, db *sql.DB, name string) Executor {
 	txi := ctx.Value(name)
 	if txi != nil {

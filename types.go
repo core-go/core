@@ -15,3 +15,5 @@ type Sequence func(context.Context, string) (int64, error)
 type HandleFn func(w http.ResponseWriter, r *http.Request)
 type CreateMap func(string, string, *string) map[string]interface{}
 type CreateVersionMap func(string, string, int32, *string) map[string]interface{}
+type GetArray func(context.Context, string) ([]string, error)
+type GetApprovers func(context.Context, string, string) ([]string, error)
