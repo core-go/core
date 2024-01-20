@@ -31,9 +31,10 @@ func (a *ArrayAdapter) GetArray(ctx context.Context, id string) ([]string, error
 	defer rows.Close()
 
 	for rows.Next() {
-		if err := rows.Scan(&ids); err != nil {
-			return nil, err
+		if er1 := rows.Scan(&ids); er1 != nil {
+			return nil, er1
 		}
+		return ids, rows.Err()
 	}
 	return ids, rows.Err()
 }

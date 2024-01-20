@@ -1,17 +1,17 @@
-package approver
+package approvers
 
 import (
 	"context"
 	"database/sql"
 )
 
-type GetApprovers func(context.Context, string) ([]string, error)
+type GetApprovers func(context.Context, string, string) ([]string, error)
 
 type ApproversRepository interface {
-	GetApprovers(ctx context.Context, id string) ([]string, error)
+	GetApprovers(context.Context, string, string) ([]string, error)
 }
 type ApproversPort interface {
-	GetApprovers(ctx context.Context, id string) ([]string, error)
+	GetApprovers(context.Context, string, string) ([]string, error)
 }
 
 func NewApproversAdapter(db *sql.DB, query string) *ApproversAdapter{
@@ -22,9 +22,9 @@ type ApproversAdapter struct {
 	Query string
 }
 
-func (a *ApproversAdapter) GetApprovers(ctx context.Context, id string) ([]string, error) {
+func (a *ApproversAdapter) GetApprovers(ctx context.Context, id string, sub string) ([]string, error) {
 	var ids []string
-	rows, err := a.DB.QueryContext(ctx, a.Query, id)
+	rows, err := a.DB.QueryContext(ctx, a.Query, id, sub)
 	defer rows.Close()
 	if err != nil {
 		return ids, err
