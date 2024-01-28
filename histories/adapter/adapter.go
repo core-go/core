@@ -71,6 +71,9 @@ func (a *HistoryAdapter) GetHistories(ctx context.Context, resource string, id s
 	query := fmt.Sprintf("select %s, %s, %s, %s from %s where %s = %s and %s = %s order by %s desc limit %d offset %d",
 		a.HistoryId, a.User, a.Time, a.Data, a.Table, a.Id, a.BuildParam(1), a.Resource, a.BuildParam(2), a.Time, limit, offset)
 	rows, err := a.DB.QueryContext(ctx, query, id, resource)
+	if err != nil {
+		return histories, "", err
+	}
 	defer rows.Close()
 	for rows.Next() {
 		var item h.History

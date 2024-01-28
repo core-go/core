@@ -3,6 +3,7 @@ package groups
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 )
 
 type GetGroups func(context.Context, string) ([]string, int32, error)
@@ -14,12 +15,19 @@ type GroupPort interface {
 	GetGroups(ctx context.Context, id string) ([]string, int32, error)
 }
 
-func NewGroupAdapter(db *sql.DB, query string) *GroupAdapter {
-	return &GroupAdapter{DB: db, Query: query}
+func NewGroupAdapter(db *sql.DB, query string, toArray func(interface{}) interface {
+	driver.Valuer
+	sql.Scanner
+}) *GroupAdapter {
+	return &GroupAdapter{DB: db, Query: query, Array: toArray}
 }
 type GroupAdapter struct {
 	DB    *sql.DB
 	Query string
+	Array func(interface{}) interface {
+		driver.Valuer
+		sql.Scanner
+	}
 }
 
 func (a *GroupAdapter) GetGroups(ctx context.Context, id string) ([]string, int32, error) {
@@ -32,7 +40,7 @@ func (a *GroupAdapter) GetGroups(ctx context.Context, id string) ([]string, int3
 	defer rows.Close()
 
 	for rows.Next() {
-		if er1 := rows.Scan(&ids, &i); er1 != nil {
+		if er1 := rows.Scan(a.Array(&ids), &i); er1 != nil {
 			return nil, i, er1
 		}
 		return ids, i, rows.Err()
