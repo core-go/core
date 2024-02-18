@@ -25,6 +25,21 @@ func (u *User) Scan(value interface{}) error {
 	return json.Unmarshal(b, &u)
 }
 
+func BuildApprovers(ctx context.Context, id string, getArray func(context.Context, string) ([]string, error)) (string, []User, error) {
+	groups, err := getArray(ctx, id)
+	if err != nil {
+		return "", nil, err
+	}
+	var approvers []User
+	l := len(groups)
+	if l > 0 {
+		for i := 0; i < l; i++ {
+			approvers = append(approvers, User{Group: groups[i]})
+		}
+	}
+	return "", approvers, nil
+}
+
 func Approve(ctx context.Context, userId string, approvers []User, getUserGroup func(context.Context, string) (*string, error)) (*string, int, error) {
 	userGroup, err := getUserGroup(ctx, userId)
 	if err != nil {
@@ -79,5 +94,32 @@ func Reject(ctx context.Context, userId string, approvers []User, getUserGroup f
 		approvers[i].Time = &now
 		return i, nil
 	}
+	return 0, nil
+}
+
+func Handle(ctx context.Context, userId string, groups []string, approvers *[]User, getGroup func(context.Context, string) (*string, error)) (int64, error) {
+	userGroup, err := getGroup(ctx, userId)
+	if err != nil || userGroup == nil {
+		return -3, err
+	}
+	for _, approver := range *approvers {
+		if approver.Group == *userGroup {
+			return -2, nil
+		}
+	}
+	if len(groups) > 0 {
+		found := false
+		for _, group := range groups {
+			if *userGroup == group {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return -3, nil
+		}
+	}
+	now := time.Now()
+	*approvers = append(*approvers, User{User: &userId, Group: *userGroup, Time: &now})
 	return 0, nil
 }

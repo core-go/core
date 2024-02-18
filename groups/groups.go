@@ -6,13 +6,13 @@ import (
 	"database/sql/driver"
 )
 
-type GetGroups func(context.Context, string) ([]string, int32, error)
+type GetGroups func(context.Context, string) ([]string, int, error)
 
 type GroupRepository interface {
-	GetGroups(ctx context.Context, id string) ([]string, int32, error)
+	GetGroups(ctx context.Context, id string) ([]string, int, error)
 }
 type GroupPort interface {
-	GetGroups(ctx context.Context, id string) ([]string, int32, error)
+	GetGroups(ctx context.Context, id string) ([]string, int, error)
 }
 
 func NewGroupAdapter(db *sql.DB, query string, toArray func(interface{}) interface {
@@ -30,9 +30,9 @@ type GroupAdapter struct {
 	}
 }
 
-func (a *GroupAdapter) GetGroups(ctx context.Context, id string) ([]string, int32, error) {
+func (a *GroupAdapter) GetGroups(ctx context.Context, id string) ([]string, int, error) {
 	var ids []string
-	var i int32
+	var i int
 	rows, err := a.DB.QueryContext(ctx, a.Query, id)
 	if err != nil {
 		return ids, i, err

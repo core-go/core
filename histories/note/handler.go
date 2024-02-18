@@ -51,9 +51,9 @@ func (h *Handler) GetHistories(w http.ResponseWriter, r *http.Request) {
 	id := GetRequiredParam(w, r, h.index)
 	if len(id) > 0 {
 		limit, nextPageToken, err := paging.GetNext(w, r, 20, h.NextPageToken, h.Limit)
-		if err != nil {
+		if err == nil {
 			res, next, err := h.load(r.Context(), h.resource, id, limit, nextPageToken)
-			if err == nil {
+			if err != nil {
 				if h.logError != nil {
 					h.logError(r.Context(), err.Error())
 					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
