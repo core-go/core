@@ -195,7 +195,10 @@ func (h *SessionAuthorizer) Verify(next http.Handler, skipRefreshTTL bool, sessi
 				return
 			}
 			if h.RefreshExpire != nil {
-				err := h.RefreshExpire(writer, h.EncodeSessionID(sessionId))
+				if h.EncodeSessionID != nil {
+					sessionId = h.EncodeSessionID(sessionId)
+				}
+				err := h.RefreshExpire(writer, sessionId)
 				if err != nil {
 					http.Error(writer, "error to refresh expire sessionId", http.StatusInternalServerError)
 					return
