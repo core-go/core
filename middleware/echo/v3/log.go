@@ -19,9 +19,8 @@ type EchoLogger struct {
 	Mask    func(fieldName, s string) string
 }
 
-func NewEchoLogger(c LogConfig, logInfo func(ctx context.Context, msg string, fields map[string]interface{}), mask func(fieldName, s string) string) *EchoLogger {
-	logger := NewLogger()
-	return &EchoLogger{c, logInfo, logger, mask}
+func NewEchoLogger(c LogConfig, logInfo func(ctx context.Context, msg string, fields map[string]interface{}), f Formatter, mask func(fieldName, s string) string) *EchoLogger {
+	return &EchoLogger{c, logInfo, f, mask}
 }
 
 func (l *EchoLogger) Logger(next echo.HandlerFunc) echo.HandlerFunc {

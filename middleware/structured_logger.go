@@ -32,6 +32,7 @@ func NewLoggerWithSending(send func(context.Context, []byte, map[string]string) 
 	}
 	return &StructuredLogger{send: send, Goroutines: goroutines, KeyMap: keyMap}
 }
+
 func (l *StructuredLogger) LogResponse(log func(context.Context, string, map[string]interface{}), r *http.Request, ww WrapResponseWriter,
 	c LogConfig, t1 time.Time, response string, fields map[string]interface{}, singleLog bool) {
 	fs := BuildResponseBody(ww, c, t1, response, fields)
@@ -48,13 +49,6 @@ func (l *StructuredLogger) LogResponse(log func(context.Context, string, map[str
 		} else {
 			Send(r.Context(), l.send, msg, fields, l.KeyMap)
 		}
-	}
-}
-func Send(ctx context.Context, send func(ctx context.Context, data []byte, attributes map[string]string) (string, error), msg string, fields map[string]interface{}, keyMap map[string]string) {
-	m2 := AddKeyFields(msg, fields, keyMap)
-	b, err := json.Marshal(m2)
-	if err == nil {
-		send(ctx, b, nil)
 	}
 }
 func (l *StructuredLogger) LogRequest(log func(context.Context, string, map[string]interface{}), r *http.Request, c LogConfig, fields map[string]interface{}, singleLog bool) {
@@ -101,6 +95,13 @@ func BuildRequestBody(r *http.Request, request string, fields map[string]interfa
 		r.Body = ioutil.NopCloser(buf)
 	}
 	return fields
+}
+func Send(ctx context.Context, send func(ctx context.Context, data []byte, attributes map[string]string) (string, error), msg string, fields map[string]interface{}, keyMap map[string]string) {
+	m2 := AddKeyFields(msg, fields, keyMap)
+	b, err := json.Marshal(m2)
+	if err == nil {
+		send(ctx, b, nil)
+	}
 }
 func AddKeyFields(message string, m map[string]interface{}, keys map[string]string) map[string]interface{} {
 	level := "level"

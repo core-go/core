@@ -19,9 +19,8 @@ type GinLogger struct {
 	Mask    func(fieldName, s string) string
 }
 
-func NewGinLogger(c LogConfig, logInfo func(ctx context.Context, msg string, fields map[string]interface{}), mask func(fieldName, s string) string) *GinLogger {
-	logger := NewLogger()
-	return &GinLogger{c, logInfo, logger, mask}
+func NewGinLogger(c LogConfig, logInfo func(ctx context.Context, msg string, fields map[string]interface{}), f Formatter, mask func(fieldName, s string) string) *GinLogger {
+	return &GinLogger{c, logInfo, f, mask}
 }
 
 func (l *GinLogger) Logger() gin.HandlerFunc {
