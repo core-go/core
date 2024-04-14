@@ -35,9 +35,10 @@ type SessionAuthorizer struct {
 
 func NewSessionAuthorizer(secretKey string, verifyToken func(tokenString string, secret string) (map[string]interface{}, int64, int64, error),
 	refreshExpire func(w http.ResponseWriter, sessionId string) error,
+	cache ICacheService, sessionExpiredTime time.Duration, logError func(ctx context.Context, msg string, opts ...map[string]interface{}), singleSession bool,
 	encodeSessionID func(sid string) string,
 	decodeSessionID func(value string) (string, error),
-	cache ICacheService, sessionExpiredTime time.Duration, logError func(ctx context.Context, msg string, opts ...map[string]interface{}), singleSession bool, opts ...string) *SessionAuthorizer {
+	opts ...string) *SessionAuthorizer {
 	var userId, sid, id, prefixSessionIndex, cookieName string
 	if len(opts) > 0 {
 		prefixSessionIndex = opts[0]
