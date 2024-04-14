@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-type ICacheService interface {
+type CachePort interface {
 	Get(ctx context.Context, key string) (string, error)
 	Remove(ctx context.Context, key string) (bool, error)
 	Expire(ctx context.Context, key string, timeToLive time.Duration) (bool, error)
@@ -28,14 +28,14 @@ type SessionAuthorizer struct {
 	DecodeSessionID    func(value string) (string, error)
 	EncodeSessionID    func(sid string) string
 	VerifyToken        func(tokenString string, secret string) (map[string]interface{}, int64, int64, error)
-	Cache              ICacheService
+	Cache              CachePort
 	sessionExpiredTime time.Duration
 	LogError           func(ctx context.Context, msg string, opts ...map[string]interface{})
 }
 
 func NewSessionAuthorizer(secretKey string, verifyToken func(tokenString string, secret string) (map[string]interface{}, int64, int64, error),
 	refreshExpire func(w http.ResponseWriter, sessionId string) error,
-	cache ICacheService, sessionExpiredTime time.Duration, logError func(ctx context.Context, msg string, opts ...map[string]interface{}), singleSession bool,
+	cache CachePort, sessionExpiredTime time.Duration, logError func(ctx context.Context, msg string, opts ...map[string]interface{}), singleSession bool,
 	encodeSessionID func(sid string) string,
 	decodeSessionID func(value string) (string, error),
 	opts ...string) *SessionAuthorizer {
@@ -139,6 +139,9 @@ func (h *SessionAuthorizer) Authorize(next http.Handler, skipRefreshTTL bool) ht
 						return
 					}
 					ip := getForwardedRemoteIp(r)
+					if len(ip) == 0 {
+						ip = getRemoteIp(r)
+					}
 					sid, ok := uData[h.SId]
 					if !ok || sid != sessionId ||
 						getValue(uData, "userAgent") != r.UserAgent() ||
@@ -180,6 +183,9 @@ func (h *SessionAuthorizer) Verify(next http.Handler, skipRefreshTTL bool, sessi
 			return
 		}
 		ip := getForwardedRemoteIp(r)
+		if len(ip) == 0 {
+			ip = getRemoteIp(r)
+		}
 		ctx = context.WithValue(ctx, "ip", ip)
 		for k, e := range payload {
 			if len(k) > 0 {
@@ -232,7 +238,6 @@ func getForwardedRemoteIp(r *http.Request) string {
 	}
 	return ""
 }
-
 func getValue(data map[string]interface{}, key string) string {
 	if value, ok := data[key]; ok {
 		return value.(string)

@@ -92,10 +92,10 @@ func (r *EntityAdapter) Query(ctx context.Context, ids []string) ([]Entity, erro
 	return users, nil
 }
 
-func ToMap(rows []Entity) map[string]*Entity {
-	rs := make(map[string]*Entity, 0)
+func ToMap(rows []Entity) map[string]Entity {
+	rs := make(map[string]Entity, 0)
 	for _, row := range rows {
-		rs[row.Id] = &row
+		rs[row.Id] = row
 	}
 	return rs
 }
