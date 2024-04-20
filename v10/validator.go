@@ -17,23 +17,24 @@ const (
 	patch  = "patch"
 )
 
-type DefaultValidator struct {
+type Validator struct {
 	validate           *validator.Validate
 	Trans              *ut.Translator
 	CustomValidateList []CustomValidate
 	IgnoreField        bool
 	Map                map[string]string
 }
-func NewChecker(opts ...bool) (*DefaultValidator, error) {
+
+func NewChecker(opts ...bool) (*Validator, error) {
 	return NewValidatorWithMap(nil, opts...)
 }
-func NewCheckerWithMap(mp map[string]string, opts ...bool) (*DefaultValidator, error) {
+func NewCheckerWithMap(mp map[string]string, opts ...bool) (*Validator, error) {
 	return NewValidatorWithMap(mp, opts...)
 }
-func NewValidator(opts ...bool) (*DefaultValidator, error) {
+func NewValidator(opts ...bool) (*Validator, error) {
 	return NewValidatorWithMap(nil, opts...)
 }
-func NewValidatorWithMap(mp map[string]string, opts ...bool) (*DefaultValidator, error) {
+func NewValidatorWithMap(mp map[string]string, opts ...bool) (*Validator, error) {
 	register := true
 	if len(opts) > 0 {
 		register = opts[0]
@@ -47,7 +48,7 @@ func NewValidatorWithMap(mp map[string]string, opts ...bool) (*DefaultValidator,
 		return nil, err
 	}
 	list := GetCustomValidateList()
-	validator := &DefaultValidator{Map: mp, validate: uValidate, Trans: &uTranslator, CustomValidateList: list, IgnoreField: ignoreField}
+	validator := &Validator{Map: mp, validate: uValidate, Trans: &uTranslator, CustomValidateList: list, IgnoreField: ignoreField}
 	if register {
 		err2 := validator.RegisterCustomValidate()
 		if err2 != nil {
@@ -80,12 +81,12 @@ func NewDefaultValidator() (*validator.Validate, ut.Translator, error) {
 	}
 	return validate, transl, nil
 }
-func (p *DefaultValidator) Check(ctx context.Context, model interface{}) ([]s.ErrorDetail, error) {
+func (p *Validator) Check(ctx context.Context, model interface{}) ([]s.ErrorDetail, error) {
 	errs, err := p.Validate(ctx, model)
 	errors := s.BuildErrorDetails(errs, p.IgnoreField)
 	return errors, err
 }
-func (p *DefaultValidator) Validate(ctx context.Context, model interface{}) ([]s.ErrorMessage, error) {
+func (p *Validator) Validate(ctx context.Context, model interface{}) ([]s.ErrorMessage, error) {
 	errors := make([]s.ErrorMessage, 0)
 	err := p.validate.Struct(model)
 
@@ -154,7 +155,7 @@ func lcFirstChar(s string) string {
 	}
 	return s
 }
-func (p *DefaultValidator) RegisterCustomValidate() error {
+func (p *Validator) RegisterCustomValidate() error {
 	for _, v := range p.CustomValidateList {
 		err := p.validate.RegisterValidation(v.Tag, v.Fn)
 		if err != nil {
@@ -175,7 +176,7 @@ func (p *DefaultValidator) RegisterCustomValidate() error {
 	return nil
 }
 
-func (p *DefaultValidator) MapErrors(err error) (list []s.ErrorMessage, err1 error) {
+func (p *Validator) MapErrors(err error) (list []s.ErrorMessage, err1 error) {
 	if _, ok := err.(*validator.InvalidValidationError); ok {
 		err1 = fmt.Errorf("InvalidValidationError")
 		return

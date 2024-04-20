@@ -6,6 +6,7 @@ import (
 	"errors"
 	"runtime/debug"
 )
+
 func Callback(ctx context.Context, db *sql.DB, callback func(context.Context)error, opts ...string) (err error) {
 	txName := "tx"
 	if len(opts) > 0 {
@@ -50,10 +51,10 @@ func ExecuteTx(ctx context.Context, db *sql.DB, txName string, callback func(con
 	var res int64
 	er0 := CallbackTx(ctx, db, txName, func(ctx2 context.Context) error {
 		result, err := callback(ctx2)
+		res = result
 		if err != nil {
 			return err
 		}
-		res = result
 		return nil
 	}, opts...)
 	return res, er0

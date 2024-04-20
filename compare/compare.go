@@ -8,8 +8,9 @@ func Contains[T comparable](elems []T, v T) bool {
 	}
 	return false
 }
+
 func ListToMap[K comparable, V any](l []V, mapFn func(V) K) map[K]V {
-	res := make(map[K]V, 0)
+	res := make(map[K]V)
 	for _, item := range l {
 		res[mapFn(item)] = item
 	}
@@ -31,7 +32,7 @@ func PointerOf[V any](v V) *V {
 }
 
 func Unique[K comparable](l []K) []K {
-	visit := make(map[K]bool, 0)
+	visit := make(map[K]bool)
 	res := make([]K, len(l), cap(l))
 	counter := 0
 	for _, item := range l {
