@@ -9,6 +9,16 @@ import (
 	"github.com/core-go/core"
 )
 
+const (
+	Method = "method"
+	Patch  = "patch"
+)
+
+type Builder[T any] interface {
+	Create(context.Context, *T) error
+	Update(context.Context, *T) error
+}
+
 type Service[T any, K any] interface {
 	Load(ctx context.Context, id K) (*T, error)
 	Create(ctx context.Context, model *T) (int64, error)
@@ -28,14 +38,16 @@ type Handler[T any, K any] struct {
 	Action    core.ActionConf
 	WriteLog  func(context.Context, string, string, bool, string) error
 	IdMap     bool
+	Builder   Builder[T]
 }
 
 func Newhandler[T any, K any](
 	service Service[T, K],
 	logError func(context.Context, string, ...map[string]interface{}),
 	validate func(context.Context, *T) ([]core.ErrorMessage, error),
+	opts ...Builder[T],
 ) *Handler[T, K] {
-	return NewhandlerWithLog[T, K](service, logError, validate, nil, nil)
+	return NewhandlerWithLog[T, K](service, logError, validate, nil, nil, opts...)
 }
 func NewhandlerWithLog[T any, K any](
 	service Service[T, K],
@@ -43,7 +55,12 @@ func NewhandlerWithLog[T any, K any](
 	validate func(context.Context, *T) ([]core.ErrorMessage, error),
 	action *core.ActionConf,
 	writeLog func(context.Context, string, string, bool, string) error,
+	opts ...Builder[T],
 ) *Handler[T, K] {
+	var b Builder[T]
+	if len(opts) > 0 && opts[0] != nil {
+		b = opts[0]
+	}
 	var t T
 	modelType := reflect.TypeOf(t)
 	if modelType.Kind() == reflect.Ptr {
@@ -58,7 +75,7 @@ func NewhandlerWithLog[T any, K any](
 	resource := core.BuildResourceName(modelType.Name())
 	keys, indexes, _ := core.BuildMapField(modelType)
 	a := core.InitAction(action)
-	return &Handler[T, K]{Service: service, LogError: logError, Validate: validate, Keys: keys, Indexes: indexes, Resource: resource, ModelType: modelType, Action: a, WriteLog: writeLog, IdMap: idMap}
+	return &Handler[T, K]{Service: service, LogError: logError, Validate: validate, Keys: keys, Indexes: indexes, Resource: resource, ModelType: modelType, Builder: b, Action: a, WriteLog: writeLog, IdMap: idMap}
 }
 
 func mapToStruct(obj interface{}, des interface{}) error {
@@ -111,7 +128,7 @@ func (h *Handler[T, K]) Load(w http.ResponseWriter, r *http.Request) {
 }
 func (h *Handler[T, K]) Create(w http.ResponseWriter, r *http.Request) {
 	var model T
-	er1 := core.Decode(w, r, &model)
+	er1 := Decode(w, r, &model, h.Builder.Create)
 	if er1 == nil {
 		errors, er2 := h.Validate(r.Context(), &model)
 		if !core.HasError(w, r, errors, er2, h.LogError, h.WriteLog, h.Resource, h.Action.Create) {
@@ -121,8 +138,7 @@ func (h *Handler[T, K]) Create(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func (h *Handler[T, K]) Update(w http.ResponseWriter, r *http.Request) {
-	var model T
-	er1 := core.DecodeAndCheckId(w, r, &model, h.Keys, h.Indexes)
+	model, er1 := DecodeAndCheckId(w, r, h.Keys, h.Indexes, h.Builder.Update)
 	if er1 == nil {
 		errors, er2 := h.Validate(r.Context(), &model)
 		if !core.HasError(w, r, errors, er2, h.LogError, h.WriteLog, h.Resource, h.Action.Update) {
@@ -132,8 +148,7 @@ func (h *Handler[T, K]) Update(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func (h *Handler[T, K]) Patch(w http.ResponseWriter, r *http.Request) {
-	var model T
-	r, jsonObj, er1 := core.BuildMapAndCheckId(w, r, &model, h.Keys, h.Indexes)
+	r, model, jsonObj, er1 := BuildMapAndCheckId(w, r, h.Keys, h.Indexes, h.Builder.Update)
 	if er1 == nil {
 		errors, er2 := h.Validate(r.Context(), &model)
 		if !core.HasError(w, r, errors, er2, h.LogError, h.WriteLog, h.Resource, h.Action.Patch) {
@@ -154,4 +169,68 @@ func (h *Handler[T, K]) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := h.Service.Delete(r.Context(), id)
 	core.HandleDelete(w, r, res, err, h.LogError, h.WriteLog, h.Resource, h.Action.Delete)
+}
+func Decode[T any](w http.ResponseWriter, r *http.Request, obj *T, opts ...func(context.Context, *T) error) error {
+	er1 := json.NewDecoder(r.Body).Decode(obj)
+	defer r.Body.Close()
+	if er1 != nil {
+		http.Error(w, er1.Error(), http.StatusBadRequest)
+		return er1
+	}
+	if len(opts) > 0 && opts[0] != nil {
+		er2 := opts[0](r.Context(), obj)
+		if er2 != nil {
+			http.Error(w, er2.Error(), http.StatusInternalServerError)
+		}
+		return er2
+	}
+	return nil
+}
+func DecodeAndCheckId[T any](w http.ResponseWriter, r *http.Request, keysJson []string, mapIndex map[string]int, options ...func(context.Context, *T) error) (T, error) {
+	var obj T
+	er1 := core.Decode(w, r, &obj)
+	if er1 != nil {
+		return obj, er1
+	}
+	err := CheckId[T](w, r, &obj, keysJson, mapIndex, options...)
+	return obj, err
+}
+func CheckId[T any](w http.ResponseWriter, r *http.Request, body *T, keysJson []string, mapIndex map[string]int, opts ...func(context.Context, *T) error) error {
+	err := core.MatchId(r, body, keysJson, mapIndex)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return err
+	}
+	if len(opts) > 0 && opts[0] != nil {
+		er2 := opts[0](r.Context(), body)
+		if er2 != nil {
+			http.Error(w, er2.Error(), http.StatusInternalServerError)
+		}
+		return er2
+	}
+	return nil
+}
+func BuildMapAndCheckId[T any](w http.ResponseWriter, r *http.Request, keysJson []string, mapIndex map[string]int, opts ...func(context.Context, *T) error) (*http.Request, T, map[string]interface{}, error) {
+	r2, obj, body, er0 := BuildFieldMapAndCheckId[T](w, r, keysJson, mapIndex, false, opts...)
+	if er0 != nil {
+		return r2, obj, body, er0
+	}
+	json, er1 := core.BodyToJsonMap(r, &obj, body, keysJson, mapIndex)
+	if er1 != nil {
+		http.Error(w, er1.Error(), http.StatusBadRequest)
+	}
+	return r2, obj, json, er1
+}
+
+func BuildFieldMapAndCheckId[T any](w http.ResponseWriter, r *http.Request, keysJson []string, mapIndex map[string]int, ignorePatch bool, opts ...func(context.Context, *T) error) (*http.Request, T, map[string]interface{}, error) {
+	var obj T
+	if ignorePatch == false {
+		r = r.WithContext(context.WithValue(r.Context(), Method, Patch))
+	}
+	body, er0 := core.BuildMapAndStruct(r, &obj, w)
+	if er0 != nil {
+		return r, obj, body, er0
+	}
+	er1 := CheckId[T](w, r, &obj, keysJson, mapIndex, opts...)
+	return r, obj, body, er1
 }

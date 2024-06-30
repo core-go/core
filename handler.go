@@ -245,7 +245,7 @@ func CreateParams(modelType reflect.Type, logError func(context.Context, string,
 	keys, indexes, _ := BuildMapField(modelType)
 	return &Params{Keys: keys, Indexes: indexes, ModelType: modelType, Resource: resource, Action: a, Error: logError, Log: writeLog, Validate: validate}
 }
-func CreatePatchAndParams(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), patch func(context.Context, map[string]interface{}) (int64, error), validate func(context.Context, interface{}) ([]ErrorMessage, error), build func(context.Context, interface{}) (interface{}, error), action *ActionConfig, options ...func(context.Context, string, string, bool, string) error) (*PatchHandler, *Params) {
+func CreatePatchAndParams(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), patch func(context.Context, map[string]interface{}) (int64, error), validate func(context.Context, interface{}) ([]ErrorMessage, error), build func(context.Context, interface{}) error, action *ActionConfig, options ...func(context.Context, string, string, bool, string) error) (*PatchHandler, *Params) {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 {
 		writeLog = options[0]
@@ -257,7 +257,7 @@ func CreatePatchAndParams(modelType reflect.Type, logError func(context.Context,
 	params := &Params{Keys: keys, Indexes: indexes, ModelType: modelType, Resource: resource, Action: a, Error: logError, Log: writeLog, Validate: validate}
 	return patchHandler, params
 }
-func NewPatchHandler(patch func(context.Context, map[string]interface{}) (int64, error), modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]ErrorMessage, error), build func(context.Context, interface{}) (interface{}, error), action string, options ...func(context.Context, string, string, bool, string) error) *PatchHandler {
+func NewPatchHandler(patch func(context.Context, map[string]interface{}) (int64, error), modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]ErrorMessage, error), build func(context.Context, interface{}) error, action string, options ...func(context.Context, string, string, bool, string) error) *PatchHandler {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 {
 		writeLog = options[0]
@@ -273,7 +273,7 @@ type PatchHandler struct {
 	ObjectType   reflect.Type
 	Save         func(ctx context.Context, user map[string]interface{}) (int64, error)
 	ValidateData func(ctx context.Context, model interface{}) ([]ErrorMessage, error)
-	Build        func(ctx context.Context, model interface{}) (interface{}, error)
+	Build        func(ctx context.Context, model interface{}) error
 	LogError     func(context.Context, string, ...map[string]interface{})
 	WriteLog     func(context.Context, string, string, bool, string) error
 	ResourceType string
@@ -363,7 +363,7 @@ func (h *GenericHandler) Insert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.builder != nil {
-		body, er0 = h.builder.Create(r.Context(), body)
+		er0 = h.builder.Create(r.Context(), body)
 		if er0 != nil {
 			RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, er0, h.Error, h.Log, h.Resource, h.Action.Create)
 		}
@@ -385,7 +385,7 @@ func (h *GenericHandler) Insert(w http.ResponseWriter, r *http.Request) {
 		i := 0
 		for count <= 0 && i <= 5 {
 			i++
-			body, er2 = h.builder.Create(r.Context(), body)
+			er2 = h.builder.Create(r.Context(), body)
 			if er2 != nil {
 				RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, er2, h.Error, h.Log, h.Resource, h.Action.Create)
 				return
@@ -422,7 +422,7 @@ func (h *GenericHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.builder != nil {
-		body, er0 = h.builder.Update(r.Context(), body)
+		er0 = h.builder.Update(r.Context(), body)
 		if er0 != nil {
 			RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, er0, h.Error, h.Log, h.Resource, h.Action.Update)
 			return
@@ -471,14 +471,14 @@ func (h *GenericHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	count, er2 := h.service.Delete(r.Context(), id)
 	HandleDelete(w, r, count, er2, h.Error, h.Log, h.Resource, h.Action.Delete)
 }
-func CheckId(w http.ResponseWriter, r *http.Request, body interface{}, keysJson []string, mapIndex map[string]int, options ...func(context.Context, interface{}) (interface{}, error)) error {
+func CheckId(w http.ResponseWriter, r *http.Request, body interface{}, keysJson []string, mapIndex map[string]int, options ...func(context.Context, interface{}) error) error {
 	err := MatchId(r, body, keysJson, mapIndex)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return err
 	}
 	if len(options) > 0 && options[0] != nil {
-		_, er2 := options[0](r.Context(), body)
+		er2 := options[0](r.Context(), body)
 		if er2 != nil {
 			http.Error(w, er2.Error(), http.StatusInternalServerError)
 		}
@@ -486,7 +486,7 @@ func CheckId(w http.ResponseWriter, r *http.Request, body interface{}, keysJson 
 	}
 	return nil
 }
-func DecodeAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int, options ...func(context.Context, interface{}) (interface{}, error)) error {
+func DecodeAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int, options ...func(context.Context, interface{}) error) error {
 	er1 := Decode(w, r, obj)
 	if er1 != nil {
 		return er1
@@ -513,7 +513,7 @@ func HandleDelete(w http.ResponseWriter, r *http.Request, count int64, err error
 		ReturnAndLog(w, r, http.StatusConflict, count, writeLog, false, resource, action, "Conflict")
 	}
 }
-func BodyToJsonWithBuild(w http.ResponseWriter, r *http.Request, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int, buildToPatch func(context.Context, interface{}) (interface{}, error), logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) (map[string]interface{}, error) {
+func BodyToJsonWithBuild(w http.ResponseWriter, r *http.Request, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int, buildToPatch func(context.Context, interface{}) error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) (map[string]interface{}, error) {
 	body, err := BodyToJsonMap(r, structBody, body, jsonIds, mapIndex, buildToPatch)
 	if err != nil {
 		// http.Error(w, "Invalid Data: "+err.Error(), http.StatusBadRequest)
@@ -539,7 +539,7 @@ func BuildFieldMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interfa
 	er1 := CheckId(w, r, obj, keysJson, mapIndex)
 	return r, body, er1
 }
-func BuildMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int, options ...func(context.Context, interface{}) (interface{}, error)) (*http.Request, map[string]interface{}, error) {
+func BuildMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int, options ...func(context.Context, interface{}) error) (*http.Request, map[string]interface{}, error) {
 	r2, body, er0 := BuildFieldMapAndCheckId(w, r, obj, keysJson, mapIndex, false)
 	if er0 != nil {
 		return r2, body, er0
@@ -550,7 +550,7 @@ func BuildMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{},
 	}
 	return r2, json, er1
 }
-func BuildTrackingMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int, buildPatch func(context.Context, interface{}) (interface{}, error), opts ...bool) (*http.Request, map[string]interface{}, error) {
+func BuildTrackingMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int, buildPatch func(context.Context, interface{}) error, opts ...bool) (*http.Request, map[string]interface{}, error) {
 	ignorePatch := false
 	if len(opts) > 0 {
 		ignorePatch = opts[0]

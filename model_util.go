@@ -114,17 +114,6 @@ func BuildMapField(modelType reflect.Type) ([]string, map[string]int, map[string
 	return idFields, m1, m2
 }
 
-func ParseIntWithType(value string, idType string) (v interface{}, err error) {
-	switch idType {
-	case "int64", "*int64":
-		return strconv.ParseInt(value, 10, 64)
-	case "int", "int32", "*int32":
-		return strconv.Atoi(value)
-	default:
-	}
-	return value, nil
-}
-
 func FromContext(ctx context.Context, key string, options...string) string {
 	var authorization string
 	if len(options) > 0 {

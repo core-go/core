@@ -67,39 +67,87 @@ func BuildResourceName(s string) string {
 }
 func MatchId(r *http.Request, body interface{}, keysJson []string, mapIndex map[string]int) error {
 	var value reflect.Value
-	value = reflect.Indirect(reflect.ValueOf(body)) //value must be struct
+	value = reflect.ValueOf(body)
+	modelType := value.Type()
+	if value.Kind() == reflect.Ptr {
+		value = reflect.Indirect(value)
+		modelType = modelType.Elem()
+	}
 	_, mapParams, err2 := GetParamIds(r, keysJson, 0)
 	if err2 != nil {
 		return errors.New("Invalid Data " + err2.Error())
 	}
+	isNil := false
 	for _, primaryField := range keysJson {
 		indexField, okIndex := mapIndex[primaryField]
 		if okIndex {
 			if paramId, ok := mapParams[primaryField]; ok {
 				indexes := []int{indexField}
 				field := value.FieldByIndex(indexes)
-				if field.Kind() == reflect.Ptr {
-					field = field.Elem()
-				}
 				idType := field.Kind().String()
-				if field.IsZero() {
-					if strings.Index(idType, "int") >= 0 {
-						valueField, err := ParseIntWithType(paramId, idType)
-						if err != nil {
-							return errors.New("invalid key: " + primaryField)
-						}
-						field.Set(reflect.ValueOf(valueField))
+				isPointer := false
+				if field.Kind() == reflect.Ptr {
+					if !field.IsNil() {
+						field = field.Elem()
+						idType = field.Kind().String()
 					} else {
-						field.Set(reflect.ValueOf(paramId))
+						isNil = true
+						f := modelType.Field(indexField)
+						idType = f.Type.String()
+					}
+					isPointer = true
+				}
+				if isNil {
+					if strings.Index(idType, "string") >= 0 {
+						if isPointer {
+							field.Set(reflect.ValueOf(&paramId))
+						} else {
+							field.Set(reflect.ValueOf(paramId))
+						}
+					} else {
+						switch idType {
+						case "int64", "*int64":
+							i, err := strconv.ParseInt(paramId, 10, 64)
+							if err != nil {
+								return errors.New("invalid key: " + primaryField)
+							}
+							if isPointer {
+								field.Set(reflect.ValueOf(&i))
+							} else {
+								field.Set(reflect.ValueOf(i))
+							}
+						case "int":
+							i, err :=  strconv.Atoi(paramId)
+							if err != nil {
+								return errors.New("invalid key: " + primaryField)
+							}
+							if isPointer {
+								field.Set(reflect.ValueOf(&i))
+							} else {
+								field.Set(reflect.ValueOf(i))
+							}
+						case "int32", "*int32":
+							i, err := strconv.Atoi(paramId)
+							if err != nil {
+								return errors.New("invalid key: " + primaryField)
+							}
+							i32 := int32(i)
+							if isPointer {
+								field.Set(reflect.ValueOf(&i32))
+							} else {
+								field.Set(reflect.ValueOf(i32))
+							}
+						default:
+						}
 					}
 				} else {
-					if strings.Index(idType, "int") >= 0 {
-						idValue, err := strconv.ParseInt(paramId, 10, 64)
-						if err != nil || field.Int() != idValue {
+					if strings.Index(idType, "string") >= 0 {
+						if !reflect.DeepEqual(field.Interface(), paramId) {
 							return errors.New("conflict key in param and body: " + primaryField)
 						}
 					} else {
-						if !reflect.DeepEqual(field.Interface(), paramId) {
+						idValue, err := strconv.ParseInt(paramId, 10, 64)
+						if err != nil || field.Int() != idValue {
 							return errors.New("conflict key in param and body: " + primaryField)
 						}
 					}

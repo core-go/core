@@ -21,7 +21,8 @@ const (
 	l2 = len(t2)
 	l3 = len(t3)
 )
-func Decode(w http.ResponseWriter, r *http.Request, obj interface{}, options...func(context.Context, interface{}) (interface{}, error)) error {
+
+func Decode(w http.ResponseWriter, r *http.Request, obj interface{}, options ...func(context.Context, interface{}) error) error {
 	er1 := json.NewDecoder(r.Body).Decode(obj)
 	defer r.Body.Close()
 	if er1 != nil {
@@ -29,7 +30,7 @@ func Decode(w http.ResponseWriter, r *http.Request, obj interface{}, options...f
 		return er1
 	}
 	if len(options) > 0 && options[0] != nil {
-		_ , er2 := options[0](r.Context(), obj)
+		er2 := options[0](r.Context(), obj)
 		if er2 != nil {
 			http.Error(w, er2.Error(), http.StatusInternalServerError)
 		}
@@ -37,21 +38,21 @@ func Decode(w http.ResponseWriter, r *http.Request, obj interface{}, options...f
 	}
 	return nil
 }
-func GetParam(r *http.Request, options... int) string {
+func GetParam(r *http.Request, options ...int) string {
 	offset := 0
 	if len(options) > 0 && options[0] > 0 {
 		offset = options[0]
 	}
 	s := r.URL.Path
 	params := strings.Split(s, "/")
-	i := len(params)-1-offset
+	i := len(params) - 1 - offset
 	if i >= 0 {
 		return params[i]
 	} else {
 		return ""
 	}
 }
-func GetRequiredParam(w http.ResponseWriter,r *http.Request, options ...int) string {
+func GetRequiredParam(w http.ResponseWriter, r *http.Request, options ...int) string {
 	p := GetParam(r, options...)
 	if len(p) == 0 {
 		http.Error(w, "parameter is required", http.StatusBadRequest)
@@ -59,7 +60,7 @@ func GetRequiredParam(w http.ResponseWriter,r *http.Request, options ...int) str
 	}
 	return p
 }
-func GetRequiredInt(w http.ResponseWriter,r *http.Request, options ...int) *int {
+func GetRequiredInt(w http.ResponseWriter, r *http.Request, options ...int) *int {
 	p := GetParam(r, options...)
 	if len(p) == 0 {
 		http.Error(w, "parameter is required", http.StatusBadRequest)
@@ -72,7 +73,7 @@ func GetRequiredInt(w http.ResponseWriter,r *http.Request, options ...int) *int 
 	}
 	return &i
 }
-func GetRequiredInt64(w http.ResponseWriter,r *http.Request, options ...int) *int64 {
+func GetRequiredInt64(w http.ResponseWriter, r *http.Request, options ...int) *int64 {
 	p := GetParam(r, options...)
 	if len(p) == 0 {
 		http.Error(w, "parameter is required", http.StatusBadRequest)
@@ -85,7 +86,7 @@ func GetRequiredInt64(w http.ResponseWriter,r *http.Request, options ...int) *in
 	}
 	return &i
 }
-func GetRequiredInt32(w http.ResponseWriter,r *http.Request, options ...int) *int32 {
+func GetRequiredInt32(w http.ResponseWriter, r *http.Request, options ...int) *int32 {
 	p := GetParam(r, options...)
 	if len(p) == 0 {
 		http.Error(w, "parameter is required", http.StatusBadRequest)
@@ -99,7 +100,7 @@ func GetRequiredInt32(w http.ResponseWriter,r *http.Request, options ...int) *in
 	j := int32(i)
 	return &j
 }
-func GetRequiredParams(w http.ResponseWriter,r *http.Request, options ...int) []string {
+func GetRequiredParams(w http.ResponseWriter, r *http.Request, options ...int) []string {
 	p := GetParam(r, options...)
 	if len(p) == 0 {
 		http.Error(w, "parameters are required", http.StatusBadRequest)
@@ -170,7 +171,7 @@ func CreateTime(s string) *time.Time {
 	}
 	return &t
 }
-func QueryString(v url.Values, name string, options... string) string {
+func QueryString(v url.Values, name string, options ...string) string {
 	s := v.Get(name)
 	if len(s) > 0 {
 		return s
@@ -180,7 +181,7 @@ func QueryString(v url.Values, name string, options... string) string {
 	}
 	return ""
 }
-func QueryStrings(v url.Values, name string, options...[]string) []string {
+func QueryStrings(v url.Values, name string, options ...[]string) []string {
 	s, ok := v[name]
 	if ok {
 		return s
@@ -190,7 +191,7 @@ func QueryStrings(v url.Values, name string, options...[]string) []string {
 	}
 	return nil
 }
-func QueryArray(v url.Values, name string, all []string, options...[]string) []string {
+func QueryArray(v url.Values, name string, all []string, options ...[]string) []string {
 	s, ok := v[name]
 	if ok {
 		x := QueryIn(all, s)
@@ -226,7 +227,7 @@ func QueryIn(all []string, s []string) []string {
 	}
 	return fieldsParamArr
 }
-func QueryTime(v url.Values, name string, options...time.Time) *time.Time {
+func QueryTime(v url.Values, name string, options ...time.Time) *time.Time {
 	s := QueryString(v, name)
 	if len(s) > 0 {
 		t := CreateTime(s)
@@ -239,7 +240,7 @@ func QueryTime(v url.Values, name string, options...time.Time) *time.Time {
 	}
 	return nil
 }
-func QueryInt64(v url.Values, name string, options...int64) *int64 {
+func QueryInt64(v url.Values, name string, options ...int64) *int64 {
 	s := QueryString(v, name)
 	if len(s) > 0 {
 		i, err := strconv.ParseInt(s, 10, 64)
@@ -253,7 +254,7 @@ func QueryInt64(v url.Values, name string, options...int64) *int64 {
 	}
 	return nil
 }
-func QueryInt32(v url.Values, name string, options...int64) *int32 {
+func QueryInt32(v url.Values, name string, options ...int64) *int32 {
 	i := QueryInt64(v, name, options...)
 	if i != nil {
 		j := int32(*i)
@@ -261,7 +262,7 @@ func QueryInt32(v url.Values, name string, options...int64) *int32 {
 	}
 	return nil
 }
-func QueryInt(v url.Values, name string, options...int64) *int {
+func QueryInt(v url.Values, name string, options ...int64) *int {
 	i := QueryInt64(v, name, options...)
 	if i != nil {
 		j := int(*i)
@@ -276,7 +277,7 @@ func QueryRequiredString(w http.ResponseWriter, v url.Values, name string) strin
 	}
 	return s
 }
-func QueryRequiredStrings(w http.ResponseWriter, v url.Values, name string, options...string) []string {
+func QueryRequiredStrings(w http.ResponseWriter, v url.Values, name string, options ...string) []string {
 	s := QueryString(v, name)
 	if len(s) == 0 {
 		http.Error(w, fmt.Sprintf("%s is required", name), http.StatusBadRequest)

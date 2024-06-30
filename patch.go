@@ -18,11 +18,12 @@ func IsPatch(ctx context.Context) bool {
 }
 
 type Builder interface {
-	Create(ctx context.Context, model interface{}) (interface{}, error)
-	Update(ctx context.Context, model interface{}) (interface{}, error)
-	Patch(ctx context.Context, model interface{}) (interface{}, error)
+	Create(ctx context.Context, model interface{}) error
+	Update(ctx context.Context, model interface{}) error
+	Patch(ctx context.Context, model interface{}) error
 }
-func BuildMapAndStruct(r *http.Request, interfaceBody interface{}, options...http.ResponseWriter) (map[string]interface{}, error) {
+
+func BuildMapAndStruct(r *http.Request, interfaceBody interface{}, options ...http.ResponseWriter) (map[string]interface{}, error) {
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(r.Body)
 	s := buf.String()
@@ -40,19 +41,18 @@ func BuildMapAndStruct(r *http.Request, interfaceBody interface{}, options...htt
 	}
 	return body, nil
 }
-func BodyToJsonMap(r *http.Request, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int, options...func(context.Context, interface{}) (interface{}, error)) (map[string]interface{}, error) {
-	var controlModel interface{}
-	var buildToPatch func(context.Context, interface{}) (interface{}, error)
+func BodyToJsonMap(r *http.Request, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int, options ...func(context.Context, interface{}) error) (map[string]interface{}, error) {
+	var buildToPatch func(context.Context, interface{}) error
 	if len(options) > 0 && options[0] != nil {
 		buildToPatch = options[0]
 	}
 	if buildToPatch != nil {
 		var er0 error
-		controlModel, er0 = buildToPatch(r.Context(), structBody)
+		er0 = buildToPatch(r.Context(), structBody)
 		if er0 != nil {
 			return nil, er0
 		}
-		inRec, er1 := json.Marshal(controlModel)
+		inRec, er1 := json.Marshal(structBody)
 		if er1 != nil {
 			return nil, er1
 		}
