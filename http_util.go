@@ -67,10 +67,10 @@ func BuildResourceName(s string) string {
 }
 func MatchId(r *http.Request, body interface{}, keysJson []string, mapIndex map[string]int) error {
 	var value reflect.Value
-	value = reflect.Indirect(reflect.ValueOf(body))//value must be struct
+	value = reflect.Indirect(reflect.ValueOf(body)) //value must be struct
 	_, mapParams, err2 := GetParamIds(r, keysJson, 0)
 	if err2 != nil {
-		return errors.New("Invalid Data "+err2.Error())
+		return errors.New("Invalid Data " + err2.Error())
 	}
 	for _, primaryField := range keysJson {
 		indexField, okIndex := mapIndex[primaryField]
@@ -78,12 +78,15 @@ func MatchId(r *http.Request, body interface{}, keysJson []string, mapIndex map[
 			if paramId, ok := mapParams[primaryField]; ok {
 				indexes := []int{indexField}
 				field := value.FieldByIndex(indexes)
+				if field.Kind() == reflect.Ptr {
+					field = field.Elem()
+				}
 				idType := field.Kind().String()
 				if field.IsZero() {
 					if strings.Index(idType, "int") >= 0 {
 						valueField, err := ParseIntWithType(paramId, idType)
 						if err != nil {
-							return errors.New("invalid key: "+primaryField)
+							return errors.New("invalid key: " + primaryField)
 						}
 						field.Set(reflect.ValueOf(valueField))
 					} else {
@@ -93,24 +96,24 @@ func MatchId(r *http.Request, body interface{}, keysJson []string, mapIndex map[
 					if strings.Index(idType, "int") >= 0 {
 						idValue, err := strconv.ParseInt(paramId, 10, 64)
 						if err != nil || field.Int() != idValue {
-							return errors.New("conflict key in param and body: "+primaryField)
+							return errors.New("conflict key in param and body: " + primaryField)
 						}
 					} else {
 						if !reflect.DeepEqual(field.Interface(), paramId) {
-							return errors.New("conflict key in param and body: "+primaryField)
+							return errors.New("conflict key in param and body: " + primaryField)
 						}
 					}
 				}
 			} else {
-				return errors.New("Not found param key: "+primaryField)
+				return errors.New("Not found param key: " + primaryField)
 			}
 		} else {
-			return errors.New("Not found param key: "+primaryField)
+			return errors.New("Not found param key: " + primaryField)
 		}
 	}
 	return nil
 }
-func MakeId(r *http.Request, modelType reflect.Type, idNames []string, indexes map[string]int, options... int) (map[string]interface{}, error) {
+func MakeId(r *http.Request, modelType reflect.Type, idNames []string, indexes map[string]int, options ...int) (map[string]interface{}, error) {
 	modelValue := reflect.New(modelType)
 	mapKey := make(map[string]interface{})
 	_, mapParams, err2 := GetParamIds(r, idNames, options...)
@@ -147,7 +150,7 @@ func MakeId(r *http.Request, modelType reflect.Type, idNames []string, indexes m
 	}
 	return mapKey, nil
 }
-func BuildId(r *http.Request, modelType reflect.Type, idNames []string, indexes map[string]int, options... int) (interface{}, error) {
+func BuildId(r *http.Request, modelType reflect.Type, idNames []string, indexes map[string]int, options ...int) (interface{}, error) {
 	if len(idNames) > 1 {
 		return MakeId(r, modelType, idNames, indexes, options...)
 	} else if len(idNames) == 1 {
@@ -243,7 +246,7 @@ func GetKeyIndexes(modelType reflect.Type) map[string]int {
 	}
 	return mapJsonNameIndex
 }
-func GetParamIds(r *http.Request, idNames []string, options... int) (interface{}, map[string]string, error) {
+func GetParamIds(r *http.Request, idNames []string, options ...int) (interface{}, map[string]string, error) {
 	offset := 0
 	if len(options) > 0 && options[0] > 0 {
 		offset = options[0]

@@ -109,6 +109,7 @@ type ActionConf struct {
 	Patch  string  `yaml:"patch" mapstructure:"patch" json:"patch,omitempty" gorm:"column:patch" bson:"patch,omitempty" dynamodbav:"patch,omitempty" firestore:"patch,omitempty"`
 	Delete string  `yaml:"delete" mapstructure:"delete" json:"delete,omitempty" gorm:"column:delete" bson:"delete,omitempty" dynamodbav:"delete,omitempty" firestore:"delete,omitempty"`
 }
+
 func InitializeStatus(status *StatusConfig) StatusConfig {
 	var s StatusConfig
 	if status != nil {
@@ -187,19 +188,21 @@ func InitializeAction(conf *ActionConfig) ActionConfig {
 	}
 	return c
 }
+
 type Parameters struct {
-	Keys      []string
-	Indexes   map[string]int
-	ModelType reflect.Type
-	Resource  string
-	Action    ActionConf
-	Error     func(context.Context, string, ...map[string]interface{})
-	Log       func(context.Context, string, string, bool, string) error
-	Validate  func(context.Context, interface{}) ([]ErrorMessage, error)
+	Keys        []string
+	Indexes     map[string]int
+	ModelType   reflect.Type
+	Resource    string
+	Action      ActionConf
+	Error       func(context.Context, string, ...map[string]interface{})
+	Log         func(context.Context, string, string, bool, string) error
+	Validate    func(context.Context, interface{}) ([]ErrorMessage, error)
 	ParamIndex  map[string]int
 	FilterIndex int
 	CSVIndex    map[string]int
 }
+
 func CreateParameters(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]ErrorMessage, error), action *ActionConf, paramIndex map[string]int, filterIndex int, csvIndex map[string]int, options ...func(context.Context, string, string, bool, string) error) *Parameters {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 {
@@ -210,6 +213,7 @@ func CreateParameters(modelType reflect.Type, logError func(context.Context, str
 	keys, indexes, _ := BuildMapField(modelType)
 	return &Parameters{Keys: keys, Indexes: indexes, ModelType: modelType, Resource: resource, Action: a, Error: logError, Log: writeLog, Validate: validate, ParamIndex: paramIndex, FilterIndex: filterIndex, CSVIndex: csvIndex}
 }
+
 type Params struct {
 	Keys      []string
 	Indexes   map[string]int
@@ -333,14 +337,14 @@ func NewHandlerWithLog(genericService SimpleService, modelType reflect.Type, mod
 	return NewHandlerWithKeysAndLog(genericService, nil, modelType, modelBuilder, logError, validate, writeLog, resource, conf)
 }
 func NewHandlerWithKeysAndLog(genericService SimpleService, keys []string, modelType reflect.Type, modelBuilder Builder, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]ErrorMessage, error), writeLog func(context.Context, string, string, bool, string) error, resource string, conf *ActionConfig) *GenericHandler {
-		if keys == nil || len(keys) == 0 {
+	if keys == nil || len(keys) == 0 {
 		keys = GetJsonPrimaryKeys(modelType)
 	}
-		if len(resource) == 0 {
+	if len(resource) == 0 {
 		resource = BuildResourceName(modelType.Name())
 	}
-		var writeLog2 func(context.Context, string, string, bool, string) error
-		if conf != nil && conf.Load != nil {
+	var writeLog2 func(context.Context, string, string, bool, string) error
+	if conf != nil && conf.Load != nil {
 		writeLog2 = writeLog
 	}
 	c := InitializeAction(conf)
@@ -536,7 +540,7 @@ func BuildFieldMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interfa
 	return r, body, er1
 }
 func BuildMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int, options ...func(context.Context, interface{}) (interface{}, error)) (*http.Request, map[string]interface{}, error) {
-	r2, body, er0 := BuildFieldMapAndCheckId(w, r, obj, keysJson, mapIndex, true)
+	r2, body, er0 := BuildFieldMapAndCheckId(w, r, obj, keysJson, mapIndex, false)
 	if er0 != nil {
 		return r2, body, er0
 	}
@@ -546,7 +550,7 @@ func BuildMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{},
 	}
 	return r2, json, er1
 }
-func BuildTrackingMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int, buildPatch func(context.Context, interface{}) (interface{}, error), opts...bool) (*http.Request, map[string]interface{}, error) {
+func BuildTrackingMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int, buildPatch func(context.Context, interface{}) (interface{}, error), opts ...bool) (*http.Request, map[string]interface{}, error) {
 	ignorePatch := false
 	if len(opts) > 0 {
 		ignorePatch = opts[0]
@@ -596,16 +600,16 @@ func HandleResult(w http.ResponseWriter, r *http.Request, body interface{}, coun
 		}
 		return
 	}
-	if count == -1 {
-		ReturnAndLog(w, r, http.StatusConflict, count, writeLog, false, resource, action, "Data Version Error")
-	} else if count == 0 {
-		ReturnAndLog(w, r, http.StatusNotFound, 0, writeLog, false, resource, action, "Data Not Found")
-	} else {
+	if count > 0 {
 		if IsNil(body) {
 			Succeed(w, r, http.StatusOK, count, writeLog, resource, action)
 		} else {
 			Succeed(w, r, http.StatusOK, body, writeLog, resource, action)
 		}
+	} else if count == 0 {
+		ReturnAndLog(w, r, http.StatusNotFound, 0, writeLog, false, resource, action, "Data Not Found")
+	} else {
+		ReturnAndLog(w, r, http.StatusConflict, count, writeLog, false, resource, action, "Data Version Error")
 	}
 }
 func AfterCreated(w http.ResponseWriter, r *http.Request, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
@@ -649,6 +653,7 @@ func Respond(w http.ResponseWriter, r *http.Request, code int, result interface{
 		Succeed(w, r, code, result, writeLog, resource, action)
 	}
 }
+
 /*
 func Return222(w http.ResponseWriter, r *http.Request, code int, result ResultInfo, status StatusConfig, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
 	var resource, action string
