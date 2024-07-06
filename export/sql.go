@@ -9,20 +9,25 @@ import (
 )
 
 func GetColumnsSelect(modelType reflect.Type) []string {
+	if modelType.Kind() == reflect.Ptr {
+		modelType = modelType.Elem()
+	}
 	numField := modelType.NumField()
 	columnNameKeys := make([]string, 0)
 	for i := 0; i < numField; i++ {
 		field := modelType.Field(i)
 		ormTag := field.Tag.Get("gorm")
-		if has := strings.Contains(ormTag, "column"); has {
-			str1 := strings.Split(ormTag, ";")
-			num := len(str1)
-			for i := 0; i < num; i++ {
-				str2 := strings.Split(str1[i], ":")
-				for j := 0; j < len(str2); j++ {
-					if str2[j] == "column" {
-						columnName := strings.ToLower(str2[j+1])
-						columnNameKeys = append(columnNameKeys, columnName)
+		if ormTag != "-" {
+			if has := strings.Contains(ormTag, "column"); has {
+				str1 := strings.Split(ormTag, ";")
+				num := len(str1)
+				for i := 0; i < num; i++ {
+					str2 := strings.Split(str1[i], ":")
+					for j := 0; j < len(str2); j++ {
+						if str2[j] == "column" {
+							columnName := strings.ToLower(str2[j+1])
+							columnNameKeys = append(columnNameKeys, columnName)
+						}
 					}
 				}
 			}
@@ -31,17 +36,22 @@ func GetColumnsSelect(modelType reflect.Type) []string {
 	return columnNameKeys
 }
 func GetColumnIndexes(modelType reflect.Type) (map[string]int, error) {
-	ma := make(map[string]int, 0)
+	ma := make(map[string]int)
+	if modelType.Kind() == reflect.Ptr {
+		modelType = modelType.Elem()
+	}
 	if modelType.Kind() != reflect.Struct {
 		return ma, errors.New("bad type")
 	}
 	for i := 0; i < modelType.NumField(); i++ {
 		field := modelType.Field(i)
 		ormTag := field.Tag.Get("gorm")
-		column, ok := FindTag(ormTag, "column")
-		column = strings.ToLower(column)
-		if ok {
-			ma[column] = i
+		if ormTag != "-" {
+			column, ok := FindTag(ormTag, "column")
+			column = strings.ToLower(column)
+			if ok {
+				ma[column] = i
+			}
 		}
 	}
 	return ma, nil
@@ -62,7 +72,7 @@ func FindTag(tag string, key string) (string, bool) {
 	return "", false
 }
 
-func StructScan(s interface{}, columns []string, fieldsIndex map[string]int, options...func(interface{}) interface {
+func StructScan(s interface{}, columns []string, fieldsIndex map[string]int, options ...func(interface{}) interface {
 	driver.Valuer
 	sql.Scanner
 }) (r []interface{}, swapValues map[int]interface{}) {

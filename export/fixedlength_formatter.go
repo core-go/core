@@ -35,28 +35,30 @@ func GetIndexes(modelType reflect.Type, tagName string) (map[int]*FixedLength, e
 			if err != nil || length < 0 {
 				return ma, err
 			}
-			v := &FixedLength{Length: length}
-			tagScale, sOk := field.Tag.Lookup("scale")
-			if sOk {
-				scale, err := strconv.Atoi(tagScale)
-				if err == nil {
-					v.Scale = scale
-				}
-			}
-			if len(tagValue) > 0 {
-				if strings.Contains(tagValue, "dateFormat:") {
-					tagValue = strings.ReplaceAll(tagValue, "dateFormat:", "")
-				} else if sOk == false && strings.Contains(tagValue, "scale:") {
-					tagValue = strings.ReplaceAll(tagValue, "scale:", "")
-					scale, err1 := strconv.Atoi(tagValue)
-					if err1 != nil {
-						return ma, err1
+			if length > 0 {
+				v := &FixedLength{Length: length}
+				tagScale, sOk := field.Tag.Lookup("scale")
+				if sOk {
+					scale, err := strconv.Atoi(tagScale)
+					if err == nil {
+						v.Scale = scale
 					}
-					v.Scale = scale
 				}
-				v.Format = tagValue
+				if len(tagValue) > 0 {
+					if strings.Contains(tagValue, "dateFormat:") {
+						tagValue = strings.ReplaceAll(tagValue, "dateFormat:", "")
+					} else if sOk == false && strings.Contains(tagValue, "scale:") {
+						tagValue = strings.ReplaceAll(tagValue, "scale:", "")
+						scale, err1 := strconv.Atoi(tagValue)
+						if err1 != nil {
+							return ma, err1
+						}
+						v.Scale = scale
+					}
+					v.Format = tagValue
+				}
+				ma[i] = v
 			}
-			ma[i] = v
 		}
 	}
 	return ma, nil

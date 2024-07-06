@@ -49,17 +49,21 @@ func Logger(c LogConfig, log func(ctx context.Context, msg string, fields map[st
 				ww := NewWrapResponseWriter(dw, r.ProtoMajor)
 				startTime := time.Now()
 				fields := BuildLogFields(c, r)
-				single := !c.Separate
+				includeRequest := !c.Separate
 				if r.Method == "GET" || r.Method == "DELETE" || strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") {
-					single = true
+					includeRequest = true
+				} else {
+					BuildRequestBody(r, c.Request, fields)
 				}
-				f.LogRequest(log, r, c, fields, single)
+				if !includeRequest {
+					go f.LogRequest(log, r, fields)
+				}
 				defer func() {
-					if single {
-						f.LogResponse(log, r, ww, c, startTime, dw.Body.String(), fields, single)
+					if includeRequest {
+						go f.LogResponse(log, r, ww, c, startTime, dw.Body.String(), fields, includeRequest)
 					} else {
-						resLogFields := BuildLogFields(c, r)
-						f.LogResponse(log, r, ww, c, startTime, dw.Body.String(), resLogFields, single)
+						resFields := BuildLogFields(c, r)
+						go f.LogResponse(log, r, ww, c, startTime, dw.Body.String(), resFields, includeRequest)
 					}
 				}()
 				h.ServeHTTP(ww, r)

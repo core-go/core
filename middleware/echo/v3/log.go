@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/labstack/echo"
-	"io/ioutil"
+	"io"
 	"strings"
 	"time"
 )
@@ -34,19 +34,22 @@ func (l *EchoLogger) Logger(next echo.HandlerFunc) echo.HandlerFunc {
 			ww := NewWrapResponseWriter(dw, r.ProtoMajor)
 			startTime := time.Now()
 			fields := BuildLogFields(l.Config, r)
-			single := !l.Config.Separate
+			includeRequest := !l.Config.Separate
 			if r.Method == "GET" || r.Method == "DELETE" || strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") {
-				single = true
+				includeRequest = true
+			} else {
+				BuildRequest(r, l.Config.Request, fields)
 			}
-
-			l.f.LogRequest(l.LogInfo, r, l.Config, fields, single)
+			if !includeRequest {
+				go l.f.LogRequest(l.LogInfo, r, fields)
+			}
 			c.Response().Writer = ww
 			defer func() {
-				if single {
-					l.f.LogResponse(l.LogInfo, r, ww, l.Config, startTime, dw.Body.String(), fields, single)
+				if includeRequest {
+					go l.f.LogResponse(l.LogInfo, r, ww, l.Config, startTime, dw.Body.String(), fields, includeRequest)
 				} else {
-					resLogFields := BuildLogFields(l.Config, r)
-					l.f.LogResponse(l.LogInfo, r, ww, l.Config, startTime, dw.Body.String(), resLogFields, single)
+					resFields := BuildLogFields(l.Config, r)
+					go l.f.LogResponse(l.LogInfo, r, ww, l.Config, startTime, dw.Body.String(), resFields, includeRequest)
 				}
 			}()
 			return next(c)
@@ -80,7 +83,7 @@ func (l *EchoLogger) BuildContextWithMask(next echo.HandlerFunc) echo.HandlerFun
 		if fieldConfig.Map != nil && len(fieldConfig.Map) > 0 && r.Body != nil && (r.Method != "GET" || r.Method != "DELETE") {
 			buf := new(bytes.Buffer)
 			buf.ReadFrom(r.Body)
-			r.Body = ioutil.NopCloser(buf)
+			r.Body = io.NopCloser(buf)
 			var v interface{}
 			er2 := json.NewDecoder(strings.NewReader(buf.String())).Decode(&v)
 			if er2 != nil {

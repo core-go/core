@@ -14,6 +14,8 @@ const (
 	Patch  = "patch"
 )
 
+type Validate[T any] func(ctx context.Context, model T) ([]core.ErrorMessage, error)
+
 type Builder[T any] interface {
 	Create(context.Context, *T) error
 	Update(context.Context, *T) error
@@ -127,31 +129,58 @@ func (h *Handler[T, K]) Load(w http.ResponseWriter, r *http.Request) {
 	core.Return(w, r, model, er2, h.LogError, h.WriteLog, h.Resource, action)
 }
 func (h *Handler[T, K]) Create(w http.ResponseWriter, r *http.Request) {
+	var createFn func(context.Context, *T) error
+	if h.Builder != nil {
+		createFn = h.Builder.Create
+	}
 	var model T
-	er1 := Decode(w, r, &model, h.Builder.Create)
+	er1 := Decode[T](w, r, &model, createFn)
 	if er1 == nil {
-		errors, er2 := h.Validate(r.Context(), &model)
-		if !core.HasError(w, r, errors, er2, h.LogError, h.WriteLog, h.Resource, h.Action.Create) {
+		if h.Validate != nil {
+			errors, er2 := h.Validate(r.Context(), &model)
+			if !core.HasError(w, r, errors, er2, h.LogError, h.WriteLog, h.Resource, h.Action.Create) {
+				res, er3 := h.Service.Create(r.Context(), &model)
+				core.AfterCreated(w, r, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Create)
+			}
+		} else {
 			res, er3 := h.Service.Create(r.Context(), &model)
 			core.AfterCreated(w, r, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Create)
 		}
 	}
 }
 func (h *Handler[T, K]) Update(w http.ResponseWriter, r *http.Request) {
-	model, er1 := DecodeAndCheckId(w, r, h.Keys, h.Indexes, h.Builder.Update)
+	var updateFn func(context.Context, *T) error
+	if h.Builder != nil {
+		updateFn = h.Builder.Update
+	}
+	model, er1 := DecodeAndCheckId(w, r, h.Keys, h.Indexes, updateFn)
 	if er1 == nil {
-		errors, er2 := h.Validate(r.Context(), &model)
-		if !core.HasError(w, r, errors, er2, h.LogError, h.WriteLog, h.Resource, h.Action.Update) {
+		if h.Validate != nil {
+			errors, er2 := h.Validate(r.Context(), &model)
+			if !core.HasError(w, r, errors, er2, h.LogError, h.WriteLog, h.Resource, h.Action.Update) {
+				res, er3 := h.Service.Update(r.Context(), &model)
+				core.HandleResult(w, r, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Update)
+			}
+		} else {
 			res, er3 := h.Service.Update(r.Context(), &model)
 			core.HandleResult(w, r, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Update)
 		}
 	}
 }
 func (h *Handler[T, K]) Patch(w http.ResponseWriter, r *http.Request) {
-	r, model, jsonObj, er1 := BuildMapAndCheckId(w, r, h.Keys, h.Indexes, h.Builder.Update)
+	var updateFn func(context.Context, *T) error
+	if h.Builder != nil {
+		updateFn = h.Builder.Update
+	}
+	r, model, jsonObj, er1 := BuildMapAndCheckId(w, r, h.Keys, h.Indexes, updateFn)
 	if er1 == nil {
-		errors, er2 := h.Validate(r.Context(), &model)
-		if !core.HasError(w, r, errors, er2, h.LogError, h.WriteLog, h.Resource, h.Action.Patch) {
+		if h.Validate != nil {
+			errors, er2 := h.Validate(r.Context(), &model)
+			if !core.HasError(w, r, errors, er2, h.LogError, h.WriteLog, h.Resource, h.Action.Patch) {
+				res, er3 := h.Service.Patch(r.Context(), jsonObj)
+				core.HandleResult(w, r, jsonObj, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Patch)
+			}
+		} else {
 			res, er3 := h.Service.Patch(r.Context(), jsonObj)
 			core.HandleResult(w, r, jsonObj, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Patch)
 		}
@@ -170,6 +199,7 @@ func (h *Handler[T, K]) Delete(w http.ResponseWriter, r *http.Request) {
 	res, err := h.Service.Delete(r.Context(), id)
 	core.HandleDelete(w, r, res, err, h.LogError, h.WriteLog, h.Resource, h.Action.Delete)
 }
+
 func Decode[T any](w http.ResponseWriter, r *http.Request, obj *T, opts ...func(context.Context, *T) error) error {
 	er1 := json.NewDecoder(r.Body).Decode(obj)
 	defer r.Body.Close()

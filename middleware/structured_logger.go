@@ -4,20 +4,18 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
-	"strings"
 	"time"
 )
 
 type Formatter interface {
-	LogRequest(log func(context.Context, string, map[string]interface{}), r *http.Request, c LogConfig, fields map[string]interface{}, singleLog bool)
-	LogResponse(log func(context.Context, string, map[string]interface{}), r *http.Request, ww WrapResponseWriter, c LogConfig, startTime time.Time, response string, fields map[string]interface{}, singleLog bool)
+	LogRequest(log func(context.Context, string, map[string]interface{}), r *http.Request, fields map[string]interface{})
+	LogResponse(log func(context.Context, string, map[string]interface{}), r *http.Request, ww WrapResponseWriter, c LogConfig, startTime time.Time, response string, fields map[string]interface{}, includeRequest bool)
 }
 type StructuredLogger struct {
-	send       func(ctx context.Context, data []byte, attributes map[string]string) (string, error)
-	KeyMap     map[string]string
-	Goroutines bool
+	send   func(context.Context, []byte, map[string]string) error
+	KeyMap map[string]string
 }
 
 var fieldConfig FieldConfig
@@ -25,52 +23,32 @@ var fieldConfig FieldConfig
 func NewLogger() *StructuredLogger {
 	return &StructuredLogger{}
 }
-func NewLoggerWithSending(send func(context.Context, []byte, map[string]string) (string, error), goroutines bool, options ...map[string]string) *StructuredLogger {
+func NewLoggerWithSending(send func(context.Context, []byte, map[string]string) error, options ...map[string]string) *StructuredLogger {
 	var keyMap map[string]string
 	if len(options) >= 1 {
 		keyMap = options[0]
 	}
-	return &StructuredLogger{send: send, Goroutines: goroutines, KeyMap: keyMap}
+	return &StructuredLogger{send: send, KeyMap: keyMap}
 }
 
 func (l *StructuredLogger) LogResponse(log func(context.Context, string, map[string]interface{}), r *http.Request, ww WrapResponseWriter,
-	c LogConfig, t1 time.Time, response string, fields map[string]interface{}, singleLog bool) {
-	fs := BuildResponseBody(ww, c, t1, response, fields)
-	var msg string
-	if singleLog {
-		msg = r.Method + " " + r.RequestURI
-	} else {
-		msg = "Response " + r.Method + " " + r.RequestURI
-	}
-	log(r.Context(), msg, fs)
+	c LogConfig, t1 time.Time, response string, fields map[string]interface{}, includeRequest bool) {
+	BuildResponseBody(ww, c, t1, response, fields)
+	msg := r.Method + " " + r.RequestURI
+	log(r.Context(), msg, fields)
 	if l.send != nil {
-		if l.Goroutines {
-			go Send(r.Context(), l.send, msg, fields, l.KeyMap)
-		} else {
-			Send(r.Context(), l.send, msg, fields, l.KeyMap)
-		}
+		go Send(r.Context(), l.send, msg, fields, l.KeyMap)
 	}
 }
-func (l *StructuredLogger) LogRequest(log func(context.Context, string, map[string]interface{}), r *http.Request, c LogConfig, fields map[string]interface{}, singleLog bool) {
-	var fs map[string]interface{}
-	fs = fields
-	if len(c.Request) > 0 && r.Method != "GET" && r.Method != "DELETE" && !strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") {
-		fs = BuildRequestBody(r, c.Request, fields)
-	}
-	if !singleLog {
-		msg := "Request " + r.Method + " " + r.RequestURI
-		log(r.Context(), msg, fs)
-		if l.send != nil {
-			if l.Goroutines {
-				go Send(r.Context(), l.send, msg, fields, l.KeyMap)
-			} else {
-				Send(r.Context(), l.send, msg, fields, l.KeyMap)
-			}
-		}
+func (l *StructuredLogger) LogRequest(log func(context.Context, string, map[string]interface{}), r *http.Request, fields map[string]interface{}) {
+	msg := "Request " + r.Method + " " + r.RequestURI
+	log(r.Context(), msg, fields)
+	if l.send != nil {
+		go Send(r.Context(), l.send, msg, fields, l.KeyMap)
 	}
 }
 
-func BuildResponseBody(ww WrapResponseWriter, c LogConfig, t1 time.Time, response string, fields map[string]interface{}) map[string]interface{} {
+func BuildResponseBody(ww WrapResponseWriter, c LogConfig, t1 time.Time, response string, fields map[string]interface{}) {
 	if len(c.Response) > 0 {
 		fields[c.Response] = response
 	}
@@ -85,18 +63,19 @@ func BuildResponseBody(ww WrapResponseWriter, c LogConfig, t1 time.Time, respons
 	if len(c.Size) > 0 {
 		fields[c.Size] = ww.BytesWritten()
 	}
-	return fields
 }
-func BuildRequestBody(r *http.Request, request string, fields map[string]interface{}) map[string]interface{} {
+func BuildRequestBody(r *http.Request, request string, fields map[string]interface{}) {
+	if len(request) == 0 {
+		return
+	}
 	if r.Body != nil {
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(r.Body)
 		fields[request] = buf.String()
-		r.Body = ioutil.NopCloser(buf)
+		r.Body = io.NopCloser(buf)
 	}
-	return fields
 }
-func Send(ctx context.Context, send func(ctx context.Context, data []byte, attributes map[string]string) (string, error), msg string, fields map[string]interface{}, keyMap map[string]string) {
+func Send(ctx context.Context, send func(context.Context, []byte, map[string]string) error, msg string, fields map[string]interface{}, keyMap map[string]string) {
 	m2 := AddKeyFields(msg, fields, keyMap)
 	b, err := json.Marshal(m2)
 	if err == nil {

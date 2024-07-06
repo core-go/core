@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 )
@@ -35,7 +35,7 @@ func BuildContextWithMask(next http.Handler, mask func(fieldName, s string) stri
 		if fieldConfig.Map != nil && len(fieldConfig.Map) > 0 && r.Body != nil && (r.Method != "GET" || r.Method != "DELETE") {
 			buf := new(bytes.Buffer)
 			buf.ReadFrom(r.Body)
-			r.Body = ioutil.NopCloser(buf)
+			r.Body = io.NopCloser(buf)
 			var v interface{}
 			er2 := json.NewDecoder(strings.NewReader(buf.String())).Decode(&v)
 			if er2 != nil {
