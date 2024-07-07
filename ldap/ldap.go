@@ -5,10 +5,11 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"gopkg.in/ldap.v3"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/go-ldap/ldap/v3"
 )
 
 type LdapInfoLoader struct {
@@ -38,12 +39,12 @@ func NewConn(c LdapConfig) (*ldap.Conn, error) {
 	}
 	if c.TLS {
 		if c.InsecureSkipVerify {
-			l, err = ldap.DialTLS("tcp", c.Server, &tls.Config{ServerName: c.Server, InsecureSkipVerify: true})
+			l, err = ldap.DialURL(c.Server, ldap.DialWithTLSConfig(&tls.Config{ServerName: c.Server, InsecureSkipVerify: true}))
 		} else {
-			l, err = ldap.DialTLS("tcp", c.Server, &tls.Config{ServerName: c.Server})
+			l, err = ldap.DialURL(c.Server, ldap.DialWithTLSConfig(&tls.Config{ServerName: c.Server}))
 		}
 	} else {
-		l, err = ldap.Dial("tcp", c.Server)
+		l, err = ldap.DialURL(c.Server)
 		if err == nil {
 			if c.StartTLS {
 				if c.InsecureSkipVerify {

@@ -1,4 +1,4 @@
-package core
+package server
 
 import (
 	"crypto/tls"
@@ -66,7 +66,7 @@ func CreateServer(conf ServerConf, handler http.Handler, options ...*tls.Config)
 	if conf.WriteTimeout != nil {
 		srv.WriteTimeout = *conf.WriteTimeout
 	}
-	if conf.IdleTimeout != nil  {
+	if conf.IdleTimeout != nil {
 		srv.IdleTimeout = *conf.IdleTimeout
 	}
 	if conf.MaxHeaderBytes != nil && *conf.MaxHeaderBytes > 0 {
