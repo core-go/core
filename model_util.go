@@ -2,83 +2,13 @@ package core
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 )
-
-func SetValue(model interface{}, index int, value interface{}) (interface{}, error) {
-	vo := reflect.Indirect(reflect.ValueOf(model))
-	if vo.Kind() == reflect.Ptr {
-		vo = reflect.Indirect(vo)
-	}
-
-	vo.Field(index).Set(reflect.ValueOf(value))
-	return model, nil
-}
-
-func SetField(v interface{}, name string, value string) error {
-	// v must be a pointer to a struct
-	rv := reflect.ValueOf(v)
-	if rv.Kind() != reflect.Ptr || rv.Elem().Kind() != reflect.Struct {
-		return errors.New("v must be pointer to struct")
-	}
-
-	// Dereference pointer
-	rv = rv.Elem()
-
-	// Lookup field by name
-	fv := rv.FieldByName(name)
-	if !fv.IsValid() {
-		return fmt.Errorf("not a field name: %s", name)
-	}
-
-	// Field must be exported
-	if !fv.CanSet() {
-		return fmt.Errorf("cannot set field %s", name)
-	}
-
-	i, err := strconv.ParseInt(value, 10, 64)
-	if err != nil {
-		fv.SetString(value)
-	} else {
-		fv.SetInt(i)
-	}
-
-	return nil
-}
-
-func GetJsonName(modelType reflect.Type, fieldName string) (string, bool) {
-	field, ok := modelType.FieldByName(fieldName)
-	if ok {
-		tag1, ok1 := field.Tag.Lookup("json")
-		if ok1 {
-			return strings.Split(tag1, ",")[0], ok1
-		}
-	}
-	return "", false
-}
 
 func GetValue(model interface{}, index int) (interface{}, string, error) {
 	valueObject := reflect.Indirect(reflect.ValueOf(model))
 	return reflect.Indirect(valueObject.Field(index)).Interface(), valueObject.Type().Field(index).Name, nil
-}
-
-func GetField(value interface{}, jsonName string) (int, string) {
-	val := reflect.Indirect(reflect.ValueOf(value))
-	for i := 0; i < val.Type().NumField(); i++ {
-		field := val.Type().Field(i)
-		tag1, ok1 := field.Tag.Lookup("json")
-		if ok1 {
-			v := strings.Split(tag1, ",")[0]
-			if v == jsonName {
-				return i, field.Name
-			}
-		}
-	}
-	return -1, ""
 }
 
 func BuildMapField(modelType reflect.Type) ([]string, map[string]int, map[string]int) {
@@ -114,7 +44,7 @@ func BuildMapField(modelType reflect.Type) ([]string, map[string]int, map[string
 	return idFields, m1, m2
 }
 
-func FromContext(ctx context.Context, key string, options...string) string {
+func FromContext(ctx context.Context, key string, options ...string) string {
 	var authorization string
 	if len(options) > 0 {
 		authorization = options[0]

@@ -8,11 +8,11 @@ import (
 	"strconv"
 )
 
-func StartServer(conf ServerConf, handler http.Handler, options ...*tls.Config) {
-	log.Println(ServerInfo(conf))
-	srv := CreateServer(conf, handler, options...)
-	if conf.Secure && len(conf.Key) > 0 && len(conf.Cert) > 0 {
-		err := srv.ListenAndServeTLS(conf.Cert, conf.Key)
+func StartServer(cfg ServerConfig, handler http.Handler, options ...*tls.Config) {
+	log.Println(ServerInfo(cfg))
+	srv := CreateServer(cfg, handler, options...)
+	if cfg.Secure && len(cfg.Key) > 0 && len(cfg.Cert) > 0 {
+		err := srv.ListenAndServeTLS(cfg.Cert, cfg.Key)
 		if err != nil {
 			fmt.Println(err.Error())
 			panic(err)
@@ -32,23 +32,23 @@ func Addr(port *int64) string {
 	}
 	return server
 }
-func ServerInfo(conf ServerConf) string {
-	if len(conf.Version) > 0 {
-		if conf.Port != nil && *conf.Port >= 0 {
-			return "Start service: " + conf.Name + " at port " + strconv.FormatInt(*conf.Port, 10) + " with version " + conf.Version
+func ServerInfo(cfg ServerConfig) string {
+	if len(cfg.Version) > 0 {
+		if cfg.Port != nil && *cfg.Port >= 0 {
+			return "Start service: " + cfg.Name + " at port " + strconv.FormatInt(*cfg.Port, 10) + " with version " + cfg.Version
 		} else {
-			return "Start service: " + conf.Name + " with version " + conf.Version
+			return "Start service: " + cfg.Name + " with version " + cfg.Version
 		}
 	} else {
-		if conf.Port != nil && *conf.Port >= 0 {
-			return "Start service: " + conf.Name + " at port " + strconv.FormatInt(*conf.Port, 10)
+		if cfg.Port != nil && *cfg.Port >= 0 {
+			return "Start service: " + cfg.Name + " at port " + strconv.FormatInt(*cfg.Port, 10)
 		} else {
-			return "Start service: " + conf.Name
+			return "Start service: " + cfg.Name
 		}
 	}
 }
-func CreateServer(conf ServerConf, handler http.Handler, options ...*tls.Config) *http.Server {
-	addr := Addr(conf.Port)
+func CreateServer(cfg ServerConfig, handler http.Handler, options ...*tls.Config) *http.Server {
+	addr := Addr(cfg.Port)
 	srv := http.Server{
 		Addr:      addr,
 		Handler:   nil,
@@ -57,20 +57,20 @@ func CreateServer(conf ServerConf, handler http.Handler, options ...*tls.Config)
 	if len(options) > 0 && options[0] != nil {
 		srv.TLSConfig = options[0]
 	}
-	if conf.ReadTimeout != nil {
-		srv.ReadTimeout = *conf.ReadTimeout
+	if cfg.ReadTimeout != nil {
+		srv.ReadTimeout = *cfg.ReadTimeout
 	}
-	if conf.ReadHeaderTimeout != nil {
-		srv.ReadHeaderTimeout = *conf.ReadHeaderTimeout
+	if cfg.ReadHeaderTimeout != nil {
+		srv.ReadHeaderTimeout = *cfg.ReadHeaderTimeout
 	}
-	if conf.WriteTimeout != nil {
-		srv.WriteTimeout = *conf.WriteTimeout
+	if cfg.WriteTimeout != nil {
+		srv.WriteTimeout = *cfg.WriteTimeout
 	}
-	if conf.IdleTimeout != nil {
-		srv.IdleTimeout = *conf.IdleTimeout
+	if cfg.IdleTimeout != nil {
+		srv.IdleTimeout = *cfg.IdleTimeout
 	}
-	if conf.MaxHeaderBytes != nil && *conf.MaxHeaderBytes > 0 {
-		srv.MaxHeaderBytes = *conf.MaxHeaderBytes
+	if cfg.MaxHeaderBytes != nil && *cfg.MaxHeaderBytes > 0 {
+		srv.MaxHeaderBytes = *cfg.MaxHeaderBytes
 	}
 	srv.Handler = handler
 	return &srv

@@ -117,7 +117,7 @@ func MatchId(r *http.Request, body interface{}, keysJson []string, mapIndex map[
 								field.Set(reflect.ValueOf(i))
 							}
 						case "int":
-							i, err :=  strconv.Atoi(paramId)
+							i, err := strconv.Atoi(paramId)
 							if err != nil {
 								return errors.New("invalid key: " + primaryField)
 							}
@@ -141,14 +141,36 @@ func MatchId(r *http.Request, body interface{}, keysJson []string, mapIndex map[
 						}
 					}
 				} else {
-					if strings.Index(idType, "string") >= 0 {
-						if !reflect.DeepEqual(field.Interface(), paramId) {
+					v := field.Interface()
+					sv, ok := v.(string)
+					if ok {
+						if len(sv) == 0 {
+							field.Set(reflect.ValueOf(paramId))
+						} else if sv != paramId {
 							return errors.New("conflict key in param and body: " + primaryField)
 						}
 					} else {
 						idValue, err := strconv.ParseInt(paramId, 10, 64)
-						if err != nil || field.Int() != idValue {
-							return errors.New("conflict key in param and body: " + primaryField)
+						if err != nil {
+							return errors.New("Parameter '" + primaryField + "' must be an integer : " + paramId)
+						}
+						i := field.Int()
+						if i != 0 {
+							if i != idValue {
+								return errors.New("conflict key in param and body: " + primaryField)
+							}
+						} else {
+							switch idType {
+							case "int64":
+								field.Set(reflect.ValueOf(idValue))
+							case "int":
+								i2 := int(idValue)
+								field.Set(reflect.ValueOf(i2))
+							case "int32":
+								i2 := int32(idValue)
+								field.Set(reflect.ValueOf(i2))
+							default:
+							}
 						}
 					}
 				}

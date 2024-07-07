@@ -8,7 +8,6 @@ import (
 
 const (
 	Method = "method"
-	Update = "update"
 	Patch  = "patch"
 )
 
@@ -62,14 +61,6 @@ type Controller interface {
 	Patch(w http.ResponseWriter, r *http.Request)
 	Delete(w http.ResponseWriter, r *http.Request)
 }
-type SimpleService interface {
-	Load(ctx context.Context, id interface{}) (interface{}, error)
-	Insert(ctx context.Context, model interface{}) (int64, error)
-	Update(ctx context.Context, model interface{}) (int64, error)
-	Patch(ctx context.Context, model map[string]interface{}) (int64, error)
-	Delete(ctx context.Context, id interface{}) (int64, error)
-}
-
 type ActionConfig struct {
 	Load   *string `yaml:"load" mapstructure:"load" json:"load,omitempty" gorm:"column:load" bson:"load,omitempty" dynamodbav:"load,omitempty" firestore:"load,omitempty"`
 	Create string  `yaml:"create" mapstructure:"create" json:"create,omitempty" gorm:"column:create" bson:"create,omitempty" dynamodbav:"create,omitempty" firestore:"create,omitempty"`
@@ -179,20 +170,15 @@ type Params struct {
 	Action    ActionConfig
 	Error     func(context.Context, string, ...map[string]interface{})
 	Log       func(context.Context, string, string, bool, string) error
-	Validate  func(context.Context, interface{}) ([]ErrorMessage, error)
 }
 
 func MakeParams(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), action *ActionConfig, options ...func(context.Context, string, string, bool, string) error) *Params {
-	return CreateParams(modelType, logError, nil, action, options...)
+	return CreateParams(modelType, logError, action, options...)
 }
-func InitParams(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), options ...func(context.Context, interface{}) ([]ErrorMessage, error)) *Params {
-	var validate func(context.Context, interface{}) ([]ErrorMessage, error)
-	if len(options) > 0 {
-		validate = options[0]
-	}
-	return CreateParams(modelType, logError, validate, nil)
+func InitParams(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{})) *Params {
+	return CreateParams(modelType, logError, nil)
 }
-func CreateParams(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]ErrorMessage, error), action *ActionConfig, options ...func(context.Context, string, string, bool, string) error) *Params {
+func CreateParams(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), action *ActionConfig, options ...func(context.Context, string, string, bool, string) error) *Params {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 {
 		writeLog = options[0]
@@ -200,7 +186,7 @@ func CreateParams(modelType reflect.Type, logError func(context.Context, string,
 	a := InitializeAction(action)
 	resource := BuildResourceName(modelType.Name())
 	keys, indexes, _ := BuildMapField(modelType)
-	return &Params{Keys: keys, Indexes: indexes, ModelType: modelType, Resource: resource, Action: a, Error: logError, Log: writeLog, Validate: validate}
+	return &Params{Keys: keys, Indexes: indexes, ModelType: modelType, Resource: resource, Action: a, Error: logError, Log: writeLog}
 }
 
 func CheckId(w http.ResponseWriter, r *http.Request, body interface{}, keysJson []string, mapIndex map[string]int, options ...func(context.Context, interface{}) error) error {

@@ -2,7 +2,7 @@ package server
 
 import "time"
 
-type ServerConf struct {
+type ServerConfig struct {
 	AppId             string         `yaml:"app_id" mapstructure:"app_id" json:"appId,omitempty" gorm:"column:appid" bson:"appId,omitempty" dynamodbav:"appId,omitempty" firestore:"appId,omitempty"`
 	Name              string         `yaml:"name" mapstructure:"name" json:"name,omitempty" gorm:"column:name" bson:"name,omitempty" dynamodbav:"name,omitempty" firestore:"name,omitempty"`
 	Version           string         `yaml:"version" mapstructure:"version" json:"version,omitempty" gorm:"column:version" bson:"version,omitempty" dynamodbav:"version,omitempty" firestore:"version,omitempty"`
