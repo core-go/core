@@ -1,4 +1,4 @@
-package impt
+package importer
 
 import (
 	"bufio"
@@ -9,15 +9,15 @@ import (
 )
 
 type DelimiterFileReader struct {
-	FileName  string
+	FileName string
 }
 
-func NewDelimiterFileReader(buildFileName func() string) (*DelimiterFileReader,error) {
-	fileName := buildFileName();
+func NewDelimiterFileReader(buildFileName func() string) (*DelimiterFileReader, error) {
+	fileName := buildFileName()
 	if len(strings.TrimSpace(fileName)) == 0 {
 		return nil, errors.New("file name cannot be empty")
 	}
-	return &DelimiterFileReader{FileName: fileName}, nil;
+	return &DelimiterFileReader{FileName: fileName}, nil
 }
 
 func (fr *DelimiterFileReader) Read(next func(lines string, err error, numLine int) error) error {

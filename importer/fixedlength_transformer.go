@@ -1,4 +1,4 @@
-package impt
+package importer
 
 import (
 	"context"
@@ -11,16 +11,17 @@ import (
 	"time"
 )
 
-func NewFixedLengthFormatter(modelType reflect.Type) (*FixedLengthFormatter, error) {
+func NewFixedLengthTransformer[T any]() (*FixedLengthTransformer[T], error) {
+	var t T
+	modelType := reflect.TypeOf(t)
 	formatCols, err := GetIndexes(modelType, "format")
 	if err != nil {
 		return nil, err
 	}
-	return &FixedLengthFormatter{modelType: modelType, formatCols: formatCols}, nil
+	return &FixedLengthTransformer[T]{formatCols: formatCols}, nil
 }
 
-type FixedLengthFormatter struct {
-	modelType  reflect.Type
+type FixedLengthTransformer[T any] struct {
 	formatCols map[int]*FixedLength
 }
 type FixedLength struct {
@@ -43,38 +44,38 @@ func GetIndexes(modelType reflect.Type, tagName string) (map[int]*FixedLength, e
 			if err != nil || length < 0 {
 				return ma, err
 			}
-			v := &FixedLength{Length: length}
-			tagScale, sOk := field.Tag.Lookup("scale")
-			if sOk {
-				scale, err := strconv.Atoi(tagScale)
-				if err == nil {
-					v.Scale = scale
-				}
-			}
-			if len(tagValue) > 0 {
-				if strings.Contains(tagValue, "dateFormat:") {
-					tagValue = strings.ReplaceAll(tagValue, "dateFormat:", "")
-				} else if sOk == false && strings.Contains(tagValue, "scale:") {
-					tagValue = strings.ReplaceAll(tagValue, "scale:", "")
-					scale, err1 := strconv.Atoi(tagValue)
-					if err1 != nil {
-						return ma, err1
+			if length > 0 {
+				v := &FixedLength{Length: length}
+				tagScale, sOk := field.Tag.Lookup("scale")
+				if sOk {
+					scale, err := strconv.Atoi(tagScale)
+					if err == nil {
+						v.Scale = scale
 					}
-					v.Scale = scale
 				}
-				v.Format = tagValue
+				if len(tagValue) > 0 {
+					if strings.Contains(tagValue, "dateFormat:") {
+						tagValue = strings.ReplaceAll(tagValue, "dateFormat:", "")
+					} else if sOk == false && strings.Contains(tagValue, "scale:") {
+						tagValue = strings.ReplaceAll(tagValue, "scale:", "")
+						scale, err1 := strconv.Atoi(tagValue)
+						if err1 != nil {
+							return ma, err1
+						}
+						v.Scale = scale
+					}
+					v.Format = tagValue
+				}
+				ma[i] = v
 			}
-			ma[i] = v
 		}
 	}
 	return ma, nil
 }
-func (f FixedLengthFormatter) ToStruct(ctx context.Context, line string, res interface{}) (error) {
-	err := ScanLineFixLength(line, res, f.formatCols)
-	if err != nil {
-		return err
-	}
-	return err
+func (f FixedLengthTransformer[T]) Transform(ctx context.Context, line string) (T, error) {
+	var res T
+	err := ScanLineFixLength(line, &res, f.formatCols)
+	return res, err
 }
 
 func ScanLineFixLength(line string, record interface{}, formatCols map[int]*FixedLength) error {
@@ -103,6 +104,31 @@ func ScanLineFixLength(line string, record interface{}, formatCols map[int]*Fixe
 						} else {
 							f.SetString(value)
 						}
+					case "time.Time", "*time.Time":
+						if format, ok := formatCols[j]; ok {
+							var fieldDate time.Time
+							var err error
+							if len(format.Format) > 0 {
+								fieldDate, err = time.Parse(format.Format, value)
+							} else {
+								fieldDate, err = time.Parse(DateLayout, value)
+							}
+							if err != nil {
+								return err
+							}
+							if f.Kind() == reflect.Ptr {
+								f.Set(reflect.ValueOf(&fieldDate))
+							} else {
+								f.Set(reflect.ValueOf(fieldDate))
+							}
+						}
+					case "float64", "*float64":
+						floatValue, _ := strconv.ParseFloat(value, 64)
+						if f.Kind() == reflect.Ptr {
+							f.Set(reflect.ValueOf(&floatValue))
+						} else {
+							f.SetFloat(floatValue)
+						}
 					case "int64", "*int64":
 						value, _ := strconv.ParseInt(value, 10, 64)
 						if f.Kind() == reflect.Ptr {
@@ -123,31 +149,6 @@ func ScanLineFixLength(line string, record interface{}, formatCols map[int]*Fixe
 							f.Set(reflect.ValueOf(&boolValue))
 						} else {
 							f.SetBool(boolValue)
-						}
-					case "float64", "*float64":
-						floatValue, _ := strconv.ParseFloat(value, 64)
-						if f.Kind() == reflect.Ptr {
-							f.Set(reflect.ValueOf(&floatValue))
-						} else {
-							f.SetFloat(floatValue)
-						}
-					case "time.Time", "*time.Time":
-						if format, ok := formatCols[j]; ok {
-							var fieldDate time.Time
-							var err error
-							if len(format.Format) > 0 {
-								fieldDate, err = time.Parse(format.Format, value)
-							} else {
-								fieldDate, err = time.Parse(DateLayout, value)
-							}
-							if err != nil {
-								return err
-							}
-							if f.Kind() == reflect.Ptr {
-								f.Set(reflect.ValueOf(&fieldDate))
-							} else {
-								f.Set(reflect.ValueOf(fieldDate))
-							}
 						}
 					case "big.Float", "*big.Float":
 						if formatf, ok := formatCols[j]; ok {
