@@ -23,10 +23,10 @@ const (
 	driverNotSupport = "no support"
 )
 
-type FieldValidator struct {
+type FieldValidator[T any] struct {
 	db             *sql.DB
 	driver         string
-	validate       func(ctx context.Context, model interface{}) ([]sv.ErrorMessage, error)
+	validate       func(ctx context.Context, model T) ([]sv.ErrorMessage, error)
 	modelType      reflect.Type
 	tableName      string
 	fieldName      string
@@ -36,13 +36,21 @@ type FieldValidator struct {
 	keyIndexes     map[string]int
 }
 
-func NewUniqueFieldValidator(db *sql.DB, tableName string, columnName string, modelType reflect.Type, options...func(context.Context, interface{}) ([]sv.ErrorMessage, error)) *FieldValidator {
-	var validate func(context.Context, interface{}) ([]sv.ErrorMessage, error)
+func NewUniqueFieldValidator[T any](db *sql.DB, tableName string, columnName string, options ...func(context.Context, T) ([]sv.ErrorMessage, error)) (*FieldValidator[T], error) {
+	var validate func(context.Context, T) ([]sv.ErrorMessage, error)
 	if len(options) > 0 {
 		validate = options[0]
 	}
 	driver := getDriver(db)
-	keyIndexes, _ := getColumnIndexes(modelType)
+	var t T
+	modelType := reflect.TypeOf(t)
+	if modelType.Kind() == reflect.Ptr {
+		modelType = modelType.Elem()
+	}
+	keyIndexes, err := getColumnIndexes(modelType)
+	if err != nil {
+		return nil, err
+	}
 	idColumnFieldsName, _ := findPrimaryKeys(modelType)
 
 	columnName = strings.ToLower(columnName)
@@ -58,7 +66,7 @@ func NewUniqueFieldValidator(db *sql.DB, tableName string, columnName string, mo
 		}
 	}
 
-	return &FieldValidator{
+	return &FieldValidator[T]{
 		db:             db,
 		driver:         driver,
 		validate:       validate,
@@ -68,9 +76,9 @@ func NewUniqueFieldValidator(db *sql.DB, tableName string, columnName string, mo
 		jsonFieldName:  jsonFieldName,
 		idColumnFields: idColumnFieldsName,
 		keyIndexes:     keyIndexes,
-	}
+	}, nil
 }
-func (v *FieldValidator) Validate(ctx context.Context, model interface{}) ([]sv.ErrorMessage, error) {
+func (v *FieldValidator[T]) Validate(ctx context.Context, model T) ([]sv.ErrorMessage, error) {
 	var errs []sv.ErrorMessage
 	var err error
 	if v.validate != nil {

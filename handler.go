@@ -145,13 +145,12 @@ type Parameters struct {
 	Action      ActionConf
 	Error       func(context.Context, string, ...map[string]interface{})
 	Log         func(context.Context, string, string, bool, string) error
-	Validate    func(context.Context, interface{}) ([]ErrorMessage, error)
 	ParamIndex  map[string]int
 	FilterIndex int
 	CSVIndex    map[string]int
 }
 
-func CreateParameters(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), validate func(context.Context, interface{}) ([]ErrorMessage, error), action *ActionConf, paramIndex map[string]int, filterIndex int, csvIndex map[string]int, options ...func(context.Context, string, string, bool, string) error) *Parameters {
+func CreateParameters(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), action *ActionConf, paramIndex map[string]int, filterIndex int, csvIndex map[string]int, options ...func(context.Context, string, string, bool, string) error) *Parameters {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 {
 		writeLog = options[0]
@@ -159,7 +158,7 @@ func CreateParameters(modelType reflect.Type, logError func(context.Context, str
 	a := InitAction(action)
 	resource := BuildResourceName(modelType.Name())
 	keys, indexes, _ := BuildMapField(modelType)
-	return &Parameters{Keys: keys, Indexes: indexes, ModelType: modelType, Resource: resource, Action: a, Error: logError, Log: writeLog, Validate: validate, ParamIndex: paramIndex, FilterIndex: filterIndex, CSVIndex: csvIndex}
+	return &Parameters{Keys: keys, Indexes: indexes, ModelType: modelType, Resource: resource, Action: a, Error: logError, Log: writeLog, ParamIndex: paramIndex, FilterIndex: filterIndex, CSVIndex: csvIndex}
 }
 
 type Params struct {
@@ -230,14 +229,6 @@ func HandleDelete(w http.ResponseWriter, r *http.Request, count int64, err error
 	} else {
 		ReturnAndLog(w, r, http.StatusConflict, count, writeLog, false, resource, action, "Conflict")
 	}
-}
-func BodyToJsonWithBuild(w http.ResponseWriter, r *http.Request, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int, buildToPatch func(context.Context, interface{}) error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) (map[string]interface{}, error) {
-	body, err := BodyToJsonMap(r, structBody, body, jsonIds, mapIndex, buildToPatch)
-	if err != nil {
-		// http.Error(w, "Invalid Data: "+err.Error(), http.StatusBadRequest)
-		RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, options...)
-	}
-	return body, err
 }
 func BodyToJson(w http.ResponseWriter, r *http.Request, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int) (map[string]interface{}, error) {
 	body, err := BodyToJsonMap(r, structBody, body, jsonIds, mapIndex)
@@ -347,14 +338,14 @@ func AfterCreated(w http.ResponseWriter, r *http.Request, body interface{}, coun
 		}
 		return
 	}
-	if count <= 0 {
-		ReturnAndLog(w, r, http.StatusConflict, count, writeLog, false, resource, action, "Duplicate Key")
-	} else {
+	if count > 0 {
 		if IsNil(body) {
 			Succeed(w, r, http.StatusCreated, count, writeLog, resource, action)
 		} else {
 			Succeed(w, r, http.StatusCreated, body, writeLog, resource, action)
 		}
+	} else {
+		ReturnAndLog(w, r, http.StatusConflict, count, writeLog, false, resource, action, "Duplicate Key")
 	}
 }
 func Respond(w http.ResponseWriter, r *http.Request, code int, result interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
@@ -371,34 +362,3 @@ func Respond(w http.ResponseWriter, r *http.Request, code int, result interface{
 		Succeed(w, r, code, result, writeLog, resource, action)
 	}
 }
-
-/*
-func Return222(w http.ResponseWriter, r *http.Request, code int, result ResultInfo, status StatusConfig, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
-	var resource, action string
-	if len(options) > 0 && len(options[0]) > 0 {
-		resource = options[0]
-	}
-	if len(options) > 1 && len(options[1]) > 0 {
-		action = options[1]
-	}
-	if err != nil {
-		RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
-	} else {
-		if code == http.StatusCreated {
-			if result.Status == status.DuplicateKey {
-				Succeed(w, r, http.StatusConflict, result, writeLog, resource, action)
-			} else {
-				Succeed(w, r, code, result, writeLog, resource, action)
-			}
-		} else {
-			if result.Status == status.NotFound {
-				Succeed(w, r, http.StatusNotFound, result, writeLog, resource, action)
-			} else if result.Status == status.VersionError {
-				Succeed(w, r, http.StatusConflict, result, writeLog, resource, action)
-			} else {
-				Succeed(w, r, code, result, writeLog, resource, action)
-			}
-		}
-	}
-}
-*/

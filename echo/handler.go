@@ -14,6 +14,7 @@ const (
 	Update = "update"
 	Patch  = "patch"
 )
+
 func IsPatch(ctx context.Context) bool {
 	m := ctx.Value(Method)
 	if m != nil && m.(string) == Patch {
@@ -55,6 +56,7 @@ type PatchHandler struct {
 	ResourceType string
 	Activity     string
 }
+
 func (h *PatchHandler) Patch(ctx echo.Context) error {
 	r := ctx.Request()
 	r = r.WithContext(context.WithValue(r.Context(), Method, Patch))
@@ -362,37 +364,7 @@ func Respond(ctx echo.Context, code int, result interface{}, err error, logError
 		return Succeed(ctx, code, result, writeLog, resource, action)
 	}
 }
-/*
-func Return222(ctx echo.Context, code int, result sv.ResultInfo, status sv.StatusConfig, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
-	var resource, action string
-	if len(options) > 0 && len(options[0]) > 0 {
-		resource = options[0]
-	}
-	if len(options) > 1 && len(options[1]) > 0 {
-		action = options[1]
-	}
-	if err != nil {
-		RespondAndLog(ctx, http.StatusInternalServerError, sv.InternalServerError, err, logError, writeLog, resource, action)
-	} else {
-		if code == http.StatusCreated {
-			if result.Status == status.DuplicateKey {
-				Succeed(ctx, http.StatusConflict, result, writeLog, resource, action)
-			} else {
-				Succeed(ctx, code, result, writeLog, resource, action)
-			}
-		} else {
-			if result.Status == status.NotFound {
-				Succeed(ctx, http.StatusNotFound, result, writeLog, resource, action)
-			} else if result.Status == status.VersionError {
-				Succeed(ctx, http.StatusConflict, result, writeLog, resource, action)
-			} else {
-				Succeed(ctx, code, result, writeLog, resource, action)
-			}
-		}
-	}
-}
-*/
-func Result(ctx echo.Context, code int, result interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), opts...interface{}) error {
+func Result(ctx echo.Context, code int, result interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), opts ...interface{}) error {
 	if err != nil {
 		if len(opts) > 0 && opts[0] != nil {
 			b, er2 := json.Marshal(opts[0])

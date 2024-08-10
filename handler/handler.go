@@ -133,8 +133,7 @@ func (h *Handler[T, K]) Create(w http.ResponseWriter, r *http.Request) {
 	if h.Builder != nil {
 		createFn = h.Builder.Create
 	}
-	var model T
-	er1 := Decode[T](w, r, &model, createFn)
+	model, er1 := Decode[T](w, r, createFn)
 	if er1 == nil {
 		if h.Validate != nil {
 			errors, er2 := h.Validate(r.Context(), &model)
@@ -153,7 +152,7 @@ func (h *Handler[T, K]) Update(w http.ResponseWriter, r *http.Request) {
 	if h.Builder != nil {
 		updateFn = h.Builder.Update
 	}
-	model, er1 := DecodeAndCheckId(w, r, h.Keys, h.Indexes, updateFn)
+	model, er1 := DecodeAndCheckId[T](w, r, h.Keys, h.Indexes, updateFn)
 	if er1 == nil {
 		if h.Validate != nil {
 			errors, er2 := h.Validate(r.Context(), &model)
@@ -172,7 +171,7 @@ func (h *Handler[T, K]) Patch(w http.ResponseWriter, r *http.Request) {
 	if h.Builder != nil {
 		updateFn = h.Builder.Update
 	}
-	r, model, jsonObj, er1 := BuildMapAndCheckId(w, r, h.Keys, h.Indexes, updateFn)
+	r, model, jsonObj, er1 := BuildMapAndCheckId[T](w, r, h.Keys, h.Indexes, updateFn)
 	if er1 == nil {
 		if h.Validate != nil {
 			errors, er2 := h.Validate(r.Context(), &model)
@@ -200,21 +199,22 @@ func (h *Handler[T, K]) Delete(w http.ResponseWriter, r *http.Request) {
 	core.HandleDelete(w, r, res, err, h.LogError, h.WriteLog, h.Resource, h.Action.Delete)
 }
 
-func Decode[T any](w http.ResponseWriter, r *http.Request, obj *T, opts ...func(context.Context, *T) error) error {
-	er1 := json.NewDecoder(r.Body).Decode(obj)
+func Decode[T any](w http.ResponseWriter, r *http.Request, opts ...func(context.Context, *T) error) (T, error) {
+	var obj T
+	er1 := json.NewDecoder(r.Body).Decode(&obj)
 	defer r.Body.Close()
 	if er1 != nil {
 		http.Error(w, er1.Error(), http.StatusBadRequest)
-		return er1
+		return obj, er1
 	}
 	if len(opts) > 0 && opts[0] != nil {
-		er2 := opts[0](r.Context(), obj)
+		er2 := opts[0](r.Context(), &obj)
 		if er2 != nil {
 			http.Error(w, er2.Error(), http.StatusInternalServerError)
 		}
-		return er2
+		return obj, er2
 	}
-	return nil
+	return obj, nil
 }
 func DecodeAndCheckId[T any](w http.ResponseWriter, r *http.Request, keysJson []string, mapIndex map[string]int, options ...func(context.Context, *T) error) (T, error) {
 	var obj T
