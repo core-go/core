@@ -8,26 +8,26 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"time"
 )
 
-func NewFixedLengthTransformer[T any]() (*FixedLengthTransformer[T], error) {
-	var t T
-	modelType := reflect.TypeOf(t)
+func NewFixedLengthFormatter(modelType reflect.Type) (*FixedLengthFormatter, error) {
 	formatCols, err := GetIndexes(modelType, "format")
 	if err != nil {
 		return nil, err
 	}
-	return &FixedLengthTransformer[T]{formatCols: formatCols}, nil
+	return &FixedLengthFormatter{modelType: modelType, formatCols: formatCols}, nil
 }
 
-type FixedLengthTransformer[T any] struct {
+type FixedLengthFormatter struct {
+	modelType  reflect.Type
 	formatCols map[int]*FixedLength
 }
 type FixedLength struct {
+	TypeName string
 	Format string
 	Length int
 	Scale  int
+	Handle func(f reflect.Value, line string, format string, scale int) error
 }
 
 func GetIndexes(modelType reflect.Type, tagName string) (map[int]*FixedLength, error) {
@@ -66,16 +66,22 @@ func GetIndexes(modelType reflect.Type, tagName string) (map[int]*FixedLength, e
 					}
 					v.Format = tagValue
 				}
+				v.TypeName = field.Type.String()
+				fn, ok := funcMap[v.TypeName]
+				if ok {
+					v.Handle = fn
+				} else {
+					v.Handle = HandleUnknown
+				}
 				ma[i] = v
 			}
 		}
 	}
 	return ma, nil
 }
-func (f FixedLengthTransformer[T]) Transform(ctx context.Context, line string) (T, error) {
-	var res T
-	err := ScanLineFixLength(line, &res, f.formatCols)
-	return res, err
+func (f FixedLengthFormatter) ToStruct(ctx context.Context, line string, res interface{}) error {
+	err := ScanLineFixLength(line, res, f.formatCols)
+	return err
 }
 
 func ScanLineFixLength(line string, record interface{}, formatCols map[int]*FixedLength) error {
@@ -96,91 +102,9 @@ func ScanLineFixLength(line string, record interface{}, formatCols map[int]*Fixe
 			f := s.Field(j)
 			if f.IsValid() {
 				if f.CanSet() {
-					typef := field.Type.String()
-					switch typef {
-					case "string", "*string":
-						if f.Kind() == reflect.Ptr {
-							f.Set(reflect.ValueOf(&value))
-						} else {
-							f.SetString(value)
-						}
-					case "time.Time", "*time.Time":
-						if format, ok := formatCols[j]; ok {
-							var fieldDate time.Time
-							var err error
-							if len(format.Format) > 0 {
-								fieldDate, err = time.Parse(format.Format, value)
-							} else {
-								fieldDate, err = time.Parse(DateLayout, value)
-							}
-							if err != nil {
-								return err
-							}
-							if f.Kind() == reflect.Ptr {
-								f.Set(reflect.ValueOf(&fieldDate))
-							} else {
-								f.Set(reflect.ValueOf(fieldDate))
-							}
-						}
-					case "float64", "*float64":
-						floatValue, _ := strconv.ParseFloat(value, 64)
-						if f.Kind() == reflect.Ptr {
-							f.Set(reflect.ValueOf(&floatValue))
-						} else {
-							f.SetFloat(floatValue)
-						}
-					case "int64", "*int64":
-						value, _ := strconv.ParseInt(value, 10, 64)
-						if f.Kind() == reflect.Ptr {
-							f.Set(reflect.ValueOf(&value))
-						} else {
-							f.SetInt(value)
-						}
-					case "int", "*int":
-						value, _ := strconv.Atoi(value)
-						if f.Kind() == reflect.Ptr {
-							f.Set(reflect.ValueOf(&value))
-						} else {
-							f.Set(reflect.ValueOf(value))
-						}
-					case "bool", "*bool":
-						boolValue, _ := strconv.ParseBool(value)
-						if f.Kind() == reflect.Ptr {
-							f.Set(reflect.ValueOf(&boolValue))
-						} else {
-							f.SetBool(boolValue)
-						}
-					case "big.Float", "*big.Float":
-						if formatf, ok := formatCols[j]; ok {
-							bf := new(big.Float)
-							if bfv, ok1 := bf.SetString(value); ok1 {
-								if formatf.Scale >= 0 && bfv != nil {
-									k := Round(*bf, formatf.Scale)
-									bf = &k
-								}
-								if f.Kind() == reflect.Ptr {
-									f.Set(reflect.ValueOf(bf))
-								} else {
-									if bf != nil {
-										f.Set(reflect.ValueOf(*bf))
-									}
-								}
-							}
-
-						}
-					case "big.Int", "*big.Int":
-						if _, ok := formatCols[j]; ok {
-							bf := new(big.Int)
-							if bfv, oki := bf.SetString(value, 10); oki {
-								if f.Kind() == reflect.Ptr {
-									f.Set(reflect.ValueOf(bfv))
-								} else {
-									if bfv != nil {
-										f.Set(reflect.ValueOf(*bfv))
-									}
-								}
-							}
-						}
+					err := format.Handle(f, value, format.Format, format.Scale)
+					if err != nil {
+						return err
 					}
 				}
 			}

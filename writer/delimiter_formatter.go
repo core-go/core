@@ -11,9 +11,7 @@ import (
 	"time"
 )
 
-const (
-	DateLayout string = "2006-01-02 15:04:05 +0700 +07"
-)
+const DateLayout string = "2006-01-02 15:04:05 +0700 +07"
 
 type DelimiterFormatter struct {
 	Delimiter  string
@@ -43,9 +41,9 @@ func NewDelimiterFormatter(modelType reflect.Type, opts ...string) (*DelimiterFo
 }
 
 func (f *DelimiterFormatter) Format(ctx context.Context, model interface{}) string {
-	return ToTextWithDelimiter(ctx, model, f.Delimiter, f.formatCols)
+	return ToTextWithDelimiter(model, f.Delimiter, f.formatCols)
 }
-func ToTextWithDelimiter(ctx context.Context, model interface{}, delimiter string, formatCols map[int]Delimiter) string {
+func ToTextWithDelimiter(model interface{}, delimiter string, formatCols map[int]Delimiter) string {
 	arr := make([]string, 0)
 	sumValue := reflect.Indirect(reflect.ValueOf(model))
 	for i := 0; i < sumValue.NumField(); i++ {
@@ -146,8 +144,6 @@ func GetIndexesByTag(modelType reflect.Type, tagName string, skipTag string) (ma
 						}
 						v.Scale = scale
 					}
-				} else {
-
 				}
 			}
 			ma[i] = v
