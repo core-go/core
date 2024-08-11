@@ -108,7 +108,7 @@ func AfterCreated(ctx echo.Context, body interface{}, count int64, err error, lo
 			return RespondAndLog(ctx, http.StatusInternalServerError, core.InternalServerError, err, logError, writeLog, resource, action)
 		} else {
 			logError(ctx.Request().Context(), err.Error(), core.MakeMap(body))
-			return RespondAndLog(ctx, http.StatusInternalServerError, core.InternalServerError, err, logError, nil, resource, action)
+			return RespondAndLog(ctx, http.StatusInternalServerError, core.InternalServerError, err, nil, writeLog, resource, action)
 		}
 	}
 	if count > 0 {
