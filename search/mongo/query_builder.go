@@ -2,82 +2,88 @@ package query
 
 import (
 	"fmt"
-	"github.com/core-go/core/search"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"reflect"
 	"strings"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/core-go/core/search"
 )
+
 var Operators = map[string]string{
 	">=": "$gte",
-	">": "$gt",
+	">":  "$gt",
 	"<=": "$lte",
-	"<": "$lt",
+	"<":  "$lt",
 }
-/*
-		actionDateQuery["$gte"] = rangeTime.Min
-		hc = true
-	}
-	if rangeTime.Max != nil {
-		actionDateQuery["$lte"] = rangeTime.Max
-		hc = true
-	} else if rangeTime.Top != nil {
-		actionDateQuery["$lt"] = rangeTime.Top
-		hc = true
- */
-func UseQuery(resultModelType reflect.Type) func(filter interface{}) (bson.D, bson.M) {
-	b := NewBuilder(resultModelType)
+
+func UseQueryByResultType[F any](resultModelType reflect.Type) func(filter F) (bson.D, bson.M) {
+	b := NewBuilder[F](resultModelType)
 	return b.BuildQuery
 }
-type Builder struct {
+func UseQuery[T any, F any]() func(filter F) (bson.D, bson.M) {
+	var t T
+	resultModelType := reflect.TypeOf(t)
+	if resultModelType.Kind() == reflect.Ptr {
+		resultModelType = resultModelType.Elem()
+	}
+	b := NewBuilder[F](resultModelType)
+	return b.BuildQuery
+}
+
+type Builder[F any] struct {
 	ModelType reflect.Type
 }
 
-func NewBuilder(resultModelType reflect.Type) *Builder {
-	return &Builder{ModelType: resultModelType}
+func NewBuilder[F any](resultModelType reflect.Type) *Builder[F] {
+	return &Builder[F]{ModelType: resultModelType}
 }
-func (b *Builder) BuildQuery(filter interface{}) (bson.D, bson.M) {
+func (b *Builder[F]) BuildQuery(filter F) (bson.D, bson.M) {
 	return Build(filter, b.ModelType)
 }
-func Build(sm interface{}, resultModelType reflect.Type) (bson.D, bson.M) {
+
+func Build(filter interface{}, resultModelType reflect.Type) (bson.D, bson.M) {
 	var query = bson.D{}
 	queryQ := make([]bson.M, 0)
 	hasQ := false
 	var fields = bson.M{}
 	var excluding []string
 
-	if _, ok := sm.(*search.Filter); ok {
+	if _, ok := filter.(*search.Filter); ok {
 		return query, fields
 	}
 
-	value := reflect.Indirect(reflect.ValueOf(sm))
+	value := reflect.Indirect(reflect.ValueOf(filter))
+	filterType := value.Type()
 	numField := value.NumField()
 	var keyword string
 	for i := 0; i < numField; i++ {
+		bsonName := getBson(filterType, i)
+		if bsonName == "-" {
+			continue
+		}
 		field := value.Field(i)
 		kind := field.Kind()
 		x := field.Interface()
-		ps := false
+		tf := value.Type().Field(i)
+		fieldTypeName := tf.Type.String()
 		var psv string
 		isContinue := false
-		isStrPointer := false
 		if kind == reflect.Ptr {
 			if field.IsNil() {
-				continue
-			}
-			s0, ok0 := x.(*string)
-			if ok0 {
-				if s0 == nil || len(*s0) == 0 {
+				if fieldTypeName != "*string" {
+					continue
+				} else {
 					isContinue = true
-					isStrPointer = true
 				}
-				ps = true
-				psv = *s0
+			} else {
+				field = field.Elem()
+				kind = field.Kind()
+				x = field.Interface()
 			}
-			field = field.Elem()
-			kind = field.Kind()
 		}
-		if !isStrPointer {
+		if !isContinue {
 			s0, ok0 := x.(string)
 			if ok0 {
 				if len(s0) == 0 {
@@ -86,9 +92,10 @@ func Build(sm interface{}, resultModelType reflect.Type) (bson.D, bson.M) {
 				psv = s0
 			}
 		}
-		ks := kind.String()
-		tf := value.Type().Field(i)
-		columnName := getBsonName(resultModelType, tf.Name)
+
+		if len(bsonName) == 0 {
+			bsonName = getBsonName(resultModelType, tf.Name)
+		}
 		if isContinue {
 			if len(keyword) > 0 {
 				qMatch, isQ := tf.Tag.Lookup("q")
@@ -96,27 +103,26 @@ func Build(sm interface{}, resultModelType reflect.Type) (bson.D, bson.M) {
 					hasQ = true
 					queryQ1 := bson.M{}
 					if qMatch == "=" {
-						queryQ1[columnName] = keyword
+						queryQ1[bsonName] = keyword
 					} else if qMatch == "like" {
-						queryQ1[columnName] = primitive.Regex{Pattern: fmt.Sprintf("\\w*%v\\w*", keyword)}
+						queryQ1[bsonName] = primitive.Regex{Pattern: fmt.Sprintf("\\w*%v\\w*", keyword)}
 					} else {
-						queryQ1[columnName] = primitive.Regex{Pattern: fmt.Sprintf("^%v", keyword)}
+						queryQ1[bsonName] = primitive.Regex{Pattern: fmt.Sprintf("^%v", keyword)}
 					}
 					queryQ = append(queryQ, queryQ1)
 				}
 			}
 			continue
 		}
-		if v, ok := x.(*search.Filter); ok {
+		if v, ok := x.(search.Filter); ok {
 			if len(v.Fields) > 0 {
 				for _, key := range v.Fields {
-					_, _, columnName := getFieldByJson(resultModelType, key)
-					if len(columnName) < 0 {
+					_, _, qField := getFieldByJson(resultModelType, key)
+					if len(qField) <= 0 {
 						fields = bson.M{}
-						//fields = fields[len(fields):]
 						break
 					}
-					fields[columnName] = 1
+					fields[qField] = 1
 				}
 			}
 			if v.Excluding != nil && len(v.Excluding) > 0 {
@@ -126,225 +132,124 @@ func Build(sm interface{}, resultModelType reflect.Type) (bson.D, bson.M) {
 				keyword = strings.TrimSpace(v.Q)
 			}
 			continue
-		} else if ps || ks == "string" {
-			var key string
-			var ok bool
-			if len(psv) > 0 {
-				key, ok = tf.Tag.Lookup("operator")
-				if !ok {
-					key, _ = tf.Tag.Lookup("q")
-				}
-				if key == "=" {
-					query = append(query, bson.E{Key: columnName, Value: psv})
-				} else if key == "like" {
-					query = append(query, bson.E{Key: columnName, Value: primitive.Regex{Pattern: fmt.Sprintf("\\w*%v\\w*", psv)}})
-				} else  {
-					query = append(query, bson.E{Key: columnName, Value: primitive.Regex{Pattern: fmt.Sprintf("^%v", psv)}})
-				}
+		} else if len(psv) > 0 {
+			key, ok := tf.Tag.Lookup("operator")
+			if !ok {
+				key, _ = tf.Tag.Lookup("q")
 			}
-		} else if rangeTime, ok := x.(*search.TimeRange); ok && rangeTime != nil {
-			actionDateQuery := bson.M{}
-			hc := false
-			if rangeTime.Min != nil {
-				actionDateQuery["$gte"] = rangeTime.Min
-				hc = true
-			}
-			if rangeTime.Max != nil {
-				actionDateQuery["$lte"] = rangeTime.Max
-				hc = true
-			} else if rangeTime.Top != nil {
-				actionDateQuery["$lt"] = rangeTime.Top
-				hc = true
-			}
-			if hc {
-				query = append(query, bson.E{Key: columnName, Value: actionDateQuery})
+			if key == "=" {
+				query = append(query, bson.E{Key: bsonName, Value: psv})
+			} else if key == "like" {
+				query = append(query, bson.E{Key: bsonName, Value: primitive.Regex{Pattern: fmt.Sprintf("\\w*%v\\w*", psv)}})
+			} else {
+				query = append(query, bson.E{Key: bsonName, Value: primitive.Regex{Pattern: fmt.Sprintf("^%v", psv)}})
 			}
 		} else if rangeTime, ok := x.(search.TimeRange); ok {
-			actionDateQuery := bson.M{}
-			hc := false
+			timeQuery := bson.M{}
 			if rangeTime.Min != nil {
-				actionDateQuery["$gte"] = rangeTime.Min
-				hc = true
+				timeQuery["$gte"] = rangeTime.Min
 			}
 			if rangeTime.Max != nil {
-				actionDateQuery["$lte"] = rangeTime.Max
-				hc = true
+				timeQuery["$lte"] = rangeTime.Max
 			} else if rangeTime.Top != nil {
-				actionDateQuery["$lt"] = rangeTime.Top
-				hc = true
+				timeQuery["$lt"] = rangeTime.Top
 			}
-			if hc {
-				query = append(query, bson.E{Key: columnName, Value: actionDateQuery})
-			}
-		} else if numberRange, ok := x.(*search.NumberRange); ok && numberRange != nil {
-			amountQuery := bson.M{}
-			if numberRange.Min != nil {
-				amountQuery["$gte"] = *numberRange.Min
-			} else if numberRange.Bottom != nil {
-				amountQuery["$gt"] = *numberRange.Bottom
-			}
-			if numberRange.Max != nil {
-				amountQuery["$lte"] = *numberRange.Max
-			} else if numberRange.Top != nil {
-				amountQuery["$lt"] = *numberRange.Top
-			}
-			if len(amountQuery) > 0 {
-				query = append(query, bson.E{Key: columnName, Value: amountQuery})
+			if len(timeQuery) > 0 {
+				query = append(query, bson.E{Key: bsonName, Value: timeQuery})
 			}
 		} else if numberRange, ok := x.(search.NumberRange); ok {
-			amountQuery := bson.M{}
+			numQuery := bson.M{}
 			if numberRange.Min != nil {
-				amountQuery["$gte"] = *numberRange.Min
+				numQuery["$gte"] = *numberRange.Min
 			} else if numberRange.Bottom != nil {
-				amountQuery["$gt"] = *numberRange.Bottom
+				numQuery["$gt"] = *numberRange.Bottom
 			}
 			if numberRange.Max != nil {
-				amountQuery["$lte"] = *numberRange.Max
+				numQuery["$lte"] = *numberRange.Max
 			} else if numberRange.Top != nil {
-				amountQuery["$lt"] = *numberRange.Top
+				numQuery["$lt"] = *numberRange.Top
 			}
-			if len(amountQuery) > 0 {
-				query = append(query, bson.E{Key: columnName, Value: amountQuery})
-			}
-		} else if numberRange, ok := x.(*search.Int64Range); ok && numberRange != nil {
-			amountQuery := bson.M{}
-			if numberRange.Min != nil {
-				amountQuery["$gte"] = *numberRange.Min
-			} else if numberRange.Bottom != nil {
-				amountQuery["$gt"] = *numberRange.Bottom
-			}
-			if numberRange.Max != nil {
-				amountQuery["$lte"] = *numberRange.Max
-			} else if numberRange.Top != nil {
-				amountQuery["$lt"] = *numberRange.Top
-			}
-			if len(amountQuery) > 0 {
-				query = append(query, bson.E{Key: columnName, Value: amountQuery})
+			if len(numQuery) > 0 {
+				query = append(query, bson.E{Key: bsonName, Value: numQuery})
 			}
 		} else if numberRange, ok := x.(search.Int64Range); ok {
-			amountQuery := bson.M{}
+			numQuery := bson.M{}
 			if numberRange.Min != nil {
-				amountQuery["$gte"] = *numberRange.Min
+				numQuery["$gte"] = *numberRange.Min
 			} else if numberRange.Bottom != nil {
-				amountQuery["$gt"] = *numberRange.Bottom
+				numQuery["$gt"] = *numberRange.Bottom
 			}
 			if numberRange.Max != nil {
-				amountQuery["$lte"] = *numberRange.Max
+				numQuery["$lte"] = *numberRange.Max
 			} else if numberRange.Top != nil {
-				amountQuery["$lt"] = *numberRange.Top
+				numQuery["$lt"] = *numberRange.Top
 			}
-			if len(amountQuery) > 0 {
-				query = append(query, bson.E{Key: columnName, Value: amountQuery})
-			}
-		} else if numberRange, ok := x.(*search.IntRange); ok && numberRange != nil {
-			amountQuery := bson.M{}
-			if numberRange.Min != nil {
-				amountQuery["$gte"] = *numberRange.Min
-			} else if numberRange.Bottom != nil {
-				amountQuery["$gt"] = *numberRange.Bottom
-			}
-			if numberRange.Max != nil {
-				amountQuery["$lte"] = *numberRange.Max
-			} else if numberRange.Top != nil {
-				amountQuery["$lt"] = *numberRange.Top
-			}
-			if len(amountQuery) > 0 {
-				query = append(query, bson.E{Key: columnName, Value: amountQuery})
+			if len(numQuery) > 0 {
+				query = append(query, bson.E{Key: bsonName, Value: numQuery})
 			}
 		} else if numberRange, ok := x.(search.IntRange); ok {
-			amountQuery := bson.M{}
+			numQuery := bson.M{}
 			if numberRange.Min != nil {
-				amountQuery["$gte"] = *numberRange.Min
+				numQuery["$gte"] = *numberRange.Min
 			} else if numberRange.Bottom != nil {
-				amountQuery["$gt"] = *numberRange.Bottom
+				numQuery["$gt"] = *numberRange.Bottom
 			}
 			if numberRange.Max != nil {
-				amountQuery["$lte"] = *numberRange.Max
+				numQuery["$lte"] = *numberRange.Max
 			} else if numberRange.Top != nil {
-				amountQuery["$lt"] = *numberRange.Top
+				numQuery["$lt"] = *numberRange.Top
 			}
-			if len(amountQuery) > 0 {
-				query = append(query, bson.E{Key: columnName, Value: amountQuery})
-			}
-		} else if numberRange, ok := x.(*search.Int32Range); ok && numberRange != nil {
-			amountQuery := bson.M{}
-			if numberRange.Min != nil {
-				amountQuery["$gte"] = *numberRange.Min
-			} else if numberRange.Bottom != nil {
-				amountQuery["$gt"] = *numberRange.Bottom
-			}
-			if numberRange.Max != nil {
-				amountQuery["$lte"] = *numberRange.Max
-			} else if numberRange.Top != nil {
-				amountQuery["$lt"] = *numberRange.Top
-			}
-			if len(amountQuery) > 0 {
-				query = append(query, bson.E{Key: columnName, Value: amountQuery})
+			if len(numQuery) > 0 {
+				query = append(query, bson.E{Key: bsonName, Value: numQuery})
 			}
 		} else if numberRange, ok := x.(search.Int32Range); ok {
-			amountQuery := bson.M{}
+			numQuery := bson.M{}
 			if numberRange.Min != nil {
-				amountQuery["$gte"] = *numberRange.Min
+				numQuery["$gte"] = *numberRange.Min
 			} else if numberRange.Bottom != nil {
-				amountQuery["$gt"] = *numberRange.Bottom
+				numQuery["$gt"] = *numberRange.Bottom
 			}
 			if numberRange.Max != nil {
-				amountQuery["$lte"] = *numberRange.Max
+				numQuery["$lte"] = *numberRange.Max
 			} else if numberRange.Top != nil {
-				amountQuery["$lt"] = *numberRange.Top
+				numQuery["$lt"] = *numberRange.Top
 			}
-			if len(amountQuery) > 0 {
-				query = append(query, bson.E{Key: columnName, Value: amountQuery})
+			if len(numQuery) > 0 {
+				query = append(query, bson.E{Key: bsonName, Value: numQuery})
 			}
-		} else if rangeDate, ok := x.(*search.DateRange); ok && rangeDate != nil {
-			actionDateQuery := bson.M{}
-			if rangeDate.Min == nil && rangeDate.Max == nil {
-				continue
-			} else if rangeDate.Max != nil {
-				actionDateQuery["$lte"] = rangeDate.Max
-			} else if rangeDate.Min != nil {
-				actionDateQuery["$gte"] = rangeDate.Min
-			} else {
-				actionDateQuery["$lte"] = rangeDate.Max
-				actionDateQuery["$gte"] = rangeDate.Min
-			}
-			query = append(query, bson.E{Key: columnName, Value: actionDateQuery})
 		} else if rangeDate, ok := x.(search.DateRange); ok {
-			actionDateQuery := bson.M{}
+			dateQuery := bson.M{}
 			if rangeDate.Min == nil && rangeDate.Max == nil {
 				continue
 			} else if rangeDate.Max != nil {
-				actionDateQuery["$lte"] = rangeDate.Max
+				dateQuery["$lte"] = rangeDate.Max
 			} else if rangeDate.Min != nil {
-				actionDateQuery["$gte"] = rangeDate.Min
+				dateQuery["$gte"] = rangeDate.Min
 			} else {
-				actionDateQuery["$lte"] = rangeDate.Max
-				actionDateQuery["$gte"] = rangeDate.Min
+				dateQuery["$lte"] = rangeDate.Max
+				dateQuery["$gte"] = rangeDate.Min
 			}
-			query = append(query, bson.E{Key: columnName, Value: actionDateQuery})
-		} else if ks == "slice" {
+			query = append(query, bson.E{Key: bsonName, Value: dateQuery})
+		} else if kind == reflect.Slice {
 			if field.Len() > 0 {
-				actionDateQuery := bson.M{}
-				actionDateQuery["$in"] = x
-				query = append(query, bson.E{Key: columnName, Value: actionDateQuery})
+				arrQuery := bson.M{}
+				arrQuery["$in"] = x
+				query = append(query, bson.E{Key: bsonName, Value: arrQuery})
 			}
 		} else {
-			if _, ok := x.(*search.Filter); ks == "bool" || (strings.Contains(ks, "int") && x != 0) || (strings.Contains(ks, "float") && x != 0) || (!ok && ks == "ptr" &&
-				value.Field(i).Pointer() != 0) {
-				if len(columnName) > 0 {
-					oper, ok1 := tf.Tag.Lookup("operator")
-					if ok1 {
-						opr, ok2 := Operators[oper]
-						if ok2 {
-							actionDateQuery := bson.M{}
-							actionDateQuery[opr] = x
-							query = append(query, bson.E{Key: columnName, Value: actionDateQuery})
-						} else {
-							query = append(query, bson.E{Key: columnName, Value: x})
-						}
+			if len(bsonName) > 0 {
+				oper, ok1 := tf.Tag.Lookup("operator")
+				if ok1 {
+					opr, ok2 := Operators[oper]
+					if ok2 {
+						dQuery := bson.M{}
+						dQuery[opr] = x
+						query = append(query, bson.E{Key: bsonName, Value: dQuery})
 					} else {
-						query = append(query, bson.E{Key: columnName, Value: x})
+						query = append(query, bson.E{Key: bsonName, Value: x})
 					}
+				} else {
+					query = append(query, bson.E{Key: bsonName, Value: x})
 				}
 			}
 		}
@@ -353,9 +258,9 @@ func Build(sm interface{}, resultModelType reflect.Type) (bson.D, bson.M) {
 		query = append(query, bson.E{Key: "$or", Value: queryQ})
 	}
 	if excluding != nil && len(excluding) > 0 {
-		actionDateQuery := bson.M{}
-		actionDateQuery["$nin"] = excluding
-		query = append(query, bson.E{Key: "_id", Value: actionDateQuery})
+		exQuery := bson.M{}
+		exQuery["$nin"] = excluding
+		query = append(query, bson.E{Key: "_id", Value: exQuery})
 	}
 	return query, fields
 }
@@ -377,10 +282,17 @@ func getFieldByJson(modelType reflect.Type, jsonName string) (int, string, strin
 func getBsonName(modelType reflect.Type, fieldName string) string {
 	field, found := modelType.FieldByName(fieldName)
 	if !found {
-		return fieldName
+		return ""
 	}
 	if tag, ok := field.Tag.Lookup("bson"); ok {
 		return strings.Split(tag, ",")[0]
 	}
-	return fieldName
+	return ""
+}
+func getBson(filterType reflect.Type, i int) string {
+	field := filterType.Field(i)
+	if tag, ok := field.Tag.Lookup("bson"); ok {
+		return strings.Split(tag, ",")[0]
+	}
+	return ""
 }

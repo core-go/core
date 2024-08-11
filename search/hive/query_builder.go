@@ -2,13 +2,14 @@ package query
 
 import (
 	"fmt"
-	s "github.com/core-go/core/search"
 	"math"
 	"math/big"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	s "github.com/core-go/core/search"
 )
 
 const (
@@ -22,20 +23,29 @@ const (
 	l2 = len(t2)
 	l3 = len(t3)
 
-	desc             = "desc"
-	asc              = "asc"
+	desc = "desc"
+	asc  = "asc"
 )
 
-type Builder struct {
-	TableName  string
-	ModelType  reflect.Type
+type Builder[T any, F any] struct {
+	TableName string
+	ModelType reflect.Type
 }
-func UseQuery(tableName string, modelType reflect.Type) func(interface{}) string {
-	b:= NewBuilder(tableName, modelType)
+
+func UseQuery[T any, F any](tableName string) func(F) string {
+	b := NewBuilder[T, F](tableName)
 	return b.BuildQuery
 }
-func NewBuilder(tableName string, modelType reflect.Type) *Builder {
-	return &Builder{TableName: tableName, ModelType: modelType}
+func NewBuilder[T any, F any](tableName string) *Builder[T, F] {
+	var t T
+	resultModelType := reflect.TypeOf(t)
+	if resultModelType.Kind() == reflect.Ptr {
+		resultModelType = resultModelType.Elem()
+	}
+	return &Builder[T, F]{TableName: tableName, ModelType: resultModelType}
+}
+func (b *Builder[T, F]) BuildQuery(filter F) string {
+	return Build(filter, b.TableName, b.ModelType)
 }
 
 const (
@@ -66,10 +76,8 @@ func getJoinFromSqlBuilderTag(typeOfField reflect.StructField) *string {
 func getColumnNameFromSqlBuilderTag(typeOfField reflect.StructField) *string {
 	return getStringFromTag(typeOfField, "sql_builder", "column:")
 }
-func (b *Builder) BuildQuery(fm interface{}) string {
-	return Build(fm, b.TableName, b.ModelType)
-}
-func Build(fm interface{}, tableName string, modelType reflect.Type) string {
+
+func Build(filter interface{}, tableName string, modelType reflect.Type) string {
 	s1 := ""
 	rawConditions := make([]string, 0)
 	// queryValues := make([]interface{}, 0)
@@ -80,18 +88,76 @@ func Build(fm interface{}, tableName string, modelType reflect.Type) string {
 	fields := make([]string, 0)
 	var excluding []string
 	var keyword string
-	value := reflect.Indirect(reflect.ValueOf(fm))
-	typeOfValue := value.Type()
+	value := reflect.Indirect(reflect.ValueOf(filter))
+	filterType := value.Type()
 	numField := value.NumField()
 	var idCol string
 	// marker := 0
 	for i := 0; i < numField; i++ {
+		columnName := getColumn(filterType, i)
+		if columnName == "-" {
+			continue
+		}
 		field := value.Field(i)
 		kind := field.Kind()
 		x := field.Interface()
-		typeOfField := value.Type().Field(i)
+		tf := value.Type().Field(i)
+		fieldTypeName := tf.Type.String()
+		typeOfField := value.Type().Field(i) // ???
+		var psv string
+		isContinue := false
+		// param := buildParam(marker + 1)
+		if kind == reflect.Ptr {
+			if field.IsNil() {
+				if fieldTypeName != "*string" {
+					continue
+				} else {
+					isContinue = true
+				}
+			} else {
+				field = field.Elem()
+				kind = field.Kind()
+				x = field.Interface()
+			}
+		}
+		if !isContinue {
+			s0, ok0 := x.(string)
+			if ok0 {
+				if len(s0) == 0 {
+					isContinue = true
+				}
+				psv = s0
+			}
+		}
+		if len(columnName) == 0 {
+			_, _, columnName = getFieldByJson(modelType, tf.Name)
+		}
+		columnNameFromSqlBuilderTag := getColumnNameFromSqlBuilderTag(typeOfField)
+		if columnNameFromSqlBuilderTag != nil {
+			columnName = *columnNameFromSqlBuilderTag
+		}
 
-		if v, ok := x.(*s.Filter); ok {
+		joinFromSqlBuilderTag := getJoinFromSqlBuilderTag(typeOfField)
+		if joinFromSqlBuilderTag != nil {
+			rawJoin = append(rawJoin, *joinFromSqlBuilderTag)
+		}
+		if isContinue {
+			if len(keyword) > 0 {
+				qMatch, isQ := tf.Tag.Lookup("q")
+				if isQ {
+					if qMatch == "=" {
+						qQueryValues = append(qQueryValues, keyword)
+					} else if qMatch == "like" {
+						qQueryValues = append(qQueryValues, buildQ(keyword))
+					} else {
+						qQueryValues = append(qQueryValues, prefix(keyword))
+					}
+					qCols = append(qCols, columnName)
+				}
+			}
+			continue
+		}
+		if v, ok := x.(s.Filter); ok {
 			if len(v.Fields) > 0 {
 				for _, key := range v.Fields {
 					i, _, columnName := getFieldByJson(modelType, key)
@@ -105,83 +171,10 @@ func Build(fm interface{}, tableName string, modelType reflect.Type) string {
 			}
 			if len(fields) > 0 {
 				s1 = `select ` + strings.Join(fields, ",") + ` from ` + tableName
-			} else {
-				columns := getColumnsSelect(modelType)
-				if len(columns) > 0 {
-					s1 = `select  ` + strings.Join(columns, ",") + ` from ` + tableName
-				} else {
-					s1 = `select * from ` + tableName
-				}
 			}
 			if len(v.Sort) > 0 {
 				sortString = buildSort(v.Sort, modelType)
 			}
-		}
-
-		columnName, existCol := getColumnName(value.Type(), typeOfField.Name)
-		if !existCol {
-			columnName, _ = getColumnName(modelType, typeOfField.Name)
-		}
-
-		columnNameFromSqlBuilderTag := getColumnNameFromSqlBuilderTag(typeOfField)
-		if columnNameFromSqlBuilderTag != nil {
-			columnName = *columnNameFromSqlBuilderTag
-		}
-
-		joinFromSqlBuilderTag := getJoinFromSqlBuilderTag(typeOfField)
-		if joinFromSqlBuilderTag != nil {
-			rawJoin = append(rawJoin, *joinFromSqlBuilderTag)
-		}
-		ps := false
-		var value2 string
-		tag := typeOfValue.Field(i).Tag
-		isContinue := false
-		isStrPointer := false
-		if kind == reflect.Ptr {
-			if field.IsNil() {
-				isContinue = true
-				isStrPointer = true
-			} else {
-				s0, ok0 := x.(*string)
-				if ok0 {
-					if s0 == nil || len(*s0) == 0 {
-						isContinue = true
-						isStrPointer = true
-					}
-					ps = true
-					value2 = *s0
-				}
-				field = field.Elem()
-				kind = field.Kind()
-			}
-		}
-		if !isStrPointer {
-			s0, ok0 := x.(string)
-			if ok0 {
-				if len(s0) == 0 {
-					isContinue = true
-				}
-				value2 = s0
-			}
-		}
-		if isContinue {
-			if len(keyword) > 0 {
-				qMatch, isQ := tag.Lookup("q")
-				if isQ {
-					if qMatch == "=" {
-						qQueryValues = append(qQueryValues, keyword)
-
-					} else if qMatch == "like" {
-						qQueryValues = append(qQueryValues, buildQ(keyword))
-					} else {
-						qQueryValues = append(qQueryValues, prefix(keyword))
-					}
-					qCols = append(qCols, columnName)
-				}
-			}
-			continue
-		}
-		if v, ok := x.(*s.Filter); ok {
 			if v.Excluding != nil && len(v.Excluding) > 0 {
 				index, _, columnName := getFieldByBson(value.Type(), "_id")
 				if !(index == -1 || columnName == "") {
@@ -193,22 +186,19 @@ func Build(fm interface{}, tableName string, modelType reflect.Type) string {
 				keyword = strings.TrimSpace(v.Q)
 			}
 			continue
-		} else if ps || kind == reflect.String {
-			if len(value2) > 0 {
-				key, ok := tag.Lookup("operator")
-				if !ok {
-					key, _ = tag.Lookup("q")
-				}
-				if key == "=" {
-					param := WrapString(value2)
-					rawConditions = append(rawConditions, fmt.Sprintf("%s %s %s", columnName, "=", param))
+		} else if len(psv) > 0 {
+			key, ok := tf.Tag.Lookup("operator")
+			if !ok {
+				key, _ = tf.Tag.Lookup("q")
+			}
+			if key == "=" {
+				param := WrapString(psv)
+				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %s", columnName, "=", param))
+			} else {
+				if key == "like" {
+					rawConditions = append(rawConditions, fmt.Sprintf("%s %s %s", columnName, like, AllWrapString(psv)))
 				} else {
-
-					if key == "like" {
-						rawConditions = append(rawConditions, fmt.Sprintf("%s %s %s", columnName, like, AllWrapString(value2)))
-					} else {
-						rawConditions = append(rawConditions, fmt.Sprintf("%s %s %s", columnName, like, PrefixWrapString(value2)))
-					}
+					rawConditions = append(rawConditions, fmt.Sprintf("%s %s %s", columnName, like, PrefixWrapString(psv)))
 				}
 			}
 		} else if kind == reflect.Slice {
@@ -227,34 +217,14 @@ func Build(fm interface{}, tableName string, modelType reflect.Type) string {
 			}
 		} else if dateTime, ok := x.(s.TimeRange); ok {
 			if dateTime.Min != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %s", columnName, greaterEqualThan, dateTime.Min.Format(t0)))
+				rawConditions = append(rawConditions, fmt.Sprintf("%s %s '%s'", columnName, greaterEqualThan, dateTime.Min.Format(t0)))
 			}
 			if dateTime.Max != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %s", columnName, lessEqualThan, dateTime.Max.Format(t0)))
-			} else if dateTime.Top != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %s", columnName, lessThan, dateTime.Top.Format(t0)))
-			}
-		} else if dateTime, ok := x.(*s.TimeRange); ok && dateTime != nil {
-			if dateTime.Min != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %s", columnName, greaterEqualThan, dateTime.Min.Format(t0)))
-			}
-			if dateTime.Max != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %s", columnName, lessEqualThan, dateTime.Max.Format(t0)))
+				rawConditions = append(rawConditions, fmt.Sprintf("%s %s '%s'", columnName, lessEqualThan, dateTime.Max.Format(t0)))
 			} else if dateTime.Top != nil {
 				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %s", columnName, lessThan, dateTime.Top.Format(t0)))
 			}
 		} else if numberRange, ok := x.(s.NumberRange); ok {
-			if numberRange.Min != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %.6f", columnName, greaterEqualThan, *numberRange.Min))
-			} else if numberRange.Bottom != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %.6f", columnName, greaterThan, *numberRange.Bottom))
-			}
-			if numberRange.Max != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %.6f", columnName, lessEqualThan, *numberRange.Max))
-			} else if numberRange.Top != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %.6f", columnName, lessThan, *numberRange.Top))
-			}
-		} else if numberRange, ok := x.(*s.NumberRange); ok && numberRange != nil {
 			if numberRange.Min != nil {
 				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %.6f", columnName, greaterEqualThan, *numberRange.Min))
 			} else if numberRange.Bottom != nil {
@@ -276,29 +246,7 @@ func Build(fm interface{}, tableName string, modelType reflect.Type) string {
 			} else if numberRange.Top != nil {
 				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %d", columnName, lessThan, numberRange.Top))
 			}
-		} else if numberRange, ok := x.(*s.Int64Range); ok && numberRange != nil {
-			if numberRange.Min != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %d", columnName, greaterEqualThan, numberRange.Min))
-			} else if numberRange.Bottom != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %d", columnName, greaterThan, numberRange.Bottom))
-			}
-			if numberRange.Max != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %d", columnName, lessEqualThan, numberRange.Max))
-			} else if numberRange.Top != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %d", columnName, lessThan, numberRange.Top))
-			}
 		} else if numberRange, ok := x.(s.IntRange); ok {
-			if numberRange.Min != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %d", columnName, greaterEqualThan, numberRange.Min))
-			} else if numberRange.Bottom != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %d", columnName, greaterThan, numberRange.Bottom))
-			}
-			if numberRange.Max != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %d", columnName, lessEqualThan, numberRange.Max))
-			} else if numberRange.Top != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %d", columnName, lessThan, numberRange.Top))
-			}
-		} else if numberRange, ok := x.(*s.IntRange); ok && numberRange != nil {
 			if numberRange.Min != nil {
 				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %d", columnName, greaterEqualThan, numberRange.Min))
 			} else if numberRange.Bottom != nil {
@@ -320,30 +268,9 @@ func Build(fm interface{}, tableName string, modelType reflect.Type) string {
 			} else if numberRange.Top != nil {
 				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %d", columnName, lessThan, numberRange.Top))
 			}
-		} else if numberRange, ok := x.(*s.Int32Range); ok && numberRange != nil {
-			if numberRange.Min != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %d", columnName, greaterEqualThan, numberRange.Min))
-			} else if numberRange.Bottom != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %d", columnName, greaterThan, numberRange.Bottom))
-			}
-			if numberRange.Max != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %d", columnName, lessEqualThan, numberRange.Max))
-			} else if numberRange.Top != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %d", columnName, lessThan, numberRange.Top))
-			}
 		} else if dateRange, ok := x.(s.DateRange); ok {
 			if dateRange.Min != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %s", columnName, greaterEqualThan, dateRange.Min.Format(d0)))
-			}
-			if dateRange.Max != nil {
-				var eDate = dateRange.Max.Add(time.Hour * 24)
-				dateRange.Max = &eDate
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %s", columnName, lessThan, eDate.Format(d0)))
-
-			}
-		} else if dateRange, ok := x.(*s.DateRange); ok && dateRange != nil {
-			if dateRange.Min != nil {
-				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %s", columnName, greaterEqualThan, dateRange.Min.Format(d0)))
+				rawConditions = append(rawConditions, fmt.Sprintf("%s %s '%s'", columnName, greaterEqualThan, dateRange.Min.Format(d0)))
 			}
 			if dateRange.Max != nil {
 				var eDate = dateRange.Max.Add(time.Hour * 24)
@@ -351,11 +278,11 @@ func Build(fm interface{}, tableName string, modelType reflect.Type) string {
 				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %s", columnName, lessThan, eDate.Format(d0)))
 			}
 		} else {
-			key, ok1 := tag.Lookup("operator")
-			if !ok1 {
+			key, ok := tf.Tag.Lookup("operator")
+			if !ok {
 				key = "="
 			}
-			param, ok := GetDBValue(value2, 2, "")
+			param, ok := GetDBValue(x, 2, "")
 			if ok {
 				rawConditions = append(rawConditions, fmt.Sprintf("%s %s %s", columnName, key, param))
 			}
@@ -374,6 +301,14 @@ func Build(fm interface{}, tableName string, modelType reflect.Type) string {
 		format := fmt.Sprintf("(%s)", strings.Join(arrValue, ","))
 		rawConditions = append(rawConditions, fmt.Sprintf("%s NOT IN %s", idCol, format))
 	}
+	if len(s1) == 0 {
+		columns := getColumnsSelect(modelType)
+		if len(columns) > 0 {
+			s1 = `select  ` + strings.Join(columns, ",") + ` from ` + tableName
+		} else {
+			s1 = `select * from ` + tableName
+		}
+	}
 	if len(rawJoin) > 0 {
 		s1 = s1 + " " + strings.Join(rawJoin, " ")
 	}
@@ -383,7 +318,7 @@ func Build(fm interface{}, tableName string, modelType reflect.Type) string {
 			qConditions = append(qConditions, fmt.Sprintf("%s %s %s", s, like, qQueryValues[i]))
 		}
 		if len(qConditions) > 0 {
-			rawConditions = append(rawConditions, " (" + strings.Join(qConditions, " or ") + ") ")
+			rawConditions = append(rawConditions, " ("+strings.Join(qConditions, " or ")+") ")
 		}
 	}
 	if len(rawConditions) > 0 {
@@ -392,13 +327,6 @@ func Build(fm interface{}, tableName string, modelType reflect.Type) string {
 	}
 	s3 := s1 + sortString
 	return s3
-}
-func extractArray(values []interface{}, field interface{}) []interface{} {
-	s := reflect.Indirect(reflect.ValueOf(field))
-	for i := 0; i < s.Len(); i++ {
-		values = append(values, s.Index(i).Interface())
-	}
-	return values
 }
 func getFieldByJson(modelType reflect.Type, jsonName string) (int, string, string) {
 	numField := modelType.NumField()
@@ -424,6 +352,27 @@ func getFieldByJson(modelType reflect.Type, jsonName string) (int, string, strin
 		}
 	}
 	return -1, jsonName, jsonName
+}
+func getColumn(filterType reflect.Type, i int) string {
+	field := filterType.Field(i)
+	if tag2, ok := field.Tag.Lookup("gorm"); ok {
+		if tag2 == "-" {
+			return tag2
+		}
+		if has := strings.Contains(tag2, "column"); has {
+			str1 := strings.Split(tag2, ";")
+			num := len(str1)
+			for k := 0; k < num; k++ {
+				str2 := strings.Split(str1[k], ":")
+				for j := 0; j < len(str2); j++ {
+					if str2[j] == "column" {
+						return str2[j+1]
+					}
+				}
+			}
+		}
+	}
+	return ""
 }
 func getFieldByBson(modelType reflect.Type, bsonName string) (int, string, string) {
 	numField := modelType.NumField()
@@ -572,12 +521,21 @@ func join(strs ...string) string {
 }
 
 func WrapString(v string) string {
+	if strings.Index(v, `'`) >= 0 {
+		return join(`'`, strings.Replace(v, "'", "''", -1), `'`)
+	}
 	return join(`'`, v, `'`)
 }
 func PrefixWrapString(v string) string {
+	if strings.Index(v, `'`) >= 0 {
+		return join(`'`, strings.Replace(v, "'", "''", -1), `'%`)
+	}
 	return join(`'`, v, `%'`)
 }
 func AllWrapString(v string) string {
+	if strings.Index(v, `'`) >= 0 {
+		return join(`'%`, strings.Replace(v, "'", "''", -1), `'%`)
+	}
 	return join(`'%`, v, `%'`)
 }
 func GetDBValue(v interface{}, scale int8, layoutTime string) (string, bool) {

@@ -1,33 +1,39 @@
 package query
 
 import (
-	"github.com/core-go/core/search"
 	"reflect"
 	"strings"
+
+	"github.com/core-go/search"
 )
 
-func UseQuery(resultModelType reflect.Type) func(interface{}) map[string]interface{} {
-	b := NewBuilder(resultModelType)
+func UseQuery[T any, F any]() func(F) map[string]interface{} {
+	b := NewBuilder[T, F]()
 	return b.BuildQuery
 }
 
-type Builder struct {
+type Builder[T any, F any] struct {
 	ModelType reflect.Type
 }
 
-func NewBuilder(resultModelType reflect.Type) *Builder {
-	return &Builder{ModelType: resultModelType}
+func NewBuilder[T any, F any]() *Builder[T, F] {
+	var t T
+	modelType := reflect.TypeOf(t)
+	if modelType.Kind() == reflect.Ptr {
+		modelType = modelType.Elem()
+	}
+	return &Builder[T, F]{ModelType: modelType}
 }
-func (b *Builder) BuildQuery(sm interface{}) map[string]interface{} {
-	return Build(sm, b.ModelType)
+func (b *Builder[T, F]) BuildQuery(filter F) map[string]interface{} {
+	return Build(filter, b.ModelType)
 }
 
-func Build(sm interface{}, resultModelType reflect.Type) map[string]interface{} {
+func Build(filter interface{}, resultModelType reflect.Type) map[string]interface{} {
 	query := map[string]interface{}{}
-	if _, ok := sm.(*search.Filter); ok {
+	if _, ok := filter.(*search.Filter); ok {
 		return query
 	}
-	value := reflect.Indirect(reflect.ValueOf(sm))
+	value := reflect.Indirect(reflect.ValueOf(filter))
 	numField := value.NumField()
 	for i := 0; i < numField; i++ {
 		fieldValue := value.Field(i).Interface()
@@ -41,20 +47,6 @@ func Build(sm interface{}, resultModelType reflect.Type) map[string]interface{} 
 				}
 			}
 			continue
-		} else if rangeTime, ok := fieldValue.(search.TimeRange); ok {
-			_, columnName := findFieldByName(resultModelType, value.Type().Field(i).Name)
-			actionDateQuery := map[string]interface{}{}
-			if rangeTime.Min != nil {
-				actionDateQuery["$gte"] = *rangeTime.Min
-			}
-			if rangeTime.Max != nil {
-				actionDateQuery["$lte"] = *rangeTime.Max
-			} else if rangeTime.Top != nil {
-				actionDateQuery["$lt"] = rangeTime.Top
-			}
-			if len(actionDateQuery) > 0 {
-				query[columnName] = actionDateQuery
-			}
 		} else if rangeTime, ok := fieldValue.(*search.TimeRange); ok && rangeTime != nil {
 			_, columnName := findFieldByName(resultModelType, value.Type().Field(i).Name)
 			actionDateQuery := map[string]interface{}{}
@@ -68,24 +60,6 @@ func Build(sm interface{}, resultModelType reflect.Type) map[string]interface{} 
 			}
 			if len(actionDateQuery) > 0 {
 				query[columnName] = actionDateQuery
-			}
-		} else if numberRange, ok := fieldValue.(search.NumberRange); ok {
-			_, columnName := findFieldByName(resultModelType, value.Type().Field(i).Name)
-			amountQuery := map[string]interface{}{}
-
-			if numberRange.Min != nil {
-				amountQuery["$gte"] = *numberRange.Min
-			} else if numberRange.Lower != nil {
-				amountQuery["$gt"] = *numberRange.Lower
-			}
-			if numberRange.Max != nil {
-				amountQuery["$lte"] = *numberRange.Max
-			} else if numberRange.Top != nil {
-				amountQuery["$lt"] = *numberRange.Top
-			}
-
-			if len(amountQuery) > 0 {
-				query[columnName] = amountQuery
 			}
 		} else if numberRange, ok := fieldValue.(*search.NumberRange); ok && numberRange != nil {
 			_, columnName := findFieldByName(resultModelType, value.Type().Field(i).Name)
@@ -102,23 +76,6 @@ func Build(sm interface{}, resultModelType reflect.Type) map[string]interface{} 
 				amountQuery["$lt"] = *numberRange.Top
 			}
 
-			if len(amountQuery) > 0 {
-				query[columnName] = amountQuery
-			}
-		} else if numberRange, ok := fieldValue.(search.Int64Range); ok {
-			_, columnName := findFieldByName(resultModelType, value.Type().Field(i).Name)
-			amountQuery := map[string]interface{}{}
-
-			if numberRange.Min != nil {
-				amountQuery["$gte"] = *numberRange.Min
-			} else if numberRange.Lower != nil {
-				amountQuery["$gt"] = *numberRange.Lower
-			}
-			if numberRange.Max != nil {
-				amountQuery["$lte"] = *numberRange.Max
-			} else if numberRange.Top != nil {
-				amountQuery["$lt"] = *numberRange.Top
-			}
 			if len(amountQuery) > 0 {
 				query[columnName] = amountQuery
 			}
@@ -139,41 +96,7 @@ func Build(sm interface{}, resultModelType reflect.Type) map[string]interface{} 
 			if len(amountQuery) > 0 {
 				query[columnName] = amountQuery
 			}
-		} else if numberRange, ok := fieldValue.(search.Int32Range); ok {
-			_, columnName := findFieldByName(resultModelType, value.Type().Field(i).Name)
-			amountQuery := map[string]interface{}{}
-
-			if numberRange.Min != nil {
-				amountQuery["$gte"] = *numberRange.Min
-			} else if numberRange.Lower != nil {
-				amountQuery["$gt"] = *numberRange.Lower
-			}
-			if numberRange.Max != nil {
-				amountQuery["$lte"] = *numberRange.Max
-			} else if numberRange.Top != nil {
-				amountQuery["$lt"] = *numberRange.Top
-			}
-			if len(amountQuery) > 0 {
-				query[columnName] = amountQuery
-			}
 		} else if numberRange, ok := fieldValue.(*search.Int32Range); ok && numberRange != nil {
-			_, columnName := findFieldByName(resultModelType, value.Type().Field(i).Name)
-			amountQuery := map[string]interface{}{}
-
-			if numberRange.Min != nil {
-				amountQuery["$gte"] = *numberRange.Min
-			} else if numberRange.Lower != nil {
-				amountQuery["$gt"] = *numberRange.Lower
-			}
-			if numberRange.Max != nil {
-				amountQuery["$lte"] = *numberRange.Max
-			} else if numberRange.Top != nil {
-				amountQuery["$lt"] = *numberRange.Top
-			}
-			if len(amountQuery) > 0 {
-				query[columnName] = amountQuery
-			}
-		} else if numberRange, ok := fieldValue.(search.IntRange); ok {
 			_, columnName := findFieldByName(resultModelType, value.Type().Field(i).Name)
 			amountQuery := map[string]interface{}{}
 
