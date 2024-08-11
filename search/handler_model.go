@@ -2,17 +2,17 @@ package search
 
 import "reflect"
 
-func BuildResultMap(models interface{}, count int64, config SearchResultConfig) map[string]interface{} {
+func BuildResultMap(models interface{}, count int64, list string, total string) map[string]interface{} {
 	result := make(map[string]interface{})
-	result[config.Total] = count
-	result[config.Results] = models
+	result[total] = count
+	result[list] = models
 	return result
 }
-func BuildNextResultMap(models interface{}, nextPageToken string, config SearchResultConfig) map[string]interface{} {
+func BuildNextResultMap(models interface{}, nextPageToken string, list string, next string) map[string]interface{} {
 	result := make(map[string]interface{})
-	result[config.Results] = models
+	result[list] = models
 	if len(nextPageToken) > 0 {
-		result[config.Next] = nextPageToken
+		result[next] = nextPageToken
 	}
 	return result
 }
@@ -31,7 +31,7 @@ func SetUserId(sm interface{}, currentUserId string) {
 		}
 	}
 }
-func CreateFilter(filterType reflect.Type, options...int) interface{} {
+func CreateFilter(filterType reflect.Type, options ...int) interface{} {
 	filterIndex := -1
 	if len(options) > 0 && options[0] >= 0 {
 		filterIndex = options[0]
@@ -63,7 +63,7 @@ func FindFilterIndex(filterType reflect.Type) int {
 }
 
 // Check valid and change value of pagination to correct
-func RepairFilter(filter *Filter, options...string) {
+func RepairFilter(filter *Filter, options ...string) {
 	if len(options) > 0 {
 		filter.CurrentUserId = options[0]
 	}

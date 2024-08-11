@@ -11,7 +11,8 @@ type SearchHandler struct {
 	modelType    reflect.Type
 	filterType   reflect.Type
 	LogError     func(context.Context, string, ...map[string]interface{})
-	Config       SearchResultConfig
+	List         string
+	Total        string
 	CSV          bool
 	WriteLog     func(ctx context.Context, resource string, action string, success bool, desc string) error
 	ResourceName string
@@ -39,81 +40,55 @@ const (
 	PageSizeDefault    = 10
 	MaxPageSizeDefault = 10000
 	UserId             = "userId"
-	Uid                = "uid"
-	Username           = "username"
 	sSearch            = "search"
 )
 
+func NewCSVSearchHandler(search func(context.Context, interface{}, interface{}, int64, int64) (int64, error), modelType reflect.Type, filterType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) *SearchHandler {
+	return NewSearchHandlerWithLog(search, modelType, filterType, logError, writeLog, true, options...)
+}
 func NewSearchHandler(search func(context.Context, interface{}, interface{}, int64, int64) (int64, error), modelType reflect.Type, filterType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) *SearchHandler {
-	return NewSearchHandlerWithQuickSearch(search, modelType, filterType, logError, writeLog, true, options...)
+	return NewSearchHandlerWithLog(search, modelType, filterType, logError, writeLog, false, options...)
 }
-func NewJSONSearchHandler(search func(context.Context, interface{}, interface{}, int64, int64) (int64, error), modelType reflect.Type, filterType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) *SearchHandler {
-	return NewSearchHandlerWithQuickSearch(search, modelType, filterType, logError, writeLog, false, options...)
-}
-func NewSearchHandlerWithQuickSearch(search func(context.Context, interface{}, interface{}, int64, int64) (int64, error), modelType reflect.Type, filterType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, quickSearch bool, options ...string) *SearchHandler {
-	var resource, action, user string
+func NewSearchHandlerWithLog(search func(context.Context, interface{}, interface{}, int64, int64) (int64, error), modelType reflect.Type, filterType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, quickSearch bool, options ...string) *SearchHandler {
+	var list, total, resource, action, user string
 	if len(options) > 0 && len(options[0]) > 0 {
-		user = options[0]
+		list = options[0]
+	} else {
+		list = "list"
+	}
+	if len(options) > 1 && len(options[1]) > 0 {
+		total = options[1]
+	} else {
+		total = "total"
+	}
+	if len(options) > 2 && len(options[2]) > 0 {
+		user = options[2]
 	} else {
 		user = UserId
 	}
-	if len(options) > 1 && len(options[1]) > 0 {
-		resource = options[1]
+	if len(options) > 3 && len(options[3]) > 0 {
+		resource = options[3]
 	} else {
 		name := modelType.Name()
 		resource = BuildResourceName(name)
 	}
-	if len(options) > 2 && len(options[2]) > 0 {
-		action = options[2]
+	if len(options) > 4 && len(options[4]) > 0 {
+		action = options[4]
 	} else {
 		action = sSearch
 	}
-	return NewSearchHandlerWithConfig(search, modelType, filterType, logError, nil, writeLog, quickSearch, resource, action, user, "")
+	return NewSearchHandlerWithQuickSearch(search, modelType, filterType, logError, writeLog, quickSearch, list, total, resource, action, user, "")
 }
-func NewSearchHandlerWithUserId(search func(context.Context, interface{}, interface{}, int64, int64) (int64, error), modelType reflect.Type, filterType reflect.Type, userId string, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) *SearchHandler {
-	return NewSearchHandlerWithUserIdAndQuickSearch(search, modelType, filterType, userId, logError, writeLog, true, options...)
-}
-func NewJSONSearchHandlerWithUserId(search func(context.Context, interface{}, interface{}, int64, int64) (int64, error), modelType reflect.Type, filterType reflect.Type, userId string, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) *SearchHandler {
-	return NewSearchHandlerWithUserIdAndQuickSearch(search, modelType, filterType, userId, logError, writeLog, false, options...)
-}
-func NewSearchHandlerWithUserIdAndQuickSearch(search func(context.Context, interface{}, interface{}, int64, int64) (int64, error), modelType reflect.Type, filterType reflect.Type, userId string, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, quickSearch bool, options ...string) *SearchHandler {
-	var resource, action string
-	if len(options) > 0 && len(options[0]) > 0 {
-		resource = options[0]
-	} else {
-		name := modelType.Name()
-		resource = BuildResourceName(name)
-	}
-	if len(options) > 1 && len(options[1]) > 0 {
-		action = options[1]
-	} else {
-		action = sSearch
-	}
-	return NewSearchHandlerWithConfig(search, modelType, filterType, logError, nil, writeLog, quickSearch, resource, action, userId, "")
-}
-func NewDefaultSearchHandler(search func(context.Context, interface{}, interface{}, int64, int64) (int64, error), modelType reflect.Type, filterType reflect.Type, resource string, logError func(context.Context, string, ...map[string]interface{}), userId string, quickSearch bool, writeLog func(context.Context, string, string, bool, string) error) *SearchHandler {
-	return NewSearchHandlerWithConfig(search, modelType, filterType, logError, nil, writeLog, quickSearch, resource, sSearch, userId, "")
-}
-func NewSearchHandlerWithConfig(search func(context.Context, interface{}, interface{}, int64, int64) (int64, error), modelType reflect.Type, filterType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), config *SearchResultConfig, writeLog func(context.Context, string, string, bool, string) error, quickSearch bool, resource string, action string, userId string, embedField string) *SearchHandler {
-	var c SearchResultConfig
+func NewSearchHandlerWithQuickSearch(search func(context.Context, interface{}, interface{}, int64, int64) (int64, error), modelType reflect.Type, filterType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, quickSearch bool, list string, total string, resource string, action string, userId string, embedField string) *SearchHandler {
 	if len(action) == 0 {
 		action = sSearch
 	}
-	if config != nil {
-		c = *config
-	} else {
-		// c.LastPage = "last"
-		c.Results = "list"
-		c.Total = "total"
-		c.NextPageToken = "nextPageToken"
-	}
-
 	paramIndex := BuildParamIndex(filterType)
 	filterIndex := FindFilterIndex(filterType)
 	model := reflect.New(modelType).Interface()
 	fields := GetJSONFields(modelType)
 	firstLayerIndexes, secondLayerIndexes := BuildJsonMap(model, fields, embedField)
-	return &SearchHandler{Find: search, modelType: modelType, filterType: filterType, Config: c, WriteLog: writeLog, CSV: quickSearch, ResourceName: resource, Activity: action, ParamIndex: paramIndex, FilterIndex: filterIndex, userId: userId, embedField: embedField, LogError: logError,
+	return &SearchHandler{Find: search, modelType: modelType, filterType: filterType, List: list, Total: total, WriteLog: writeLog, CSV: quickSearch, ResourceName: resource, Activity: action, ParamIndex: paramIndex, FilterIndex: filterIndex, userId: userId, embedField: embedField, LogError: logError,
 		JsonMap: firstLayerIndexes, SecondaryJsonMap: secondLayerIndexes}
 }
 func GetJSONFields(modelType reflect.Type) []string {

@@ -15,18 +15,18 @@ func (c *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 	}
 	limit, offset, fs, _, _, er1 := Extract(filter)
 	if er1 != nil {
-		respondError(w, r, http.StatusInternalServerError, internalServerError, c.LogError, c.ResourceName, c.Activity, er1, c.WriteLog)
+		RespondError(w, r, http.StatusInternalServerError, internalServerError, c.LogError, c.ResourceName, c.Activity, er1, c.WriteLog)
 		return
 	}
 	modelsType := reflect.Zero(reflect.SliceOf(c.modelType)).Type()
 	models := reflect.New(modelsType).Interface()
 	count, er2 := c.Find(r.Context(), filter, models, limit, offset)
 	if er2 != nil {
-		respondError(w, r, http.StatusInternalServerError, internalServerError, c.LogError, c.ResourceName, c.Activity, er2, c.WriteLog)
+		RespondError(w, r, http.StatusInternalServerError, internalServerError, c.LogError, c.ResourceName, c.Activity, er2, c.WriteLog)
 		return
 	}
 
-	result := BuildResultMap(models, count, c.Config)
+	result := BuildResultMap(models, count, c.List, c.Total)
 	if x == -1 {
 		succeed(w, r, http.StatusOK, result, c.WriteLog, c.ResourceName, c.Activity)
 	} else if c.CSV && x == 1 {
@@ -49,18 +49,18 @@ func (c *NextSearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 	}
 	limit, _, fs, _, nextPageToken, er1 := Extract(filter)
 	if er1 != nil {
-		respondError(w, r, http.StatusInternalServerError, internalServerError, c.LogError, c.ResourceName, c.Activity, er1, c.WriteLog)
+		RespondError(w, r, http.StatusInternalServerError, internalServerError, c.LogError, c.ResourceName, c.Activity, er1, c.WriteLog)
 		return
 	}
 	modelsType := reflect.Zero(reflect.SliceOf(c.modelType)).Type()
 	models := reflect.New(modelsType).Interface()
 	nx, er2 := c.Find(r.Context(), filter, models, limit, nextPageToken)
 	if er2 != nil {
-		respondError(w, r, http.StatusInternalServerError, internalServerError, c.LogError, c.ResourceName, c.Activity, er2, c.WriteLog)
+		RespondError(w, r, http.StatusInternalServerError, internalServerError, c.LogError, c.ResourceName, c.Activity, er2, c.WriteLog)
 		return
 	}
 
-	result := BuildNextResultMap(models, nx, c.Config)
+	result := BuildNextResultMap(models, nx, c.List, c.Next)
 	if x == -1 {
 		succeed(w, r, http.StatusOK, result, c.WriteLog, c.ResourceName, c.Activity)
 	} else if c.CSV && x == 1 {

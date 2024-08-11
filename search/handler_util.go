@@ -1,7 +1,6 @@
 package search
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -28,7 +27,7 @@ func BuildResourceName(s string) string {
 	}
 	return s3
 }
-func UrlToModel(filter interface{}, params url.Values, paramIndex map[string]int, options...int) interface{} {
+func UrlToModel(filter interface{}, params url.Values, paramIndex map[string]int, options ...int) interface{} {
 	value := reflect.Indirect(reflect.ValueOf(filter))
 	if value.Kind() == reflect.Ptr {
 		value = reflect.Indirect(value)
@@ -67,7 +66,7 @@ func UrlToModel(filter interface{}, params url.Values, paramIndex map[string]int
 				v, _ = strconv.ParseInt(paramValue, 10, 64)
 			} else if kind == reflect.Float64 {
 				v, _ = strconv.ParseFloat(paramValue, 64)
-			} else if kind == reflect.Bool{
+			} else if kind == reflect.Bool {
 				v, _ = strconv.ParseBool(paramValue)
 			} else if kind == reflect.Slice {
 				sliceKind := reflect.TypeOf(field.Interface()).Elem().Kind()
@@ -114,7 +113,7 @@ func UrlToModel(filter interface{}, params url.Values, paramIndex map[string]int
 					}
 					continue
 				case *TimeRange:
-					keys := strings.Split(paramKey,".")
+					keys := strings.Split(paramKey, ".")
 					f := psTime.FieldByName(strings.Title(keys[1]))
 					tValue, _ := time.Parse(time.RFC3339, paramValue)
 					f.Set(reflect.ValueOf(&tValue))
@@ -146,8 +145,8 @@ func UrlToModel(filter interface{}, params url.Values, paramIndex map[string]int
 	}
 	return filter
 }
-func FindField(value reflect.Value, paramKey string, paramIndex map[string]int, options...int) (reflect.Value, error) {
-	if keys :=strings.Split(paramKey,"."); len(keys) > 0 {
+func FindField(value reflect.Value, paramKey string, paramIndex map[string]int, options ...int) (reflect.Value, error) {
+	if keys := strings.Split(paramKey, "."); len(keys) > 0 {
 		paramKey = keys[0]
 	}
 	if index, ok := paramIndex[paramKey]; ok {
@@ -182,7 +181,18 @@ func BuildParamIndex(filterType reflect.Type) map[string]int {
 	}
 	return params
 }
-func CreateParams(filterType reflect.Type, modelType reflect.Type, opts...string) (map[string]int, int, map[string]int, map[string]int) {
+
+type Parameters struct {
+	ParamIndex  map[string]int
+	FilterIndex int
+	CSVIndex    map[string]int
+}
+
+func CreateParameters(filterType reflect.Type, modelType reflect.Type) *Parameters {
+	paramIndex, filterIndex, firstLayerIndexes, _ := CreateParams(filterType, modelType)
+	return &Parameters{ParamIndex: paramIndex, FilterIndex: filterIndex, CSVIndex: firstLayerIndexes}
+}
+func CreateParams(filterType reflect.Type, modelType reflect.Type, opts ...string) (map[string]int, int, map[string]int, map[string]int) {
 	embedField := ""
 	if len(opts) > 0 {
 		embedField = opts[0]
@@ -199,7 +209,7 @@ func BuildParams(filterType reflect.Type) (map[string]int, int) {
 	filterIndex := FindFilterIndex(filterType)
 	return paramIndex, filterIndex
 }
-func BuildFilter(r *http.Request, filterType reflect.Type, paramIndex map[string]int, userIdName string, options...int) (interface{}, int, error) {
+func BuildFilter(r *http.Request, filterType reflect.Type, paramIndex map[string]int, userIdName string, options ...int) (interface{}, int, error) {
 	var filter = CreateFilter(filterType, options...)
 	method := r.Method
 	x := 1
@@ -216,47 +226,31 @@ func BuildFilter(r *http.Request, filterType reflect.Type, paramIndex map[string
 		}
 	}
 	userId := ""
-	if len(userId) == 0 {
-		u := r.Context().Value(userIdName)
-		if u != nil {
-			u2, ok2 := u.(string)
-			if ok2 {
-				userId = u2
-			}
+	u := r.Context().Value(userIdName)
+	if u != nil {
+		u2, ok2 := u.(string)
+		if ok2 {
+			userId = u2
 		}
 	}
 	SetUserId(filter, userId)
 	return filter, x, nil
 }
-var userId = "userId"
-func ApplyUserId(str string) {
-	userId = str
-}
-func GetUser(ctx context.Context, opt...string) (string, bool) {
-	user := userId
+func GetUser(r *http.Request, opt ...string) string {
+	user := "userId"
 	if len(opt) > 0 && len(opt[0]) > 0 {
 		user = opt[0]
 	}
-	u := ctx.Value(user)
+	u := r.Context().Value(user)
 	if u != nil {
 		u2, ok2 := u.(string)
 		if ok2 {
-			return u2, ok2
+			return u2
 		}
 	}
-	return "", false
+	return ""
 }
-func GetString(ctx context.Context, key string) (string, bool) {
-	u := ctx.Value(key)
-	if u != nil {
-		u2, ok2 := u.(string)
-		if ok2 {
-			return u2, true
-		}
-	}
-	return "", false
-}
-func Decode(r *http.Request, filter interface{}, paramIndex map[string]int, options...int) error {
+func Decode(r *http.Request, filter interface{}, paramIndex map[string]int, options ...int) error {
 	method := r.Method
 	if method == http.MethodGet {
 		ps := r.URL.Query()
@@ -267,25 +261,17 @@ func Decode(r *http.Request, filter interface{}, paramIndex map[string]int, opti
 		return err
 	}
 }
-func ToFilter(w http.ResponseWriter, r *http.Request, filter interface{}, paramIndex map[string]int, options...int) error {
+func ToFilter(w http.ResponseWriter, r *http.Request, filter interface{}, paramIndex map[string]int, options ...int) error {
 	err := Decode(r, &filter, paramIndex, options...)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 	return err
 }
-func DecodeAndCheck(w http.ResponseWriter, r *http.Request, filter interface{}, paramIndex map[string]int, options...int) error {
+func DecodeAndCheck(w http.ResponseWriter, r *http.Request, filter interface{}, paramIndex map[string]int, options ...int) error {
 	return ToFilter(w, r, filter, paramIndex, options...)
 }
-func ResultCsv(fields []string, models interface{}, count int64, opts...map[string]int) (string, bool) {
-	if len(fields) > 0 {
-		result1 := ToCsv(fields, models, count, "", opts...)
-		return result1, true
-	} else {
-		return "", false
-	}
-}
-func ResultToCsv(fields []string, models interface{}, count int64, embedField string, opts...map[string]int) (string, bool) {
+func ResultToCsv(fields []string, models interface{}, count int64, embedField string, opts ...map[string]int) (string, bool) {
 	if len(fields) > 0 {
 		result1 := ToCsv(fields, models, count, embedField, opts...)
 		return result1, true
@@ -293,15 +279,15 @@ func ResultToCsv(fields []string, models interface{}, count int64, embedField st
 		return "", false
 	}
 }
-func ResultNextCsv(fields []string, models interface{}, nextPageToken string, opts...map[string]int) (string, bool) {
+func ResultCsv(fields []string, models interface{}, count int64, opts ...map[string]int) (string, bool) {
 	if len(fields) > 0 {
-		result1 := ToNextCsv(fields, models, nextPageToken, "", opts...)
+		result1 := ToCsv(fields, models, count, "", opts...)
 		return result1, true
 	} else {
 		return "", false
 	}
 }
-func ResultToNextCsv(fields []string, models interface{}, nextPageToken string, embedField string, opts...map[string]int) (string, bool) {
+func ResultToNextCsv(fields []string, models interface{}, nextPageToken string, embedField string, opts ...map[string]int) (string, bool) {
 	if len(fields) > 0 {
 		result1 := ToNextCsv(fields, models, nextPageToken, embedField, opts...)
 		return result1, true
@@ -309,8 +295,16 @@ func ResultToNextCsv(fields []string, models interface{}, nextPageToken string, 
 		return "", false
 	}
 }
-func CSV(w http.ResponseWriter, code int, out string)  {
+func ResultNextCsv(fields []string, models interface{}, nextPageToken string, opts ...map[string]int) (string, bool) {
+	if len(fields) > 0 {
+		result1 := ToNextCsv(fields, models, nextPageToken, "", opts...)
+		return result1, true
+	} else {
+		return "", false
+	}
+}
+func CSV(w http.ResponseWriter, code int, out string) (int, error) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	w.Write([]byte(out))
+	return w.Write([]byte(out))
 }
