@@ -230,13 +230,6 @@ func HandleDelete(w http.ResponseWriter, r *http.Request, count int64, err error
 		ReturnAndLog(w, r, http.StatusConflict, count, writeLog, false, resource, action, "Conflict")
 	}
 }
-func BodyToJson(w http.ResponseWriter, r *http.Request, structBody interface{}, body map[string]interface{}, jsonIds []string, mapIndex map[string]int) (map[string]interface{}, error) {
-	body, err := BodyToJsonMap(r, structBody, body, jsonIds, mapIndex)
-	if err != nil {
-		http.Error(w, "Invalid Data: "+err.Error(), http.StatusBadRequest)
-	}
-	return body, err
-}
 func BuildFieldMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int, ignorePatch bool) (*http.Request, map[string]interface{}, error) {
 	if ignorePatch == false {
 		r = r.WithContext(context.WithValue(r.Context(), Method, Patch))

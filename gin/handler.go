@@ -106,7 +106,7 @@ func AfterCreated(ctx *gin.Context, body interface{}, count int64, err error, lo
 			RespondAndLog(ctx, http.StatusInternalServerError, core.InternalServerError, err, logError, writeLog, resource, action)
 		} else {
 			logError(ctx.Request.Context(), err.Error(), core.MakeMap(body))
-			RespondAndLog(ctx, http.StatusInternalServerError, core.InternalServerError, err, logError, writeLog, resource, action)
+			RespondAndLog(ctx, http.StatusInternalServerError, core.InternalServerError, err, nil, writeLog, resource, action)
 		}
 		return
 	}
