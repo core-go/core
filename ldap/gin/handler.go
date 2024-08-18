@@ -2,7 +2,7 @@ package gin
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -51,7 +51,7 @@ func (h *LdapInfoHandler) GetLdapInfo(ctx *gin.Context) {
 			uid = s[i+1:]
 		}
 	} else {
-		b, er1 := ioutil.ReadAll(r.Body)
+		b, er1 := io.ReadAll(r.Body)
 		if er1 != nil {
 			ctx.String(http.StatusBadRequest, "Body cannot is empty")
 			return

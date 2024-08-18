@@ -9,8 +9,8 @@ import (
 	"errors"
 	"gopkg.in/yaml.v3"
 	"io"
-	"io/ioutil"
 	"math/big"
+	"os"
 	"strings"
 )
 
@@ -67,7 +67,7 @@ func Read(filePath string, outer map[string]string, field string, key string) er
 		key = defaultKey
 	}
 	var s strings.Builder
-	in, err := ioutil.ReadFile(filePath)
+	in, err := os.ReadFile(filePath)
 	if err != nil {
 		return err
 	}
@@ -98,6 +98,6 @@ func Write(filePath string, inter map[string]string, field string, key string) e
 	if err1 != nil {
 		return err1
 	}
-	err = ioutil.WriteFile(filePath, data, 0666)
+	err = os.WriteFile(filePath, data, 0666)
 	return err
 }

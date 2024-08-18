@@ -29,18 +29,11 @@ func CheckId[T any](ctx *gin.Context, body *T, keysJson []string, mapIndex map[s
 	}
 	return nil
 }
-func HandleDelete(ctx *gin.Context, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
-	if err != nil {
-		RespondAndLog(ctx, http.StatusInternalServerError, core.InternalServerError, err, logError, writeLog, resource, action)
-		return
-	}
-	if count > 0 {
-		Succeed(ctx, http.StatusOK, count, writeLog, resource, action)
-	} else if count == 0 {
-		ReturnAndLog(ctx, http.StatusNotFound, count, writeLog, false, resource, action, "Data Not Found")
-	} else {
-		ReturnAndLog(ctx, http.StatusConflict, count, writeLog, false, resource, action, "Conflict")
-	}
+func AfterDeletedWithLog(ctx *gin.Context, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
+	return core.AfterDeletedWithLog(ctx.Writer, ctx.Request, count, err, logError, writeLog, resource, action)
+}
+func AfterDeleted(ctx *gin.Context, count int64, err error, logError func(context.Context, string, ...map[string]interface{})) error {
+	return core.AfterDeleted(ctx.Writer, ctx.Request, count, err, logError)
 }
 func BuildFieldMapAndCheckId[T any](ctx *gin.Context, keysJson []string, mapIndex map[string]int, ignorePatch bool, opts ...func(context.Context, *T) error) (T, map[string]interface{}, error) {
 	var obj T
@@ -66,59 +59,20 @@ func BuildMapAndCheckId[T any](ctx *gin.Context, keysJson []string, mapIndex map
 	}
 	return obj, jsonObj, er1
 }
-func HasError(ctx *gin.Context, errors []core.ErrorMessage, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) bool {
-	if err != nil {
-		RespondAndLog(ctx, http.StatusInternalServerError, core.InternalServerError, err, logError, writeLog, resource, action)
-		return true
-	}
-	if len(errors) > 0 {
-		ReturnAndLog(ctx, http.StatusUnprocessableEntity, errors, writeLog, false, resource, action, "Data Validation Failed")
-		return true
-	}
-	return false
+func HasError(ctx *gin.Context, errors []core.ErrorMessage, err error, logError func(context.Context, string, ...map[string]interface{}), model interface{}, writeLog func(context.Context, string, string, bool, string) error, resource string, action string) bool {
+	return core.HasError(ctx.Writer, ctx.Request, errors, err, logError, model, writeLog, resource, action)
 }
-func HandleResult(ctx *gin.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
-	if err != nil {
-		if core.IsNil(body) {
-			RespondAndLog(ctx, http.StatusInternalServerError, core.InternalServerError, err, logError, writeLog, resource, action)
-		} else {
-			logError(ctx.Request.Context(), err.Error(), core.MakeMap(body))
-			RespondAndLog(ctx, http.StatusInternalServerError, core.InternalServerError, err, nil, writeLog, resource, action)
-		}
-		return
-	}
-	if count > 0 {
-		if core.IsNil(body) {
-			Succeed(ctx, http.StatusOK, count, writeLog, resource, action)
-		} else {
-			Succeed(ctx, http.StatusOK, body, writeLog, resource, action)
-		}
-
-	} else if count == 0 {
-		ReturnAndLog(ctx, http.StatusNotFound, 0, writeLog, false, resource, action, "Data Not Found")
-	} else {
-		ReturnAndLog(ctx, http.StatusConflict, count, writeLog, false, resource, action, "Data Version Error")
-	}
+func AfterSavedWithLog(ctx *gin.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
+	return core.AfterSavedWithLog(ctx.Writer, ctx.Request, body, count, err, logError, writeLog, resource, action)
 }
-func AfterCreated(ctx *gin.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) {
-	if err != nil {
-		if core.IsNil(body) {
-			RespondAndLog(ctx, http.StatusInternalServerError, core.InternalServerError, err, logError, writeLog, resource, action)
-		} else {
-			logError(ctx.Request.Context(), err.Error(), core.MakeMap(body))
-			RespondAndLog(ctx, http.StatusInternalServerError, core.InternalServerError, err, nil, writeLog, resource, action)
-		}
-		return
-	}
-	if count > 0 {
-		if core.IsNil(body) {
-			Succeed(ctx, http.StatusCreated, count, writeLog, resource, action)
-		} else {
-			Succeed(ctx, http.StatusCreated, body, writeLog, resource, action)
-		}
-	} else {
-		ReturnAndLog(ctx, http.StatusConflict, count, writeLog, false, resource, action, "Duplicate Key")
-	}
+func AfterSaved(ctx *gin.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{})) error {
+	return core.AfterSaved(ctx.Writer, ctx.Request, body, count, err, logError)
+}
+func AfterCreatedWithLog(ctx *gin.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
+	return core.AfterCreatedWithLog(ctx.Writer, ctx.Request, body, count, err, logError, writeLog, resource, action)
+}
+func AfterCreated(ctx *gin.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{})) error {
+	return core.AfterCreated(ctx.Writer, ctx.Request, body, count, err, logError)
 }
 
 type Validate[T any] func(ctx context.Context, model T) ([]core.ErrorMessage, error)
@@ -260,7 +214,7 @@ func (h *Handler[T, K]) Load(c *gin.Context) {
 	if h.Action.Load != nil {
 		action = *h.Action.Load
 	}
-	Return(c, model, er2, h.LogError, h.WriteLog, h.Resource, action)
+	ReturnWithLog(c, model, er2, h.LogError, h.WriteLog, h.Resource, action)
 }
 func (h *Handler[T, K]) Create(c *gin.Context) {
 	var createFn func(context.Context, *T) error
@@ -272,13 +226,13 @@ func (h *Handler[T, K]) Create(c *gin.Context) {
 	if er1 == nil {
 		if h.Validate != nil {
 			errors, er2 := h.Validate(r.Context(), &model)
-			if !HasError(c, errors, er2, h.LogError, h.WriteLog, h.Resource, h.Action.Create) {
+			if !HasError(c, errors, er2, h.LogError, model, h.WriteLog, h.Resource, h.Action.Create) {
 				res, er3 := h.Service.Create(r.Context(), &model)
-				AfterCreated(c, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Create)
+				AfterCreatedWithLog(c, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Create)
 			}
 		} else {
 			res, er3 := h.Service.Create(r.Context(), &model)
-			AfterCreated(c, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Create)
+			AfterCreatedWithLog(c, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Create)
 		}
 	}
 }
@@ -292,13 +246,13 @@ func (h *Handler[T, K]) Update(c *gin.Context) {
 		r := c.Request
 		if h.Validate != nil {
 			errors, er2 := h.Validate(r.Context(), &model)
-			if !HasError(c, errors, er2, h.LogError, h.WriteLog, h.Resource, h.Action.Update) {
+			if !HasError(c, errors, er2, h.LogError, model, h.WriteLog, h.Resource, h.Action.Update) {
 				res, er3 := h.Service.Update(r.Context(), &model)
-				HandleResult(c, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Update)
+				AfterSavedWithLog(c, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Update)
 			}
 		} else {
 			res, er3 := h.Service.Update(r.Context(), &model)
-			HandleResult(c, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Update)
+			AfterSavedWithLog(c, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Update)
 		}
 	}
 }
@@ -311,13 +265,13 @@ func (h *Handler[T, K]) Patch(c *gin.Context) {
 	if er1 == nil {
 		if h.Validate != nil {
 			errors, er2 := h.Validate(c.Request.Context(), &model)
-			if !HasError(c, errors, er2, h.LogError, h.WriteLog, h.Resource, h.Action.Patch) {
+			if !HasError(c, errors, er2, h.LogError, jsonObj, h.WriteLog, h.Resource, h.Action.Patch) {
 				res, er3 := h.Service.Patch(c.Request.Context(), jsonObj)
-				HandleResult(c, jsonObj, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Patch)
+				AfterSavedWithLog(c, jsonObj, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Patch)
 			}
 		} else {
 			res, er3 := h.Service.Patch(c.Request.Context(), jsonObj)
-			HandleResult(c, jsonObj, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Patch)
+			AfterSavedWithLog(c, jsonObj, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Patch)
 		}
 	}
 }
@@ -332,5 +286,5 @@ func (h *Handler[T, K]) Delete(c *gin.Context) {
 		return
 	}
 	res, err := h.Service.Delete(c.Request.Context(), id)
-	HandleDelete(c, res, err, h.LogError, h.WriteLog, h.Resource, h.Action.Delete)
+	AfterDeletedWithLog(c, res, err, h.LogError, h.WriteLog, h.Resource, h.Action.Delete)
 }

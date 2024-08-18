@@ -3,7 +3,7 @@ package echo
 import (
 	"context"
 	"github.com/labstack/echo/v4"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 )
@@ -26,7 +26,7 @@ func (h *PrivilegesHandler) GetPrivileges(ctx echo.Context) error {
 			id = r.RequestURI[i+1:]
 		}
 	} else {
-		b, er1 := ioutil.ReadAll(r.Body)
+		b, er1 := io.ReadAll(r.Body)
 		if er1 != nil {
 			return ctx.String(http.StatusBadRequest, "Require id")
 		}

@@ -2,7 +2,7 @@ package client
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 )
@@ -23,7 +23,7 @@ func (c *PrivilegeClient) Privilege(ctx context.Context, userId string, privileg
 		return 0
 	}
 	defer resp.Body.Close()
-	body, er2 := ioutil.ReadAll(resp.Body)
+	body, er2 := io.ReadAll(resp.Body)
 	if er2 != nil {
 		return 0
 	}

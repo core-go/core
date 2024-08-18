@@ -1,7 +1,6 @@
 package io
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,7 +11,7 @@ func Save(fullName string, content string) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(fullName, []byte(content), os.ModePerm)
+	return os.WriteFile(fullName, []byte(content), os.ModePerm)
 }
 func List(path string) ([]string, error) {
 	var names []string
@@ -20,7 +19,7 @@ func List(path string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	folder, err := ioutil.ReadDir(absPath)
+	folder, err := os.ReadDir(absPath)
 	if err != nil {
 		return names, err
 	}
@@ -36,7 +35,7 @@ func Load(directory string) (map[string]string, error) {
 		return nil, er1
 	}
 	for _, name := range names {
-		content, er2 := ioutil.ReadFile(directory + string(os.PathSeparator) + name)
+		content, er2 := os.ReadFile(directory + string(os.PathSeparator) + name)
 		if er2 != nil {
 			return nil, er2
 		}

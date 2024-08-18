@@ -14,14 +14,6 @@ const (
 	Patch  = "patch"
 )
 
-func IsPatch(ctx context.Context) bool {
-	m := ctx.Value(Method)
-	if m != nil && m.(string) == Patch {
-		return true
-	}
-	return false
-}
-
 func CheckId[T any](ctx echo.Context, body *T, keysJson []string, mapIndex map[string]int, opts ...func(context.Context, *T) error) error {
 	err := core.MatchId(ctx.Request(), body, keysJson, mapIndex)
 	if err != nil {
@@ -37,26 +29,19 @@ func CheckId[T any](ctx echo.Context, body *T, keysJson []string, mapIndex map[s
 	}
 	return nil
 }
-func HandleDelete(ctx echo.Context, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
-	if err != nil {
-		return RespondAndLog(ctx, http.StatusInternalServerError, core.InternalServerError, err, logError, writeLog, resource, action)
-	}
-	if count > 0 {
-		return Succeed(ctx, http.StatusOK, count, writeLog, resource, action)
-	} else if count == 0 {
-		return ReturnAndLog(ctx, http.StatusNotFound, count, writeLog, false, resource, action, "Data Not Found")
-	} else {
-		return ReturnAndLog(ctx, http.StatusConflict, count, writeLog, false, resource, action, "Conflict")
-	}
+func AfterDeletedWithLog(ctx echo.Context, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
+	return core.AfterDeletedWithLog(ctx.Response().Writer, ctx.Request(), count, err, logError, writeLog, resource, action)
+}
+func AfterDeleted(ctx echo.Context, count int64, err error, logError func(context.Context, string, ...map[string]interface{})) error {
+	return core.AfterDeleted(ctx.Response().Writer, ctx.Request(), count, err, logError)
 }
 func BuildFieldMapAndCheckId[T any](ctx echo.Context, keysJson []string, mapIndex map[string]int, ignorePatch bool, opts ...func(context.Context, *T) error) (T, map[string]interface{}, error) {
 	var obj T
-	r := ctx.Request()
 	if ignorePatch == false {
-		r = r.WithContext(context.WithValue(r.Context(), Method, Patch))
+		r := ctx.Request().WithContext(context.WithValue(ctx.Request().Context(), Method, Patch))
 		ctx.SetRequest(r)
 	}
-	body, er0 := core.BuildMapAndStruct(r, &obj)
+	body, er0 := core.BuildMapAndStruct(ctx.Request(), &obj)
 	if er0 != nil {
 		ctx.String(http.StatusBadRequest, er0.Error())
 		return obj, body, er0
@@ -75,73 +60,20 @@ func BuildMapAndCheckId[T any](ctx echo.Context, keysJson []string, mapIndex map
 	}
 	return obj, jsonObj, er1
 }
-func HasError(ctx echo.Context, errors []core.ErrorMessage, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) bool {
-	if err != nil {
-		RespondAndLog(ctx, http.StatusInternalServerError, core.InternalServerError, err, logError, writeLog, resource, action)
-		return true
-	}
-	if len(errors) > 0 {
-		ReturnAndLog(ctx, http.StatusUnprocessableEntity, errors, writeLog, false, resource, action, "Data Validation Failed")
-		return true
-	}
-	return false
+func HasError(ctx echo.Context, errors []core.ErrorMessage, err error, logError func(context.Context, string, ...map[string]interface{}), model interface{}, writeLog func(context.Context, string, string, bool, string) error, resource string, action string) bool {
+	return core.HasError(ctx.Response().Writer, ctx.Request(), errors, err, logError, model, writeLog, resource, action)
 }
-func HandleResult(ctx echo.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
-	if err != nil {
-		return RespondAndLog(ctx, http.StatusInternalServerError, core.InternalServerError, err, logError, writeLog, resource, action)
-	}
-	if count > 0 {
-		if core.IsNil(body) {
-			return Succeed(ctx, http.StatusOK, count, writeLog, resource, action)
-		} else {
-			return Succeed(ctx, http.StatusOK, body, writeLog, resource, action)
-		}
-	} else if count == 0 {
-		return ReturnAndLog(ctx, http.StatusNotFound, 0, writeLog, false, resource, action, "Data Not Found")
-	} else {
-		return ReturnAndLog(ctx, http.StatusConflict, count, writeLog, false, resource, action, "Data Version Error")
-	}
+func AfterSavedWithLog(ctx echo.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
+	return core.AfterSavedWithLog(ctx.Response().Writer, ctx.Request(), body, count, err, logError, writeLog, resource, action)
 }
-func AfterCreated(ctx echo.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
-	if err != nil {
-		if core.IsNil(body) {
-			return RespondAndLog(ctx, http.StatusInternalServerError, core.InternalServerError, err, logError, writeLog, resource, action)
-		} else {
-			logError(ctx.Request().Context(), err.Error(), core.MakeMap(body))
-			return RespondAndLog(ctx, http.StatusInternalServerError, core.InternalServerError, err, nil, writeLog, resource, action)
-		}
-	}
-	if count > 0 {
-		if core.IsNil(body) {
-			return Succeed(ctx, http.StatusCreated, count, writeLog, resource, action)
-		} else {
-			return Succeed(ctx, http.StatusCreated, body, writeLog, resource, action)
-		}
-	} else {
-		return ReturnAndLog(ctx, http.StatusConflict, count, writeLog, false, resource, action, "Duplicate Key")
-	}
+func AfterSaved(ctx echo.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{})) error {
+	return core.AfterSaved(ctx.Response().Writer, ctx.Request(), body, count, err, logError)
 }
-func Result(ctx echo.Context, code int, result interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), opts ...interface{}) error {
-	if err != nil {
-		if len(opts) > 0 && opts[0] != nil {
-			b, er2 := json.Marshal(opts[0])
-			if er2 == nil {
-				m := make(map[string]interface{})
-				m["request"] = string(b)
-				logError(ctx.Request().Context(), err.Error(), m)
-			} else {
-				logError(ctx.Request().Context(), err.Error())
-			}
-			ctx.String(http.StatusInternalServerError, core.InternalServerError)
-			return err
-		} else {
-			logError(ctx.Request().Context(), err.Error(), nil)
-			ctx.String(http.StatusInternalServerError, core.InternalServerError)
-			return err
-		}
-	} else {
-		return ctx.JSON(code, result)
-	}
+func AfterCreatedWithLog(ctx echo.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
+	return core.AfterCreatedWithLog(ctx.Response().Writer, ctx.Request(), body, count, err, logError, writeLog, resource, action)
+}
+func AfterCreated(ctx echo.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{})) error {
+	return core.AfterCreated(ctx.Response().Writer, ctx.Request(), body, count, err, logError)
 }
 
 type Validate[T any] func(ctx context.Context, model T) ([]core.ErrorMessage, error)
@@ -281,7 +213,7 @@ func (h *Handler[T, K]) Load(c echo.Context) error {
 	if h.Action.Load != nil {
 		action = *h.Action.Load
 	}
-	return Return(c, model, er2, h.LogError, h.WriteLog, h.Resource, action)
+	return ReturnWithLog(c, model, er2, h.LogError, h.WriteLog, h.Resource, action)
 }
 func (h *Handler[T, K]) Create(c echo.Context) error {
 	var createFn func(context.Context, *T) error
@@ -295,15 +227,15 @@ func (h *Handler[T, K]) Create(c echo.Context) error {
 	r := c.Request()
 	if h.Validate != nil {
 		errors, er2 := h.Validate(r.Context(), &model)
-		if !HasError(c, errors, er2, h.LogError, h.WriteLog, h.Resource, h.Action.Create) {
-			res, er3 := h.Service.Create(r.Context(), &model)
-			return AfterCreated(c, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Create)
+		if HasError(c, errors, er2, h.LogError, model, h.WriteLog, h.Resource, h.Action.Create) {
+			return er2
 		}
+		res, er3 := h.Service.Create(r.Context(), &model)
+		return AfterCreatedWithLog(c, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Create)
 	} else {
 		res, er3 := h.Service.Create(r.Context(), &model)
-		return AfterCreated(c, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Create)
+		return AfterCreatedWithLog(c, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Create)
 	}
-	return nil
 }
 func (h *Handler[T, K]) Update(c echo.Context) error {
 	var updateFn func(context.Context, *T) error
@@ -317,15 +249,15 @@ func (h *Handler[T, K]) Update(c echo.Context) error {
 	r := c.Request()
 	if h.Validate != nil {
 		errors, er2 := h.Validate(r.Context(), &model)
-		if !HasError(c, errors, er2, h.LogError, h.WriteLog, h.Resource, h.Action.Update) {
-			res, er3 := h.Service.Update(r.Context(), &model)
-			return HandleResult(c, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Update)
+		if HasError(c, errors, er2, h.LogError, model, h.WriteLog, h.Resource, h.Action.Update) {
+			return er2
 		}
+		res, er3 := h.Service.Update(r.Context(), &model)
+		return AfterSavedWithLog(c, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Update)
 	} else {
 		res, er3 := h.Service.Update(r.Context(), &model)
-		return HandleResult(c, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Update)
+		return AfterSavedWithLog(c, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Update)
 	}
-	return nil
 }
 func (h *Handler[T, K]) Patch(c echo.Context) error {
 	var updateFn func(context.Context, *T) error
@@ -338,25 +270,24 @@ func (h *Handler[T, K]) Patch(c echo.Context) error {
 	}
 	if h.Validate != nil {
 		errors, er2 := h.Validate(c.Request().Context(), &model)
-		if !HasError(c, errors, er2, h.LogError, h.WriteLog, h.Resource, h.Action.Patch) {
-			res, er3 := h.Service.Patch(c.Request().Context(), jsonObj)
-			return HandleResult(c, jsonObj, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Patch)
+		if HasError(c, errors, er2, h.LogError, jsonObj, h.WriteLog, h.Resource, h.Action.Patch) {
+			return er2
 		}
+		res, er3 := h.Service.Patch(c.Request().Context(), jsonObj)
+		return AfterSavedWithLog(c, jsonObj, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Patch)
 	} else {
 		res, er3 := h.Service.Patch(c.Request().Context(), jsonObj)
-		return HandleResult(c, jsonObj, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Patch)
+		return AfterSavedWithLog(c, jsonObj, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Patch)
 	}
-	return nil
 }
 func (h *Handler[T, K]) Delete(c echo.Context) error {
 	id, ok, er1 := BuildId[K](c.Request(), h.ModelType, h.Keys, h.Indexes, h.IdMap)
 	if er1 != nil {
-		c.String(http.StatusBadRequest, er1.Error())
-		return er1
+		return c.String(http.StatusBadRequest, er1.Error())
 	}
 	if !ok {
 		return c.String(http.StatusBadRequest, "Id type is not valid (Id type must be K)")
 	}
 	res, err := h.Service.Delete(c.Request().Context(), id)
-	return HandleDelete(c, res, err, h.LogError, h.WriteLog, h.Resource, h.Action.Delete)
+	return AfterDeletedWithLog(c, res, err, h.LogError, h.WriteLog, h.Resource, h.Action.Delete)
 }

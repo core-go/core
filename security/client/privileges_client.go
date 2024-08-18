@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 )
 
@@ -24,7 +24,7 @@ func (c PrivilegesClient) Privileges(ctx context.Context, userId string) []strin
 		return privileges
 	}
 	defer resp.Body.Close()
-	body, er2 := ioutil.ReadAll(resp.Body)
+	body, er2 := io.ReadAll(resp.Body)
 	if er2 != nil {
 		return privileges
 	}

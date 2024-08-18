@@ -9,9 +9,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
+	"os"
 	"strings"
 	"time"
 )
@@ -245,7 +245,7 @@ func GetTLSClientConfig(clientCert tls.Certificate, options ...string) (*tls.Con
 		MaxVersion:         tls.VersionTLS13,
 	}
 	if len(options) > 0 && len(options[0]) > 0 {
-		pem, err := ioutil.ReadFile(options[0])
+		pem, err := os.ReadFile(options[0])
 		if err != nil {
 			return nil, err
 		}
@@ -874,34 +874,34 @@ func IsHttpError(err error) (*HttpError, bool) {
 }
 func MakeMap(err *HttpError, prefix string) map[string]interface{} {
 	mp := make(map[string]interface{})
-	mp[prefix + "Duration"] = err.Duration
-	mp[prefix + "Status"] = err.StatusCode
+	mp[prefix+"Duration"] = err.Duration
+	mp[prefix+"Status"] = err.StatusCode
 	if len(err.Request) > 0 {
-		mp[prefix + "Request"] = err.Request
+		mp[prefix+"Request"] = err.Request
 	}
 	if len(err.Response) > 0 {
-		mp[prefix + "Response"] = err.Response
+		mp[prefix+"Response"] = err.Response
 	}
 	if len(err.Url) > 0 {
-		mp[prefix + "Url"] = err.Url
+		mp[prefix+"Url"] = err.Url
 	}
 	if len(err.ErrorMessage) > 0 {
-		mp[prefix + "Error"] = err.ErrorMessage
+		mp[prefix+"Error"] = err.ErrorMessage
 	}
 	if err.RootError != nil && err.Error() != err.ErrorMessage {
-		mp[prefix + "RootError"] = err.Error()
+		mp[prefix+"RootError"] = err.Error()
 	}
 	if len(err.ErrorType) > 0 {
-		mp[prefix + "ErrorType"] = err.ErrorType
+		mp[prefix+"ErrorType"] = err.ErrorType
 	}
 	if len(err.ErrorCode) > 0 {
-		mp[prefix + "ErrorCode"] = err.ErrorCode
+		mp[prefix+"ErrorCode"] = err.ErrorCode
 	}
 	if len(err.Service) > 0 {
-		mp[prefix + "Service"] = err.Service
+		mp[prefix+"Service"] = err.Service
 	}
 	if len(err.Severity) > 0 {
-		mp[prefix + "Severity"] = err.Severity
+		mp[prefix+"Severity"] = err.Severity
 	}
 	return mp
 }

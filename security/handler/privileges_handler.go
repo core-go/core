@@ -3,7 +3,7 @@ package security
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 )
@@ -25,7 +25,7 @@ func (h *PrivilegesHandler) GetPrivileges(w http.ResponseWriter, r *http.Request
 			id = r.RequestURI[i+1:]
 		}
 	} else {
-		b, er1 := ioutil.ReadAll(r.Body)
+		b, er1 := io.ReadAll(r.Body)
 		if er1 != nil {
 			http.Error(w, "Require id", http.StatusBadRequest)
 			return

@@ -5,9 +5,9 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"github.com/garyburd/redigo/redis"
-	"io/ioutil"
 	"log"
 	"net/url"
+	"os"
 	"time"
 )
 
@@ -112,7 +112,7 @@ func CreateTLSConfig(c TLSConfig) (t *tls.Config) {
 			log.Fatalf("%v", err)
 		}
 
-		caCert, err := ioutil.ReadFile(c.CaFile)
+		caCert, err := os.ReadFile(c.CaFile)
 		if err != nil {
 			log.Fatalf("%v", err)
 		}

@@ -14,26 +14,6 @@ func JSON(w http.ResponseWriter, code int, result interface{}) error {
 	err := json.NewEncoder(w).Encode(result)
 	return err
 }
-func GetStatus(status int64, opts ...int) int {
-	if status > 0 {
-		if len(opts) > 0 {
-			return opts[0]
-		}
-		return http.StatusOK
-	}
-	if status == 0 {
-		if len(opts) > 1 {
-			return opts[1]
-		}
-		return http.StatusNotFound
-	}
-	if len(opts) > 2 {
-		return opts[2]
-	} else if len(opts) > 1 {
-		return opts[1]
-	}
-	return http.StatusConflict
-}
 func IsFound(res interface{}) int {
 	if IsNil(res) {
 		return http.StatusNotFound
@@ -54,10 +34,6 @@ func MakeMap(res interface{}, opts ...string) map[string]interface{} {
 	key := "request"
 	if len(opts) > 0 && len(opts[0]) > 0 {
 		key = opts[0]
-	}
-	m0, ok0 := res.(map[string]interface{})
-	if ok0 {
-		return m0
 	}
 	m := make(map[string]interface{})
 	b, err := json.Marshal(res)

@@ -3,7 +3,7 @@ package gin
 import (
 	"context"
 	"github.com/gin-gonic/gin"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 )
@@ -26,7 +26,7 @@ func (h *PrivilegesHandler) GetPrivileges(ctx *gin.Context) {
 			id = r.RequestURI[i+1:]
 		}
 	} else {
-		b, er1 := ioutil.ReadAll(r.Body)
+		b, er1 := io.ReadAll(r.Body)
 		if er1 != nil {
 			ctx.String(http.StatusBadRequest, "Require id")
 			return

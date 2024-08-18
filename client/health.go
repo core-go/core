@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"time"
@@ -43,7 +42,7 @@ func (s *HealthChecker) Check(ctx context.Context) (map[string]interface{}, erro
 	} else if err != nil {
 		return res, err
 	}
-	_, _ = io.Copy(ioutil.Discard, resp.Body)
+	_, _ = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
 	if resp.StatusCode >= 500 {
 		return res, fmt.Errorf("status code is: %d", resp.StatusCode)

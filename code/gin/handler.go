@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	co "github.com/core-go/core/code"
 	"github.com/gin-gonic/gin"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -79,7 +79,7 @@ func (h *Handler) Load(ctx *gin.Context) {
 				code = r.RequestURI[i+1:]
 			}
 		} else {
-			b, er1 := ioutil.ReadAll(r.Body)
+			b, er1 := io.ReadAll(r.Body)
 			if er1 != nil {
 				ctx.String(http.StatusBadRequest, "Body cannot is empty")
 				return
