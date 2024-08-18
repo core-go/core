@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"reflect"
 )
@@ -210,26 +211,6 @@ func DecodeAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, k
 	}
 	return CheckId(w, r, obj, keysJson, mapIndex, options...)
 }
-func HandleDelete(w http.ResponseWriter, r *http.Request, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
-	var resource, action string
-	if len(options) > 0 && len(options[0]) > 0 {
-		resource = options[0]
-	}
-	if len(options) > 1 && len(options[1]) > 0 {
-		action = options[1]
-	}
-	if err != nil {
-		RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
-		return
-	}
-	if count > 0 {
-		Succeed(w, r, http.StatusOK, count, writeLog, resource, action)
-	} else if count == 0 {
-		ReturnAndLog(w, r, http.StatusNotFound, count, writeLog, false, resource, action, "Data Not Found")
-	} else {
-		ReturnAndLog(w, r, http.StatusConflict, count, writeLog, false, resource, action, "Conflict")
-	}
-}
 func BuildFieldMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int, ignorePatch bool) (*http.Request, map[string]interface{}, error) {
 	if ignorePatch == false {
 		r = r.WithContext(context.WithValue(r.Context(), Method, Patch))
@@ -252,22 +233,7 @@ func BuildMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{},
 	}
 	return r2, json, er1
 }
-func BuildTrackingMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{}, keysJson []string, mapIndex map[string]int, buildPatch func(context.Context, interface{}) error, opts ...bool) (*http.Request, map[string]interface{}, error) {
-	ignorePatch := false
-	if len(opts) > 0 {
-		ignorePatch = opts[0]
-	}
-	r2, body, er0 := BuildFieldMapAndCheckId(w, r, obj, keysJson, mapIndex, ignorePatch)
-	if er0 != nil {
-		return r2, body, er0
-	}
-	json, er1 := BodyToJsonMap(r, obj, body, keysJson, mapIndex, buildPatch)
-	if er1 != nil {
-		http.Error(w, er1.Error(), http.StatusBadRequest)
-	}
-	return r2, json, er1
-}
-func HasError(w http.ResponseWriter, r *http.Request, errors []ErrorMessage, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) bool {
+func HasError(w http.ResponseWriter, r *http.Request, errors []ErrorMessage, err error, logError func(context.Context, string, ...map[string]interface{}), model interface{}, writeLog func(context.Context, string, string, bool, string) error, options ...string) bool {
 	var resource, action string
 	if len(options) > 0 && len(options[0]) > 0 {
 		resource = options[0]
@@ -276,16 +242,31 @@ func HasError(w http.ResponseWriter, r *http.Request, errors []ErrorMessage, err
 		action = options[1]
 	}
 	if err != nil {
-		RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
+		if writeLog != nil {
+			writeLog(r.Context(), resource, action, false, err.Error())
+		}
+		if logError != nil {
+			if IsNil(model) {
+				logError(r.Context(), err.Error())
+			} else {
+				logError(r.Context(), err.Error(), MakeMap(model))
+			}
+		}
+		if logError == nil && writeLog == nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		} else {
+			http.Error(w, InternalServerError, http.StatusInternalServerError)
+		}
 		return true
 	}
 	if len(errors) > 0 {
-		ReturnAndLog(w, r, http.StatusUnprocessableEntity, errors, writeLog, false, resource, action, "Data Validation Failed")
+		writeLog(r.Context(), resource, action, false, fmt.Sprintf("Data Validation Failed %+v Error: %+v", model, err))
+		JSON(w, http.StatusUnprocessableEntity, errors)
 		return true
 	}
 	return false
 }
-func HandleResult(w http.ResponseWriter, r *http.Request, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
+func AfterDeletedWithLog(w http.ResponseWriter, r *http.Request, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
 	var resource, action string
 	if len(options) > 0 && len(options[0]) > 0 {
 		resource = options[0]
@@ -294,54 +275,136 @@ func HandleResult(w http.ResponseWriter, r *http.Request, body interface{}, coun
 		action = options[1]
 	}
 	if err != nil {
-		if IsNil(body) {
-			RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
+		if logError != nil {
+			logError(r.Context(), "DELETE "+r.URL.Path+" with error "+err.Error())
+		}
+		if writeLog != nil {
+			writeLog(r.Context(), resource, action, false, "DELETE "+r.URL.Path+" with error "+err.Error())
+		}
+		if logError == nil && writeLog == nil {
+			JSON(w, http.StatusInternalServerError, err.Error())
 		} else {
-			logError(r.Context(), err.Error(), MakeMap(body))
-			RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, err, nil, writeLog, resource, action)
+			JSON(w, http.StatusInternalServerError, InternalServerError)
 		}
 		return
 	}
 	if count > 0 {
-		if IsNil(body) {
-			Succeed(w, r, http.StatusOK, count, writeLog, resource, action)
+		if writeLog != nil {
+			writeLog(r.Context(), resource, action, true, "DELETE "+r.URL.Path)
+		}
+		JSON(w, http.StatusOK, count)
+	} else if count == 0 {
+		if writeLog != nil {
+			writeLog(r.Context(), resource, action, false, "Data Not Found "+r.URL.Path)
+		}
+		JSON(w, http.StatusNotFound, count)
+	} else {
+		if writeLog != nil {
+			writeLog(r.Context(), resource, action, false, "DELETE "+r.URL.Path+" Conflict")
+		}
+		JSON(w, http.StatusConflict, count)
+	}
+}
+func AfterDeleted(w http.ResponseWriter, r *http.Request, count int64, err error, logError func(context.Context, string, ...map[string]interface{})) {
+	if err != nil {
+		if logError != nil {
+			logError(r.Context(), "DELETE "+r.URL.Path+" with error "+err.Error())
+		}
+		if logError == nil {
+			JSON(w, http.StatusInternalServerError, err.Error())
 		} else {
-			Succeed(w, r, http.StatusOK, body, writeLog, resource, action)
+			JSON(w, http.StatusInternalServerError, InternalServerError)
+		}
+		return
+	}
+	if count > 0 {
+		JSON(w, http.StatusOK, count)
+	} else if count == 0 {
+		JSON(w, http.StatusNotFound, count)
+	} else {
+		JSON(w, http.StatusConflict, count)
+	}
+}
+func AfterSavedWithLog(w http.ResponseWriter, r *http.Request, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
+	var resource, action string
+	if len(options) > 0 && len(options[0]) > 0 {
+		resource = options[0]
+	}
+	if len(options) > 1 && len(options[1]) > 0 {
+		action = options[1]
+	}
+	if err != nil {
+		if logError != nil {
+			if IsNil(body) {
+				logError(r.Context(), err.Error())
+			} else {
+				logError(r.Context(), err.Error(), MakeMap(body))
+			}
+		}
+		if writeLog != nil {
+			writeLog(r.Context(), resource, action, false, err.Error())
+		}
+		if logError == nil && writeLog == nil {
+			JSON(w, http.StatusInternalServerError, err.Error())
+		} else {
+			JSON(w, http.StatusInternalServerError, InternalServerError)
+		}
+		return
+	}
+	if count > 0 {
+		if writeLog != nil {
+			writeLog(r.Context(), resource, action, true, r.URL.Path)
+		}
+		if IsNil(body) {
+			JSON(w, http.StatusCreated, count)
+		} else {
+			JSON(w, http.StatusCreated, body)
 		}
 	} else if count == 0 {
-		ReturnAndLog(w, r, http.StatusNotFound, 0, writeLog, false, resource, action, "Data Not Found")
+		if writeLog != nil {
+			writeLog(r.Context(), resource, action, false, "Data Not Found "+r.URL.Path)
+		}
+		JSON(w, http.StatusNotFound, count)
 	} else {
-		ReturnAndLog(w, r, http.StatusConflict, count, writeLog, false, resource, action, "Data Version Error")
+		if writeLog != nil {
+			if IsNil(body) {
+				writeLog(r.Context(), resource, action, false, "Conflict Data")
+			} else {
+				writeLog(r.Context(), resource, action, false, fmt.Sprintf("Conflict Data %+v", body))
+			}
+		}
+		JSON(w, http.StatusConflict, count)
 	}
 }
-func AfterCreated(w http.ResponseWriter, r *http.Request, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
-	var resource, action string
-	if len(options) > 0 && len(options[0]) > 0 {
-		resource = options[0]
-	}
-	if len(options) > 1 && len(options[1]) > 0 {
-		action = options[1]
-	}
+func AfterSaved(w http.ResponseWriter, r *http.Request, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{})) {
 	if err != nil {
-		if IsNil(body) {
-			RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
+		if logError != nil {
+			if IsNil(body) {
+				logError(r.Context(), err.Error())
+			} else {
+				logError(r.Context(), err.Error(), MakeMap(body))
+			}
+		}
+		if logError == nil {
+			JSON(w, http.StatusInternalServerError, err.Error())
 		} else {
-			logError(r.Context(), err.Error(), MakeMap(body))
-			RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, err, nil, writeLog, resource, action)
+			JSON(w, http.StatusInternalServerError, InternalServerError)
 		}
 		return
 	}
 	if count > 0 {
 		if IsNil(body) {
-			Succeed(w, r, http.StatusCreated, count, writeLog, resource, action)
+			JSON(w, http.StatusCreated, count)
 		} else {
-			Succeed(w, r, http.StatusCreated, body, writeLog, resource, action)
+			JSON(w, http.StatusCreated, body)
 		}
+	} else if count == 0 {
+		JSON(w, http.StatusNotFound, count)
 	} else {
-		ReturnAndLog(w, r, http.StatusConflict, count, writeLog, false, resource, action, "Duplicate Key")
+		JSON(w, http.StatusConflict, count)
 	}
 }
-func Respond(w http.ResponseWriter, r *http.Request, code int, result interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
+func AfterCreatedWithLog(w http.ResponseWriter, r *http.Request, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
 	var resource, action string
 	if len(options) > 0 && len(options[0]) > 0 {
 		resource = options[0]
@@ -350,8 +413,66 @@ func Respond(w http.ResponseWriter, r *http.Request, code int, result interface{
 		action = options[1]
 	}
 	if err != nil {
-		RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
+		if logError != nil {
+			if IsNil(body) {
+				logError(r.Context(), err.Error())
+			} else {
+				logError(r.Context(), err.Error(), MakeMap(body))
+			}
+		}
+		if writeLog != nil {
+			writeLog(r.Context(), resource, action, false, err.Error())
+		}
+		if logError == nil && writeLog == nil {
+			JSON(w, http.StatusInternalServerError, err.Error())
+		} else {
+			JSON(w, http.StatusInternalServerError, InternalServerError)
+		}
+		return
+	}
+	if count > 0 {
+		if writeLog != nil {
+			writeLog(r.Context(), resource, action, true, "")
+		}
+		if IsNil(body) {
+			JSON(w, http.StatusCreated, count)
+		} else {
+			JSON(w, http.StatusCreated, body)
+		}
 	} else {
-		Succeed(w, r, code, result, writeLog, resource, action)
+		if writeLog != nil {
+			if IsNil(body) {
+				writeLog(r.Context(), resource, action, false, "Duplicate Key")
+			} else {
+				writeLog(r.Context(), resource, action, false, fmt.Sprintf("Duplicate Key %+v", body))
+			}
+		}
+		JSON(w, http.StatusConflict, count)
+	}
+}
+func AfterCreated(w http.ResponseWriter, r *http.Request, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{})) {
+	if err != nil {
+		if logError != nil {
+			if IsNil(body) {
+				logError(r.Context(), err.Error())
+			} else {
+				logError(r.Context(), err.Error(), MakeMap(body))
+			}
+		}
+		if logError == nil {
+			JSON(w, http.StatusInternalServerError, err.Error())
+		} else {
+			JSON(w, http.StatusInternalServerError, InternalServerError)
+		}
+		return
+	}
+	if count > 0 {
+		if IsNil(body) {
+			JSON(w, http.StatusCreated, count)
+		} else {
+			JSON(w, http.StatusCreated, body)
+		}
+	} else {
+		JSON(w, http.StatusConflict, count)
 	}
 }

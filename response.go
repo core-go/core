@@ -55,6 +55,10 @@ func MakeMap(res interface{}, opts ...string) map[string]interface{} {
 	if len(opts) > 0 && len(opts[0]) > 0 {
 		key = opts[0]
 	}
+	m0, ok0 := res.(map[string]interface{})
+	if ok0 {
+		return m0
+	}
 	m := make(map[string]interface{})
 	b, err := json.Marshal(res)
 	if err != nil {

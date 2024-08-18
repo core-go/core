@@ -14,7 +14,7 @@ func GetId(w http.ResponseWriter, r *http.Request, modelType reflect.Type, jsonI
 	}
 	return id
 }
-func Return(w http.ResponseWriter, r *http.Request, model interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
+func ReturnWithLog(w http.ResponseWriter, r *http.Request, model interface{}, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
 	var resource, action string
 	if len(options) > 0 && len(options[0]) > 0 {
 		resource = options[0]
@@ -23,19 +23,48 @@ func Return(w http.ResponseWriter, r *http.Request, model interface{}, err error
 		action = options[1]
 	}
 	if err != nil {
-		RespondAndLog(w, r, http.StatusInternalServerError, InternalServerError, err, logError, writeLog, resource, action)
+		if logError != nil {
+			logError(r.Context(), "GET "+r.URL.Path+" with error: "+err.Error())
+		}
+		if writeLog != nil {
+			writeLog(r.Context(), resource, action, false, "GET "+r.URL.Path+" with error: "+err.Error())
+		}
+		if logError == nil && writeLog == nil {
+			JSON(w, http.StatusInternalServerError, err.Error())
+		} else {
+			JSON(w, http.StatusInternalServerError, InternalServerError)
+		}
+		return
 	} else {
 		if IsNil(model) {
-			ReturnAndLog(w, r, http.StatusNotFound, nil, writeLog, false, resource, action, "Not found")
+			if writeLog != nil {
+				writeLog(r.Context(), resource, action, false, "GET "+r.URL.Path+" not found")
+			}
+			JSON(w, http.StatusNotFound, nil)
 		} else {
-			Succeed(w, r, http.StatusOK, model, writeLog, resource, action)
+			if writeLog != nil {
+				writeLog(r.Context(), resource, action, true, "GET "+r.URL.Path)
+			}
+			JSON(w, http.StatusOK, model)
 		}
 	}
 }
-func RespondIfFound(w http.ResponseWriter, r *http.Request, model interface{}, found bool, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) {
-	if err == nil && !found {
-		JSON(w, http.StatusNotFound, nil)
+func Return(w http.ResponseWriter, r *http.Request, model interface{}, err error, logError func(context.Context, string, ...map[string]interface{})) {
+	if err != nil {
+		if logError != nil {
+			logError(r.Context(), "GET "+r.URL.Path+" with error: "+err.Error())
+		}
+		if logError == nil {
+			JSON(w, http.StatusInternalServerError, err.Error())
+		} else {
+			JSON(w, http.StatusInternalServerError, InternalServerError)
+		}
+		return
 	} else {
-		Return(w, r, model, err, logError, writeLog, options...)
+		if IsNil(model) {
+			JSON(w, http.StatusNotFound, nil)
+		} else {
+			JSON(w, http.StatusOK, model)
+		}
 	}
 }

@@ -126,7 +126,7 @@ func (h *Handler[T, K]) Load(w http.ResponseWriter, r *http.Request) {
 	if h.Action.Load != nil {
 		action = *h.Action.Load
 	}
-	core.Return(w, r, model, er2, h.LogError, h.WriteLog, h.Resource, action)
+	core.ReturnWithLog(w, r, model, er2, h.LogError, h.WriteLog, h.Resource, action)
 }
 func (h *Handler[T, K]) Create(w http.ResponseWriter, r *http.Request) {
 	var createFn func(context.Context, *T) error
@@ -137,13 +137,13 @@ func (h *Handler[T, K]) Create(w http.ResponseWriter, r *http.Request) {
 	if er1 == nil {
 		if h.Validate != nil {
 			errors, er2 := h.Validate(r.Context(), &model)
-			if !core.HasError(w, r, errors, er2, h.LogError, h.WriteLog, h.Resource, h.Action.Create) {
+			if !core.HasError(w, r, errors, er2, h.LogError, model, h.WriteLog, h.Resource, h.Action.Create) {
 				res, er3 := h.Service.Create(r.Context(), &model)
-				core.AfterCreated(w, r, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Create)
+				core.AfterCreatedWithLog(w, r, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Create)
 			}
 		} else {
 			res, er3 := h.Service.Create(r.Context(), &model)
-			core.AfterCreated(w, r, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Create)
+			core.AfterCreatedWithLog(w, r, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Create)
 		}
 	}
 }
@@ -156,13 +156,13 @@ func (h *Handler[T, K]) Update(w http.ResponseWriter, r *http.Request) {
 	if er1 == nil {
 		if h.Validate != nil {
 			errors, er2 := h.Validate(r.Context(), &model)
-			if !core.HasError(w, r, errors, er2, h.LogError, h.WriteLog, h.Resource, h.Action.Update) {
+			if !core.HasError(w, r, errors, er2, h.LogError, model, h.WriteLog, h.Resource, h.Action.Update) {
 				res, er3 := h.Service.Update(r.Context(), &model)
-				core.HandleResult(w, r, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Update)
+				core.AfterSavedWithLog(w, r, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Update)
 			}
 		} else {
 			res, er3 := h.Service.Update(r.Context(), &model)
-			core.HandleResult(w, r, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Update)
+			core.AfterSavedWithLog(w, r, &model, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Update)
 		}
 	}
 }
@@ -175,13 +175,13 @@ func (h *Handler[T, K]) Patch(w http.ResponseWriter, r *http.Request) {
 	if er1 == nil {
 		if h.Validate != nil {
 			errors, er2 := h.Validate(r.Context(), &model)
-			if !core.HasError(w, r, errors, er2, h.LogError, h.WriteLog, h.Resource, h.Action.Patch) {
+			if !core.HasError(w, r, errors, er2, h.LogError, jsonObj, h.WriteLog, h.Resource, h.Action.Patch) {
 				res, er3 := h.Service.Patch(r.Context(), jsonObj)
-				core.HandleResult(w, r, jsonObj, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Patch)
+				core.AfterSavedWithLog(w, r, jsonObj, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Patch)
 			}
 		} else {
 			res, er3 := h.Service.Patch(r.Context(), jsonObj)
-			core.HandleResult(w, r, jsonObj, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Patch)
+			core.AfterSavedWithLog(w, r, jsonObj, res, er3, h.LogError, h.WriteLog, h.Resource, h.Action.Patch)
 		}
 	}
 }
@@ -196,7 +196,7 @@ func (h *Handler[T, K]) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res, err := h.Service.Delete(r.Context(), id)
-	core.HandleDelete(w, r, res, err, h.LogError, h.WriteLog, h.Resource, h.Action.Delete)
+	core.AfterDeletedWithLog(w, r, res, err, h.LogError, h.WriteLog, h.Resource, h.Action.Delete)
 }
 
 func Decode[T any](w http.ResponseWriter, r *http.Request, opts ...func(context.Context, *T) error) (T, error) {
