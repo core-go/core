@@ -54,25 +54,6 @@ type GroupAdapter struct {
 	}
 }
 
-/*
-	func (a *GroupAdapter) CreateGroups(ctx context.Context, id string, groups []Group) (int64, error) {
-		query := fmt.Sprintf("insert into %s (%s, %s) values (%s, %s)", a.Table, a.Id, a.Groups, a.BuildParam(1), a.BuildParam(2))
-		res, err := a.DB.ExecContext(ctx, query, id, a.Array(groups))
-		if err != nil {
-			return -1, err
-		}
-		return res.RowsAffected()
-	}
-
-	func (a *GroupAdapter) UpdateGroups(ctx context.Context, id string, groups []Group) (int64, error) {
-		query := fmt.Sprintf("update %s set %s = %s where %s = %s", a.Table, a.Groups, a.BuildParam(1), a.Id, a.BuildParam(2))
-		res, err := a.DB.ExecContext(ctx, query, a.Array(groups), id)
-		if err != nil {
-			return -1, err
-		}
-		return res.RowsAffected()
-	}
-*/
 func (a *GroupAdapter) GetGroups(ctx context.Context, id string) ([]Group, error) {
 	var groups []Group
 	query := fmt.Sprintf("select %s from %s where %s = %s", a.Groups, a.Table, a.Id, a.BuildParam(1))
