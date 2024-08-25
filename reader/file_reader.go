@@ -8,19 +8,19 @@ import (
 	"strings"
 )
 
-type DelimiterFileReader struct {
+type FileReader struct {
 	FileName string
 }
 
-func NewDelimiterFileReader(buildFileName func() string) (*DelimiterFileReader, error) {
+func NewFileReader(buildFileName func() string) (*FileReader, error) {
 	fileName := buildFileName()
 	if len(strings.TrimSpace(fileName)) == 0 {
 		return nil, errors.New("file name cannot be empty")
 	}
-	return &DelimiterFileReader{FileName: fileName}, nil
+	return &FileReader{FileName: fileName}, nil
 }
 
-func (fr *DelimiterFileReader) Read(next func(lines string, err error, numLine int) error) error {
+func (fr *FileReader) Read(next func(lines string, err error, numLine int) error) error {
 	file, err := os.Open(fr.FileName)
 	if err != nil {
 		err = errors.New("cannot open file")
@@ -34,7 +34,7 @@ func (fr *DelimiterFileReader) Read(next func(lines string, err error, numLine i
 	i := 1
 	for scanner.Scan() {
 		line := scanner.Text()
-		if line != "" {
+		if len(line) != 0 {
 			err := next(line, nil, i)
 			if err != nil {
 				return err

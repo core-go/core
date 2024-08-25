@@ -9,25 +9,25 @@ import (
 type ErrorMessage struct {
 	Field   string `yaml:"field" mapstructure:"field" json:"field,omitempty" gorm:"column:field" bson:"field,omitempty" dynamodbav:"field,omitempty" firestore:"field,omitempty"`
 	Code    string `yaml:"code" mapstructure:"code" json:"code,omitempty" gorm:"column:code" bson:"code,omitempty" dynamodbav:"code,omitempty" firestore:"code,omitempty"`
-	Param   string `yaml:"param" mapstructure:"param" json:"param,omitempty" gorm:"column:param" bson:"param,omitempty" dynamodbav:"param,omitempty" firestore:"param,omitempty"`
 	Message string `yaml:"message" mapstructure:"message" json:"message,omitempty" gorm:"column:message" bson:"message,omitempty" dynamodbav:"message,omitempty" firestore:"message,omitempty"`
+	Param   string `yaml:"param" mapstructure:"param" json:"param,omitempty" gorm:"column:param" bson:"param,omitempty" dynamodbav:"param,omitempty" firestore:"param,omitempty"`
 }
 
-type ErrorHandler[T any] struct {
+type ErrorHandler[T any, S string | []string] struct {
 	LogError   func(ctx context.Context, format string, fields map[string]interface{})
 	FileName   string
 	LineNumber string
 	Map        map[string]interface{}
 }
 
-func NewErrorHandler[T any](logger func(ctx context.Context, format string, fields map[string]interface{}), fileName string, lineNumber string, mp map[string]interface{}) *ErrorHandler[T] {
+func NewErrorHandler[T any, S string | []string](logger func(ctx context.Context, format string, fields map[string]interface{}), fileName string, lineNumber string, mp map[string]interface{}) *ErrorHandler[T, S] {
 	if len(fileName) <= 0 {
 		fileName = "filename"
 	}
 	if len(lineNumber) <= 0 {
 		lineNumber = "lineNumber"
 	}
-	return &ErrorHandler[T]{
+	return &ErrorHandler[T, S]{
 		LogError:   logger,
 		FileName:   fileName,
 		LineNumber: lineNumber,
@@ -35,7 +35,7 @@ func NewErrorHandler[T any](logger func(ctx context.Context, format string, fiel
 	}
 }
 
-func (e *ErrorHandler[T]) HandleError(ctx context.Context, raw string, rs T, err []ErrorMessage, i int, fileName string) {
+func (e *ErrorHandler[T, S]) HandleError(ctx context.Context, raw S, rs T, err []ErrorMessage, i int, fileName string) {
 	var ext = make(map[string]interface{})
 	if e.Map != nil {
 		ext = e.Map
@@ -63,7 +63,7 @@ func (e *ErrorHandler[T]) HandleError(ctx context.Context, raw string, rs T, err
 	}
 }
 
-func (e *ErrorHandler[T]) HandleException(ctx context.Context, raw string, rs T, err error, i int, fileName string) {
+func (e *ErrorHandler[T, S]) HandleException(ctx context.Context, raw S, rs T, err error, i int, fileName string) {
 	var ext = make(map[string]interface{})
 	if e.Map != nil {
 		ext = e.Map
@@ -75,76 +75,76 @@ func (e *ErrorHandler[T]) HandleException(ctx context.Context, raw string, rs T,
 		if i > 0 {
 			ext[e.LineNumber] = i
 		}
-		e.LogError(ctx, fmt.Sprintf("Error to write: %s %+v . Error: %+v", raw, rs, err), ext)
+		e.LogError(ctx, fmt.Sprintf("Error to write: %v %+v . Error: %+v", raw, rs, err), ext)
 	} else if len(e.FileName) > 0 {
 		if len(fileName) > 0 {
 			ext[e.FileName] = fileName
 		}
-		e.LogError(ctx, fmt.Sprintf("Error to write: %s %+v . Error: %+v line: %d", raw, rs, err, i), ext)
+		e.LogError(ctx, fmt.Sprintf("Error to write: %v %+v . Error: %+v line: %d", raw, rs, err, i), ext)
 	} else if len(e.LineNumber) > 0 {
 		if i > 0 {
 			ext[e.LineNumber] = i
 		}
-		e.LogError(ctx, fmt.Sprintf("Error to write: %s %+v . Error: %+v filename:%s", raw, rs, err, fileName), ext)
+		e.LogError(ctx, fmt.Sprintf("Error to write: %v %+v . Error: %+v filename:%s", raw, rs, err, fileName), ext)
 	} else {
-		e.LogError(ctx, fmt.Sprintf("Error to write:  %s %+v . Error: %v filename: %s line: %d", raw, rs, err, fileName, i), ext)
+		e.LogError(ctx, fmt.Sprintf("Error to write: %v %+v . Error: %v filename: %s line: %d", raw, rs, err, fileName, i), ext)
 	}
 }
 
-func NewImportAdapter[T any](
-	read func(next func(line string, err error, numLine int) error) error,
-	transform func(ctx context.Context, lines string) (T, error),
+func NewImportAdapter[T any, S string | []string](
+	read func(next func(record S, err error, numLine int) error) error,
+	transform func(ctx context.Context, record S) (T, error),
 	validate func(ctx context.Context, model *T) ([]ErrorMessage, error),
-	handleError func(ctx context.Context, raw string, rs *T, err []ErrorMessage, i int, fileName string),
-	handleException func(ctx context.Context, raw string, rs *T, err error, i int, fileName string),
+	handleError func(ctx context.Context, raw S, rs *T, err []ErrorMessage, i int, fileName string),
+	handleException func(ctx context.Context, raw S, rs *T, err error, i int, fileName string),
 	filename string,
 	write func(ctx context.Context, data *T) error,
 	opt ...func(ctx context.Context) error,
-) *Importer[T] {
-	return NewImporter[T](read, transform, validate, handleError, handleException, filename, write, opt...)
+) *Importer[T, S] {
+	return NewImporter[T, S](read, transform, validate, handleError, handleException, filename, write, opt...)
 }
-func NewImportService[T any](
-	read func(next func(line string, err error, numLine int) error) error,
-	transform func(ctx context.Context, lines string) (T, error),
+func NewImportService[T any, S string | []string](
+	read func(next func(record S, err error, numLine int) error) error,
+	transform func(ctx context.Context, record S) (T, error),
 	validate func(ctx context.Context, model *T) ([]ErrorMessage, error),
-	handleError func(ctx context.Context, raw string, rs *T, err []ErrorMessage, i int, fileName string),
-	handleException func(ctx context.Context, raw string, rs *T, err error, i int, fileName string),
+	handleError func(ctx context.Context, raw S, rs *T, err []ErrorMessage, i int, fileName string),
+	handleException func(ctx context.Context, raw S, rs *T, err error, i int, fileName string),
 	filename string,
 	write func(ctx context.Context, data *T) error,
 	opt ...func(ctx context.Context) error,
-) *Importer[T] {
-	return NewImporter[T](read, transform, validate, handleError, handleException, filename, write, opt...)
+) *Importer[T, S] {
+	return NewImporter[T, S](read, transform, validate, handleError, handleException, filename, write, opt...)
 }
-func NewImporter[T any](
-	read func(next func(line string, err error, numLine int) error) error,
-	transform func(ctx context.Context, lines string) (T, error),
+func NewImporter[T any, S string | []string](
+	read func(next func(record S, err error, numLine int) error) error,
+	transform func(ctx context.Context, record S) (T, error),
 	validate func(ctx context.Context, model *T) ([]ErrorMessage, error),
-	handleError func(ctx context.Context, raw string, rs *T, err []ErrorMessage, i int, fileName string),
-	handleException func(ctx context.Context, raw string, rs *T, err error, i int, fileName string),
+	handleError func(ctx context.Context, raw S, rs *T, err []ErrorMessage, i int, fileName string),
+	handleException func(ctx context.Context, raw S, rs *T, err error, i int, fileName string),
 	filename string,
 	write func(ctx context.Context, data *T) error,
 	opt ...func(ctx context.Context) error,
-) *Importer[T] {
+) *Importer[T, S] {
 	var flush func(ctx context.Context) error
 	if len(opt) > 0 {
 		flush = opt[0]
 	}
-	return &Importer[T]{Read: read, Transform: transform, Validate: validate, HandleError: handleError, HandleException: handleException, Write: write, Flush: flush, Filename: filename}
+	return &Importer[T, S]{Read: read, Transform: transform, Validate: validate, HandleError: handleError, HandleException: handleException, Write: write, Flush: flush, Filename: filename}
 }
 
-type Importer[T any] struct {
-	Transform       func(ctx context.Context, lines string) (T, error)
-	Read            func(next func(line string, err error, numLine int) error) error
+type Importer[T any, S string | []string] struct {
+	Transform       func(ctx context.Context, record S) (T, error)
+	Read            func(next func(record S, err error, numLine int) error) error
 	Validate        func(ctx context.Context, model *T) ([]ErrorMessage, error)
-	HandleError     func(ctx context.Context, raw string, rs *T, err []ErrorMessage, i int, fileName string)
-	HandleException func(ctx context.Context, raw string, rs *T, err error, i int, fileName string)
+	HandleError     func(ctx context.Context, raw S, rs *T, err []ErrorMessage, i int, fileName string)
+	HandleException func(ctx context.Context, raw S, rs *T, err error, i int, fileName string)
 	Filename        string
 	Write           func(ctx context.Context, data *T) error
 	Flush           func(ctx context.Context) error
 }
 
-func (s *Importer[T]) Import(ctx context.Context) (total int, success int, err error) {
-	err = s.Read(func(line string, err error, numLine int) error {
+func (s *Importer[T, S]) Import(ctx context.Context) (total int, success int, err error) {
+	err = s.Read(func(line S, err error, numLine int) error {
 		if err == io.EOF {
 			if s.Flush != nil {
 				return s.Flush(ctx)

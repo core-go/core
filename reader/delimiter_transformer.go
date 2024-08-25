@@ -15,11 +15,6 @@ type Delimiter struct {
 	Handle   func(f reflect.Value, line string, format string, scale int) error
 }
 
-type DelimiterTransformer[T any] struct {
-	formatCols map[int]Delimiter
-	separator  string
-}
-
 func NewDelimiterTransformer[T any](options ...string) (*DelimiterTransformer[T], error) {
 	var t T
 	modelType := reflect.TypeOf(t)
@@ -34,6 +29,11 @@ func NewDelimiterTransformer[T any](options ...string) (*DelimiterTransformer[T]
 		separator = "|"
 	}
 	return &DelimiterTransformer[T]{formatCols: formatCols, separator: separator}, nil
+}
+
+type DelimiterTransformer[T any] struct {
+	formatCols map[int]Delimiter
+	separator  string
 }
 
 func (f DelimiterTransformer[T]) Transform(ctx context.Context, lineStr string) (T, error) {
@@ -85,7 +85,6 @@ func GetIndexesByTag(modelType reflect.Type, tagName string) (map[int]Delimiter,
 	}
 	return ma, nil
 }
-
 func Min(n1 int, n2 int) int {
 	if n1 < n2 {
 		return n1

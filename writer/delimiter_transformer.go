@@ -13,18 +13,17 @@ import (
 
 const DateLayout string = "2006-01-02 15:04:05 +0700 +07"
 
-type DelimiterFormatter struct {
-	Delimiter  string
-	modelType  reflect.Type
-	formatCols map[int]Delimiter
-}
-
 type Delimiter struct {
 	Format string
 	Scale  int
 }
 
-func NewDelimiterFormatter(modelType reflect.Type, opts ...string) (*DelimiterFormatter, error) {
+type DelimiterTransformer[T any] struct {
+	Delimiter  string
+	formatCols map[int]Delimiter
+}
+
+func NewDelimiterTransformer[T any](opts ...string) (*DelimiterTransformer[T], error) {
 	sep := "|"
 	if len(opts) > 0 && len(opts[0]) > 0 {
 		sep = opts[0]
@@ -33,16 +32,22 @@ func NewDelimiterFormatter(modelType reflect.Type, opts ...string) (*DelimiterFo
 	if len(opts) > 1 && len(opts[1]) > 0 {
 		skipTag = opts[1]
 	}
+	var t T
+	modelType := reflect.TypeOf(t)
 	formatCols, err := GetIndexesByTag(modelType, "format", skipTag)
 	if err != nil {
 		return nil, err
 	}
-	return &DelimiterFormatter{modelType: modelType, formatCols: formatCols, Delimiter: sep}, nil
+	return &DelimiterTransformer[T]{formatCols: formatCols, Delimiter: sep}, nil
+}
+func NewDelimiterFormatter[T any](opts ...string) (*DelimiterTransformer[T], error) {
+	return NewDelimiterTransformer[T](opts...)
 }
 
-func (f *DelimiterFormatter) Format(ctx context.Context, model interface{}) string {
+func (f *DelimiterTransformer[T]) Transform(ctx context.Context, model *T) string {
 	return ToTextWithDelimiter(model, f.Delimiter, f.formatCols)
 }
+
 func ToTextWithDelimiter(model interface{}, delimiter string, formatCols map[int]Delimiter) string {
 	arr := make([]string, 0)
 	sumValue := reflect.Indirect(reflect.ValueOf(model))

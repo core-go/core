@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
-	"github.com/garyburd/redigo/redis"
+	"github.com/gomodule/redigo/redis"
 	"log"
 	"net/url"
 	"os"
@@ -39,20 +39,20 @@ func NewRedisPool(uri string) (*redis.Pool, error) {
 }
 
 type Config struct {
-	Url             string     `yaml:"url" mapstructure:"url" json:"url,omitempty" gorm:"column:url" bson:"url,omitempty" dynamodbav:"url,omitempty" firestore:"url,omitempty"`
-	IdleTimeout     int64      `yaml:"idle_timeout" mapstructure:"idle_timeout" json:"idleTimeout,omitempty" gorm:"column:idletimeout" bson:"idleTimeout,omitempty" dynamodbav:"idleTimeout,omitempty" firestore:"idleTimeout,omitempty"`
-	MaxConnLifetime int64      `yaml:"max_conn_lifetime" mapstructure:"max_conn_lifetime" json:"maxConnLifetime,omitempty" gorm:"column:maxconnlifetime" bson:"maxConnLifetime,omitempty" dynamodbav:"maxConnLifetime,omitempty" firestore:"maxConnLifetime,omitempty"`
-	MaxActive       int        `yaml:"max_active" mapstructure:"max_active" json:"maxActive,omitempty" gorm:"column:maxactive" bson:"maxActive,omitempty" dynamodbav:"maxActive,omitempty" firestore:"maxActive,omitempty"`
-	MaxIdle         int        `yaml:"max_idle" mapstructure:"max_idle" json:"maxIdle,omitempty" gorm:"column:maxIdle" bson:"maxIdle,omitempty" dynamodbav:"maxIdle,omitempty" firestore:"maxIdle,omitempty"`
-	DB              int        `yaml:"db" mapstructure:"db" json:"db,omitempty" gorm:"column:db" bson:"db,omitempty" dynamodbav:"db,omitempty" firestore:"db,omitempty"`
-	ConnectTimeout  int64      `yaml:"connect_timeout" mapstructure:"connect_timeout" json:"connectTimeout,omitempty" gorm:"column:connecttimeout" bson:"connectTimeout,omitempty" dynamodbav:"connectTimeout,omitempty" firestore:"connectTimeout,omitempty"`
-	KeepAlive       int64      `yaml:"keep_alive" mapstructure:"keep_alive" json:"keepAlive,omitempty" gorm:"column:keepalive" bson:"keepAlive,omitempty" dynamodbav:"keepAlive,omitempty" firestore:"keepAlive,omitempty"`
-	ReadTimeout     int64      `yaml:"read_timeout" mapstructure:"read_timeout" json:"readTimeout,omitempty" gorm:"column:readtimeout" bson:"readTimeout,omitempty" dynamodbav:"readTimeout,omitempty" firestore:"readTimeout,omitempty"`
-	WriteTimeout    int64      `yaml:"write_timeout" mapstructure:"write_timeout" json:"writeTimeout,omitempty" gorm:"column:writetimeout" bson:"writeTimeout,omitempty" dynamodbav:"writeTimeout,omitempty" firestore:"writeTimeout,omitempty"`
-	Wait            *bool      `yaml:"wait" mapstructure:"wait" json:"wait,omitempty" gorm:"column:wait" bson:"wait,omitempty" dynamodbav:"wait,omitempty" firestore:"wait,omitempty"`
-	TLSEnable       *bool      `yaml:"tls_enable" mapstructure:"tls_enable" json:"tlsEnable,omitempty" gorm:"column:tlsenable" bson:"tlsEnable,omitempty" dynamodbav:"tlsEnable,omitempty" firestore:"tlsEnable,omitempty"`
-	TLSSkipVerify   *bool      `yaml:"tls_skip_verify" mapstructure:"tls_skip_verify" json:"tlsSkipVerify,omitempty" gorm:"column:tlsskipverify" bson:"tlsSkipVerify,omitempty" dynamodbav:"tlsSkipVerify,omitempty" firestore:"tlsSkipVerify,omitempty"`
-	TLS             *TLSConfig `yaml:"tls" mapstructure:"tls" json:"tls,omitempty" gorm:"column:tls" bson:"tls,omitempty" dynamodbav:"tls,omitempty" firestore:"tls,omitempty"`
+	Url             string         `yaml:"url" mapstructure:"url" json:"url,omitempty" gorm:"column:url" bson:"url,omitempty" dynamodbav:"url,omitempty" firestore:"url,omitempty"`
+	IdleTimeout     int64          `yaml:"idle_timeout" mapstructure:"idle_timeout" json:"idleTimeout,omitempty" gorm:"column:idletimeout" bson:"idleTimeout,omitempty" dynamodbav:"idleTimeout,omitempty" firestore:"idleTimeout,omitempty"`
+	MaxConnLifetime int64          `yaml:"max_conn_lifetime" mapstructure:"max_conn_lifetime" json:"maxConnLifetime,omitempty" gorm:"column:maxconnlifetime" bson:"maxConnLifetime,omitempty" dynamodbav:"maxConnLifetime,omitempty" firestore:"maxConnLifetime,omitempty"`
+	MaxActive       int            `yaml:"max_active" mapstructure:"max_active" json:"maxActive,omitempty" gorm:"column:maxactive" bson:"maxActive,omitempty" dynamodbav:"maxActive,omitempty" firestore:"maxActive,omitempty"`
+	MaxIdle         int            `yaml:"max_idle" mapstructure:"max_idle" json:"maxIdle,omitempty" gorm:"column:maxIdle" bson:"maxIdle,omitempty" dynamodbav:"maxIdle,omitempty" firestore:"maxIdle,omitempty"`
+	DB              int            `yaml:"db" mapstructure:"db" json:"db,omitempty" gorm:"column:db" bson:"db,omitempty" dynamodbav:"db,omitempty" firestore:"db,omitempty"`
+	ConnectTimeout  *time.Duration `yaml:"connect_timeout" mapstructure:"connect_timeout" json:"connectTimeout,omitempty" gorm:"column:connecttimeout" bson:"connectTimeout,omitempty" dynamodbav:"connectTimeout,omitempty" firestore:"connectTimeout,omitempty"`
+	KeepAlive       *time.Duration `yaml:"keep_alive" mapstructure:"keep_alive" json:"keepAlive,omitempty" gorm:"column:keepalive" bson:"keepAlive,omitempty" dynamodbav:"keepAlive,omitempty" firestore:"keepAlive,omitempty"`
+	ReadTimeout     *time.Duration `yaml:"read_timeout" mapstructure:"read_timeout" json:"readTimeout,omitempty" gorm:"column:readtimeout" bson:"readTimeout,omitempty" dynamodbav:"readTimeout,omitempty" firestore:"readTimeout,omitempty"`
+	WriteTimeout    *time.Duration `yaml:"write_timeout" mapstructure:"write_timeout" json:"writeTimeout,omitempty" gorm:"column:writetimeout" bson:"writeTimeout,omitempty" dynamodbav:"writeTimeout,omitempty" firestore:"writeTimeout,omitempty"`
+	Wait            *bool          `yaml:"wait" mapstructure:"wait" json:"wait,omitempty" gorm:"column:wait" bson:"wait,omitempty" dynamodbav:"wait,omitempty" firestore:"wait,omitempty"`
+	TLSEnable       *bool          `yaml:"tls_enable" mapstructure:"tls_enable" json:"tlsEnable,omitempty" gorm:"column:tlsenable" bson:"tlsEnable,omitempty" dynamodbav:"tlsEnable,omitempty" firestore:"tlsEnable,omitempty"`
+	TLSSkipVerify   *bool          `yaml:"tls_skip_verify" mapstructure:"tls_skip_verify" json:"tlsSkipVerify,omitempty" gorm:"column:tlsskipverify" bson:"tlsSkipVerify,omitempty" dynamodbav:"tlsSkipVerify,omitempty" firestore:"tlsSkipVerify,omitempty"`
+	TLS             *TLSConfig     `yaml:"tls" mapstructure:"tls" json:"tls,omitempty" gorm:"column:tls" bson:"tls,omitempty" dynamodbav:"tls,omitempty" firestore:"tls,omitempty"`
 }
 type TLSConfig struct {
 	InsecureSkipVerify *bool  `yaml:"insecure_skip_verify" mapstructure:"insecure_skip_verify" json:"insecureSkipVerify,omitempty" gorm:"column:insecureskipverify" bson:"insecureSkipVerify,omitempty" dynamodbav:"insecureSkipVerify,omitempty" firestore:"insecureSkipVerify,omitempty"`
@@ -71,20 +71,20 @@ func NewDialOptions(c Config, pass ...string) []redis.DialOption {
 		o := redis.DialDatabase(c.DB)
 		os = append(os, o)
 	}
-	if c.ConnectTimeout > 0 {
-		o := redis.DialConnectTimeout(time.Duration(c.ConnectTimeout) * time.Millisecond)
+	if c.ConnectTimeout != nil {
+		o := redis.DialConnectTimeout(*c.ConnectTimeout)
 		os = append(os, o)
 	}
-	if c.KeepAlive > 0 {
-		o := redis.DialKeepAlive(time.Duration(c.KeepAlive) * time.Millisecond)
+	if c.KeepAlive != nil {
+		o := redis.DialKeepAlive(*c.KeepAlive)
 		os = append(os, o)
 	}
-	if c.ReadTimeout > 0 {
-		o := redis.DialReadTimeout(time.Duration(c.ReadTimeout) * time.Millisecond)
+	if c.ReadTimeout != nil {
+		o := redis.DialReadTimeout(*c.ReadTimeout)
 		os = append(os, o)
 	}
-	if c.WriteTimeout > 0 {
-		o := redis.DialWriteTimeout(time.Duration(c.WriteTimeout) * time.Millisecond)
+	if c.WriteTimeout != nil {
+		o := redis.DialWriteTimeout(*c.WriteTimeout)
 		os = append(os, o)
 	}
 	if c.TLSEnable != nil {

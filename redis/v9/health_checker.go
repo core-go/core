@@ -13,14 +13,14 @@ type HealthChecker struct {
 	timeout time.Duration
 }
 
-func NewRedisHealthChecker(db *redis.Client, name string, timeouts ...time.Duration) *HealthChecker {
+func NewRedisHealthChecker(client *redis.Client, name string, timeouts ...time.Duration) *HealthChecker {
 	var timeout time.Duration
 	if len(timeouts) >= 1 {
 		timeout = timeouts[0]
 	} else {
 		timeout = 4 * time.Second
 	}
-	return &HealthChecker{client: db, name: name, timeout: timeout}
+	return &HealthChecker{client: client, name: name, timeout: timeout}
 }
 
 func NewHealthChecker(db *redis.Client, options ...string) *HealthChecker {

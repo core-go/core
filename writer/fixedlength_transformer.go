@@ -11,14 +11,31 @@ import (
 	"time"
 )
 
-type FixedLengthFormatter struct {
-	modelType  reflect.Type
-	formatCols map[int]*FixedLength
-}
 type FixedLength struct {
 	Format string
 	Scale  int
 	Length int
+}
+
+type FixedLengthTransformer[T any] struct {
+	formatCols map[int]*FixedLength
+}
+
+func NewFixedLengthTransformer[T any]() (*FixedLengthTransformer[T], error) {
+	var t T
+	modelType := reflect.TypeOf(t)
+	formatCols, err := GetIndexes(modelType, "format")
+	if err != nil {
+		return nil, err
+	}
+	return &FixedLengthTransformer[T]{formatCols: formatCols}, nil
+}
+
+func NewFixedLengthFormatter[T any]() (*FixedLengthTransformer[T], error) {
+	return NewFixedLengthTransformer[T]()
+}
+func (f *FixedLengthTransformer[T]) Transform(ctx context.Context, model *T) string {
+	return ToFixedLength(model, f.formatCols)
 }
 
 func GetIndexes(modelType reflect.Type, tagName string) (map[int]*FixedLength, error) {
@@ -64,17 +81,6 @@ func GetIndexes(modelType reflect.Type, tagName string) (map[int]*FixedLength, e
 	return ma, nil
 }
 
-func NewFixedLengthFormatter(modelType reflect.Type) (*FixedLengthFormatter, error) {
-	formatCols, err := GetIndexes(modelType, "format")
-	if err != nil {
-		return nil, err
-	}
-	return &FixedLengthFormatter{modelType: modelType, formatCols: formatCols}, nil
-}
-
-func (f *FixedLengthFormatter) Format(ctx context.Context, model interface{}) string {
-	return ToFixedLength(model, f.formatCols)
-}
 func ToFixedLength(model interface{}, formatCols map[int]*FixedLength) string {
 	arr := make([]string, 0)
 	sumValue := reflect.Indirect(reflect.ValueOf(model))

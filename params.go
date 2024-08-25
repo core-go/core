@@ -38,10 +38,10 @@ func Decode(w http.ResponseWriter, r *http.Request, obj interface{}, options ...
 	}
 	return nil
 }
-func GetParam(r *http.Request, options ...int) string {
+func GetParam(r *http.Request, opts ...int) string {
 	offset := 0
-	if len(options) > 0 && options[0] > 0 {
-		offset = options[0]
+	if len(opts) > 0 && opts[0] > 0 {
+		offset = opts[0]
 	}
 	s := r.URL.Path
 	params := strings.Split(s, "/")
@@ -52,16 +52,16 @@ func GetParam(r *http.Request, options ...int) string {
 		return ""
 	}
 }
-func GetRequiredParam(w http.ResponseWriter, r *http.Request, options ...int) string {
-	p := GetParam(r, options...)
+func GetRequiredParam(w http.ResponseWriter, r *http.Request, opts ...int) string {
+	p := GetParam(r, opts...)
 	if len(p) == 0 {
 		http.Error(w, "parameter is required", http.StatusBadRequest)
 		return ""
 	}
 	return p
 }
-func GetRequiredInt(w http.ResponseWriter, r *http.Request, options ...int) *int {
-	p := GetParam(r, options...)
+func GetRequiredInt(w http.ResponseWriter, r *http.Request, opts ...int) *int {
+	p := GetParam(r, opts...)
 	if len(p) == 0 {
 		http.Error(w, "parameter is required", http.StatusBadRequest)
 		return nil
@@ -227,7 +227,7 @@ func QueryIn(all []string, s []string) []string {
 	}
 	return fieldsParamArr
 }
-func QueryTime(v url.Values, name string, options ...time.Time) *time.Time {
+func QueryTime(v url.Values, name string, opts ...time.Time) *time.Time {
 	s := QueryString(v, name)
 	if len(s) > 0 {
 		t := CreateTime(s)
@@ -235,8 +235,8 @@ func QueryTime(v url.Values, name string, options ...time.Time) *time.Time {
 			return t
 		}
 	}
-	if len(options) > 0 {
-		return &options[0]
+	if len(opts) > 0 {
+		return &opts[0]
 	}
 	return nil
 }

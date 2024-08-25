@@ -198,13 +198,13 @@ func BuildMapAndCheckId(w http.ResponseWriter, r *http.Request, obj interface{},
 	}
 	return r2, json, er1
 }
-func HasError(w http.ResponseWriter, r *http.Request, errors []ErrorMessage, err error, logError func(context.Context, string, ...map[string]interface{}), model interface{}, writeLog func(context.Context, string, string, bool, string) error, options ...string) bool {
+func HasError(w http.ResponseWriter, r *http.Request, errors []ErrorMessage, err error, logError func(context.Context, string, ...map[string]interface{}), model interface{}, writeLog func(context.Context, string, string, bool, string) error, opts ...string) bool {
 	var resource, action string
-	if len(options) > 0 && len(options[0]) > 0 {
-		resource = options[0]
+	if len(opts) > 0 && len(opts[0]) > 0 {
+		resource = opts[0]
 	}
-	if len(options) > 1 && len(options[1]) > 0 {
-		action = options[1]
+	if len(opts) > 1 && len(opts[1]) > 0 {
+		action = opts[1]
 	}
 	if err != nil {
 		if writeLog != nil {
@@ -236,13 +236,13 @@ func HasError(w http.ResponseWriter, r *http.Request, errors []ErrorMessage, err
 	}
 	return false
 }
-func AfterDeletedWithLog(w http.ResponseWriter, r *http.Request, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) error {
+func AfterDeletedWithLog(w http.ResponseWriter, r *http.Request, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, opts ...string) error {
 	var resource, action string
-	if len(options) > 0 && len(options[0]) > 0 {
-		resource = options[0]
+	if len(opts) > 0 && len(opts[0]) > 0 {
+		resource = opts[0]
 	}
-	if len(options) > 1 && len(options[1]) > 0 {
-		action = options[1]
+	if len(opts) > 1 && len(opts[1]) > 0 {
+		action = opts[1]
 	}
 	if err != nil {
 		if logError != nil {
@@ -293,13 +293,13 @@ func AfterDeleted(w http.ResponseWriter, r *http.Request, count int64, err error
 		return JSON(w, http.StatusConflict, count)
 	}
 }
-func AfterSavedWithLog(w http.ResponseWriter, r *http.Request, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) error {
+func AfterSavedWithLog(w http.ResponseWriter, r *http.Request, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, opts ...string) error {
 	var resource, action string
-	if len(options) > 0 && len(options[0]) > 0 {
-		resource = options[0]
+	if len(opts) > 0 && len(opts[0]) > 0 {
+		resource = opts[0]
 	}
-	if len(options) > 1 && len(options[1]) > 0 {
-		action = options[1]
+	if len(opts) > 1 && len(opts[1]) > 0 {
+		action = opts[1]
 	}
 	if err != nil {
 		if logError != nil {
@@ -370,13 +370,13 @@ func AfterSaved(w http.ResponseWriter, r *http.Request, body interface{}, count 
 		return JSON(w, http.StatusConflict, count)
 	}
 }
-func AfterCreatedWithLog(w http.ResponseWriter, r *http.Request, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, options ...string) error {
+func AfterCreatedWithLog(w http.ResponseWriter, r *http.Request, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, opts ...string) error {
 	var resource, action string
-	if len(options) > 0 && len(options[0]) > 0 {
-		resource = options[0]
+	if len(opts) > 0 && len(opts[0]) > 0 {
+		resource = opts[0]
 	}
-	if len(options) > 1 && len(options[1]) > 0 {
-		action = options[1]
+	if len(opts) > 1 && len(opts[1]) > 0 {
+		action = opts[1]
 	}
 	if err != nil {
 		if logError != nil {

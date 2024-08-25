@@ -17,23 +17,23 @@ func BuildMapAndCheckId(ctx *gin.Context, obj interface{}, keysJson []string, ma
 	ctx.Request = r
 	return j, err
 }
-func AfterDeletedWithLog(ctx *gin.Context, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
-	return core.AfterDeletedWithLog(ctx.Writer, ctx.Request, count, err, logError, writeLog, resource, action)
+func AfterDeletedWithLog(ctx *gin.Context, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, opts ...string) error {
+	return core.AfterDeletedWithLog(ctx.Writer, ctx.Request, count, err, logError, writeLog, opts...)
 }
 func AfterDeleted(ctx *gin.Context, count int64, err error, logError func(context.Context, string, ...map[string]interface{})) error {
 	return core.AfterDeleted(ctx.Writer, ctx.Request, count, err, logError)
 }
-func HasError(ctx *gin.Context, errors []core.ErrorMessage, err error, logError func(context.Context, string, ...map[string]interface{}), model interface{}, writeLog func(context.Context, string, string, bool, string) error, resource string, action string) bool {
-	return core.HasError(ctx.Writer, ctx.Request, errors, err, logError, model, writeLog, resource, action)
+func HasError(ctx *gin.Context, errors []core.ErrorMessage, err error, logError func(context.Context, string, ...map[string]interface{}), model interface{}, writeLog func(context.Context, string, string, bool, string) error, opts ...string) bool {
+	return core.HasError(ctx.Writer, ctx.Request, errors, err, logError, model, writeLog, opts...)
 }
-func AfterSavedWithLog(ctx *gin.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
-	return core.AfterSavedWithLog(ctx.Writer, ctx.Request, body, count, err, logError, writeLog, resource, action)
+func AfterSavedWithLog(ctx *gin.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, opts ...string) error {
+	return core.AfterSavedWithLog(ctx.Writer, ctx.Request, body, count, err, logError, writeLog, opts...)
 }
 func AfterSaved(ctx *gin.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{})) error {
 	return core.AfterSaved(ctx.Writer, ctx.Request, body, count, err, logError)
 }
-func AfterCreatedWithLog(ctx *gin.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, resource string, action string) error {
-	return core.AfterCreatedWithLog(ctx.Writer, ctx.Request, body, count, err, logError, writeLog, resource, action)
+func AfterCreatedWithLog(ctx *gin.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, opts ...string) error {
+	return core.AfterCreatedWithLog(ctx.Writer, ctx.Request, body, count, err, logError, writeLog, opts...)
 }
 func AfterCreated(ctx *gin.Context, body interface{}, count int64, err error, logError func(context.Context, string, ...map[string]interface{})) error {
 	return core.AfterCreated(ctx.Writer, ctx.Request, body, count, err, logError)

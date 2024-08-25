@@ -1,6 +1,7 @@
 package writer
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -17,7 +18,7 @@ var (
 type FileWriter struct {
 	FileName         string
 	GenerateFileName func() string
-	Out              io.WriteCloser
+	Out              *bufio.Writer
 	File             *os.File
 }
 
@@ -38,8 +39,9 @@ func NewFileWriter(buildFileName func() string) (*FileWriter, error) {
 	var fw FileWriter
 	mux.Lock()
 	defer mux.Unlock()
+	out := bufio.NewWriter(f)
 	fw.FileName = fileName
-	fw.Out = f
+	fw.Out = out
 	fw.File = f
 
 	return &fw, nil
@@ -53,7 +55,8 @@ func (fw *FileWriter) Write(p []byte) (n int, err error) {
 
 // CloseWriter close the underlying writer.
 func (fw *FileWriter) Close() error {
-	return fw.Out.Close()
+	fw.Out.Flush()
+	return fw.File.Close()
 }
 
 func CloseAllWriters() error {
