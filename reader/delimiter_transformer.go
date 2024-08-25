@@ -8,6 +8,41 @@ import (
 	"strings"
 )
 
+type Delimiter struct {
+	TypeName string
+	Format   string
+	Scale    int
+	Handle   func(f reflect.Value, line string, format string, scale int) error
+}
+
+type DelimiterTransformer[T any] struct {
+	formatCols map[int]Delimiter
+	separator  string
+}
+
+func NewDelimiterTransformer[T any](options ...string) (*DelimiterTransformer[T], error) {
+	var t T
+	modelType := reflect.TypeOf(t)
+	formatCols, err := GetIndexesByTag(modelType, "format")
+	if err != nil {
+		return nil, err
+	}
+	separator := ""
+	if len(options) > 0 {
+		separator = options[0]
+	} else {
+		separator = "|"
+	}
+	return &DelimiterTransformer[T]{formatCols: formatCols, separator: separator}, nil
+}
+
+func (f DelimiterTransformer[T]) Transform(ctx context.Context, lineStr string) (T, error) {
+	lines := strings.Split(lineStr, f.separator)
+	var res T
+	err := ScanLine(lines, &res, f.formatCols)
+	return res, err
+}
+
 func GetIndexesByTag(modelType reflect.Type, tagName string) (map[int]Delimiter, error) {
 	ma := make(map[int]Delimiter)
 	if modelType.Kind() != reflect.Struct {
@@ -50,38 +85,7 @@ func GetIndexesByTag(modelType reflect.Type, tagName string) (map[int]Delimiter,
 	}
 	return ma, nil
 }
-func NewDelimiterFormatter(modelType reflect.Type, options ...string) (*DelimiterFormatter, error) {
-	formatCols, err := GetIndexesByTag(modelType, "format")
-	if err != nil {
-		return nil, err
-	}
-	separator := ""
-	if len(options) > 0 {
-		separator = options[0]
-	} else {
-		separator = "|"
-	}
-	return &DelimiterFormatter{modelType: modelType, formatCols: formatCols, separator: separator}, nil
-}
 
-type DelimiterFormatter struct {
-	modelType  reflect.Type
-	formatCols map[int]Delimiter
-	separator  string
-}
-
-type Delimiter struct {
-	TypeName string
-	Format   string
-	Scale    int
-	Handle   func(f reflect.Value, line string, format string, scale int) error
-}
-
-func (f DelimiterFormatter) ToStruct(ctx context.Context, lineStr string, res interface{}) error {
-	lines := strings.Split(lineStr, f.separator)
-	err := ScanLine(lines, res, f.formatCols)
-	return err
-}
 func Min(n1 int, n2 int) int {
 	if n1 < n2 {
 		return n1

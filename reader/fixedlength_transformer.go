@@ -10,24 +10,32 @@ import (
 	"strings"
 )
 
-func NewFixedLengthFormatter(modelType reflect.Type) (*FixedLengthFormatter, error) {
+type FixedLength struct {
+	TypeName string
+	Format   string
+	Length   int
+	Scale    int
+	Handle   func(f reflect.Value, line string, format string, scale int) error
+}
+
+func NewFixedLengthTransformer[T any]() (*FixedLengthTransformer[T], error) {
+	var t T
+	modelType := reflect.TypeOf(t)
 	formatCols, err := GetIndexes(modelType, "format")
 	if err != nil {
 		return nil, err
 	}
-	return &FixedLengthFormatter{modelType: modelType, formatCols: formatCols}, nil
+	return &FixedLengthTransformer[T]{formatCols: formatCols}, nil
 }
 
-type FixedLengthFormatter struct {
-	modelType  reflect.Type
+type FixedLengthTransformer[T any] struct {
 	formatCols map[int]*FixedLength
 }
-type FixedLength struct {
-	TypeName string
-	Format string
-	Length int
-	Scale  int
-	Handle func(f reflect.Value, line string, format string, scale int) error
+
+func (f FixedLengthTransformer[T]) Transform(ctx context.Context, line string) (T, error) {
+	var res T
+	err := ScanLineFixLength(line, &res, f.formatCols)
+	return res, err
 }
 
 func GetIndexes(modelType reflect.Type, tagName string) (map[int]*FixedLength, error) {
@@ -78,10 +86,6 @@ func GetIndexes(modelType reflect.Type, tagName string) (map[int]*FixedLength, e
 		}
 	}
 	return ma, nil
-}
-func (f FixedLengthFormatter) ToStruct(ctx context.Context, line string, res interface{}) error {
-	err := ScanLineFixLength(line, res, f.formatCols)
-	return err
 }
 
 func ScanLineFixLength(line string, record interface{}, formatCols map[int]*FixedLength) error {
