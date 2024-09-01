@@ -3,7 +3,7 @@ package gin
 type LogConfig struct {
 	Separate       bool              `yaml:"separate" mapstructure:"separate" json:"separate,omitempty" gorm:"column:separate" bson:"separate,omitempty" dynamodbav:"separate,omitempty" firestore:"separate,omitempty"`
 	Build          bool              `yaml:"build" mapstructure:"build" json:"build,omitempty" gorm:"column:build" bson:"build,omitempty" dynamodbav:"build,omitempty" firestore:"build,omitempty"`
-	StringFormat   bool              `yaml:"string_format" mapstructure:"string_format" json:"stringFormat,omitempty" gorm:"column:string_format" bson:"stringFormat,omitempty" dynamodbav:"stringFormat,omitempty" firestore:"stringFormat,omitempty"`
+	Json           bool              `yaml:"json" mapstructure:"json" json:"json,omitempty" gorm:"column:json" bson:"json,omitempty" dynamodbav:"json,omitempty" firestore:"json,omitempty"`
 	Log            bool              `yaml:"log" mapstructure:"log" json:"log,omitempty" gorm:"column:log" bson:"log,omitempty" dynamodbav:"log,omitempty" firestore:"log,omitempty"`
 	Skips          string            `yaml:"skips" mapstructure:"skips" json:"skips,omitempty" gorm:"column:skips" bson:"skips,omitempty" dynamodbav:"skips,omitempty" firestore:"skips,omitempty"`
 	Ip             string            `yaml:"ip" mapstructure:"ip" json:"ip,omitempty" gorm:"column:ip" bson:"ip,omitempty" dynamodbav:"ip,omitempty" firestore:"ip,omitempty"`

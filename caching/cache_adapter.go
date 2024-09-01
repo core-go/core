@@ -8,30 +8,31 @@ import (
 	"unsafe"
 )
 
-type MemoryCacheService struct {
+type CacheAdapter struct {
 	client *Client
 	close  chan struct{}
 }
-func NewCacheService(size int64, cleaningEnable bool, cleaningInterval time.Duration) (*MemoryCacheService, error) {
+
+func NewCacheService(size int64, cleaningEnable bool, cleaningInterval time.Duration) (*CacheAdapter, error) {
 	return NewMemoryCacheService(size, cleaningEnable, cleaningInterval)
 }
-func NewCacheAdapterByConfig(conf CacheConfig) (*MemoryCacheService, error) {
+func NewCacheAdapterByConfig(conf CacheConfig) (*CacheAdapter, error) {
 	return NewMemoryCacheService(conf.Size, conf.CleaningEnable, conf.CleaningInterval)
 }
-func NewCacheAdapter(size int64, cleaningEnable bool, cleaningInterval time.Duration) (*MemoryCacheService, error) {
+func NewCacheAdapter(size int64, cleaningEnable bool, cleaningInterval time.Duration) (*CacheAdapter, error) {
 	return NewMemoryCacheService(size, cleaningEnable, cleaningInterval)
 }
-func NewMemoryCacheAdapterByConfig(conf CacheConfig) (*MemoryCacheService, error) {
+func NewMemoryCacheAdapterByConfig(conf CacheConfig) (*CacheAdapter, error) {
 	return NewMemoryCacheService(conf.Size, conf.CleaningEnable, conf.CleaningInterval)
 }
-func NewMemoryCacheAdapter(size int64, cleaningEnable bool, cleaningInterval time.Duration) (*MemoryCacheService, error) {
+func NewMemoryCacheAdapter(size int64, cleaningEnable bool, cleaningInterval time.Duration) (*CacheAdapter, error) {
 	return NewMemoryCacheService(size, cleaningEnable, cleaningInterval)
 }
-func NewMemoryCacheServiceByConfig(conf CacheConfig) (*MemoryCacheService, error) {
+func NewMemoryCacheServiceByConfig(conf CacheConfig) (*CacheAdapter, error) {
 	return NewMemoryCacheService(conf.Size, conf.CleaningEnable, conf.CleaningInterval)
 }
-func NewMemoryCacheService(size int64, cleaningEnable bool, cleaningInterval time.Duration) (*MemoryCacheService, error) {
-	currentSession := &MemoryCacheService{NewClient(size, cleaningEnable), make(chan struct{})}
+func NewMemoryCacheService(size int64, cleaningEnable bool, cleaningInterval time.Duration) (*CacheAdapter, error) {
+	currentSession := &CacheAdapter{NewClient(size, cleaningEnable), make(chan struct{})}
 
 	// Check record expiration time and remove
 	go func() {
@@ -63,7 +64,7 @@ func NewMemoryCacheService(size int64, cleaningEnable bool, cleaningInterval tim
 }
 
 // Get return value based on the key provided
-func (c *MemoryCacheService) Get(ctx context.Context, key string) (string, error) {
+func (c *CacheAdapter) Get(ctx context.Context, key string) (string, error) {
 	obj, err := c.client.Read(key)
 	if err != nil {
 		return "", err
@@ -80,7 +81,7 @@ func (c *MemoryCacheService) Get(ctx context.Context, key string) (string, error
 
 	return item.Data, nil
 }
-func (c *MemoryCacheService) GetMany(ctx context.Context, keys []string) (map[string]string, []string, error) {
+func (c *CacheAdapter) GetMany(ctx context.Context, keys []string) (map[string]string, []string, error) {
 	var itemFound map[string]string
 	var itemNotFound []string
 
@@ -101,7 +102,7 @@ func (c *MemoryCacheService) GetMany(ctx context.Context, keys []string) (map[st
 	return itemFound, itemNotFound, nil
 }
 
-func (c *MemoryCacheService) ContainsKey(ctx context.Context, key string) (bool, error) {
+func (c *CacheAdapter) ContainsKey(ctx context.Context, key string) (bool, error) {
 	obj, err := c.client.Read(key)
 	if err != nil {
 		return false, err
@@ -119,7 +120,7 @@ func (c *MemoryCacheService) ContainsKey(ctx context.Context, key string) (bool,
 	return true, nil
 }
 
-func (c *MemoryCacheService) Put(ctx context.Context, key string, value interface{}, expire time.Duration) error {
+func (c *CacheAdapter) Put(ctx context.Context, key string, value interface{}, expire time.Duration) error {
 	if expire == 0 {
 		expire = 24 * time.Hour
 	}
@@ -143,7 +144,7 @@ func (c *MemoryCacheService) Put(ctx context.Context, key string, value interfac
 }
 
 // Expire new value over the key provided
-func (c *MemoryCacheService) Expire(ctx context.Context, key string, expire time.Duration) (bool, error) {
+func (c *CacheAdapter) Expire(ctx context.Context, key string, expire time.Duration) (bool, error) {
 	val, err := c.client.Get(key)
 	if err != nil {
 		return false, err
@@ -160,7 +161,7 @@ func (c *MemoryCacheService) Expire(ctx context.Context, key string, expire time
 }
 
 // Remove deletes the key and its value from the cache.
-func (c *MemoryCacheService) Remove(ctx context.Context, key string) (bool, error) {
+func (c *CacheAdapter) Remove(ctx context.Context, key string) (bool, error) {
 	if _, err := c.client.Get(key); err != nil {
 		return false, err
 	} else {
@@ -168,23 +169,23 @@ func (c *MemoryCacheService) Remove(ctx context.Context, key string) (bool, erro
 	}
 }
 
-func (c *MemoryCacheService) Clear(ctx context.Context) error {
+func (c *CacheAdapter) Clear(ctx context.Context) error {
 	return nil
 }
 
-func (c *MemoryCacheService) Count(ctx context.Context) (int64, error) {
+func (c *CacheAdapter) Count(ctx context.Context) (int64, error) {
 	return int64(c.client.GetNumberOfKeys()), nil
 }
 
-func (c *MemoryCacheService) Keys(ctx context.Context) ([]string, error) {
+func (c *CacheAdapter) Keys(ctx context.Context) ([]string, error) {
 	return c.client.Getkeys(), nil
 }
 
-func (c *MemoryCacheService) Size(ctx context.Context) (int64, error) {
+func (c *CacheAdapter) Size(ctx context.Context) (int64, error) {
 	return int64(unsafe.Sizeof(c.client)), nil
 }
 
-func (c *MemoryCacheService) Close(ctx context.Context) error {
+func (c *CacheAdapter) Close(ctx context.Context) error {
 	c.close <- struct{}{}
 	c.client = NewClient(10*1024*1024, true) // 10 * 1024 * 1024 for 10 mb
 	return nil

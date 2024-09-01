@@ -6,13 +6,13 @@ import (
 	"strings"
 )
 
-type IdGenerator struct {
+type IdGenerator[T any] struct {
 	GenerateId func(ctx context.Context) (string, error)
 	idTogether bool
 	emptyOnly  bool
 }
 
-func NewIdGenerator(generate func(context.Context) (string, error), options...bool) *IdGenerator {
+func NewIdGenerator[T any](generate func(context.Context) (string, error), options ...bool) *IdGenerator[T] {
 	var idTogether, emptyOnly bool
 	if len(options) > 0 {
 		idTogether = options[0]
@@ -24,11 +24,11 @@ func NewIdGenerator(generate func(context.Context) (string, error), options...bo
 	} else {
 		emptyOnly = true
 	}
-	x := IdGenerator{GenerateId: generate, idTogether: idTogether, emptyOnly: emptyOnly}
+	x := IdGenerator[T]{GenerateId: generate, idTogether: idTogether, emptyOnly: emptyOnly}
 	return &x
 }
 
-func (s *IdGenerator) Generate(ctx context.Context, model interface{}) (int, error) {
+func (s *IdGenerator[T]) Generate(ctx context.Context, model *T) (int, error) {
 	valueObject := reflect.Indirect(reflect.ValueOf(model))
 	if valueObject.Kind() == reflect.Ptr {
 		valueObject = reflect.Indirect(valueObject)

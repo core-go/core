@@ -15,8 +15,8 @@ type TrackingConfig struct {
 	UpdatedBy     string `yaml:"updated_by" mapstructure:"updated_by" json:"updatedBy,omitempty" gorm:"column:updatedby" bson:"updatedBy,omitempty" dynamodbav:"updatedBy,omitempty" firestore:"updatedBy,omitempty"`
 	UpdatedAt     string `yaml:"updated_at" mapstructure:"updated_at" json:"updatedAt,omitempty" gorm:"column:updatedat" bson:"updatedAt,omitempty" dynamodbav:"updatedAt,omitempty" firestore:"updatedAt,omitempty"`
 }
-type Builder[T any] struct {
-	GenerateId     func(ctx context.Context, model *T) (int, error)
+type Builder struct {
+	GenerateId     func(ctx context.Context, model interface{}) (int, error)
 	Authorization  string
 	Key            string
 	modelType      reflect.Type
@@ -30,31 +30,26 @@ type Builder[T any] struct {
 	updatedAtIndex int
 }
 
-func NewBuilderWithIdAndConfig[T any](generateId func(context.Context) (string, error), c TrackingConfig) *Builder[T] {
+func NewBuilderWithIdAndConfig(generateId func(context.Context) (string, error), modelType reflect.Type, c TrackingConfig) *Builder {
 	if generateId != nil {
-		idGenerator := NewIdGenerator[T](generateId)
-		return NewBuilderByConfig[T](idGenerator.Generate, c)
+		idGenerator := NewIdGenerator(generateId)
+		return NewBuilderByConfig(idGenerator.Generate, modelType, c)
 	} else {
-		return NewBuilderByConfig[T](nil, c)
+		return NewBuilderByConfig(nil, modelType, c)
 	}
 }
-func NewBuilderByConfig[T any](generateId func(context.Context, *T) (int, error), c TrackingConfig) *Builder[T] {
-	return NewBuilder[T](generateId, c.CreatedBy, c.CreatedAt, c.UpdatedBy, c.UpdatedAt, c.User, c.Authorization)
+func NewBuilderByConfig(generateId func(context.Context, interface{}) (int, error), modelType reflect.Type, c TrackingConfig) *Builder {
+	return NewBuilder(generateId, modelType, c.CreatedBy, c.CreatedAt, c.UpdatedBy, c.UpdatedAt, c.User, c.Authorization)
 }
-func NewBuilderWithId[T any](generateId func(context.Context) (string, error), options ...string) *Builder[T] {
+func NewBuilderWithId(generateId func(context.Context) (string, error), modelType reflect.Type, options ...string) *Builder {
 	if generateId != nil {
-		idGenerator := NewIdGenerator[T](generateId)
-		return NewBuilder[T](idGenerator.Generate, options...)
+		idGenerator := NewIdGenerator(generateId)
+		return NewBuilder(idGenerator.Generate, modelType, options...)
 	} else {
-		return NewBuilder[T](nil, options...)
+		return NewBuilder(nil, modelType, options...)
 	}
 }
-func NewBuilder[T any](generateId func(context.Context, *T) (int, error), opts ...string) *Builder[T] {
-	var t T
-	modelType := reflect.TypeOf(t)
-	if modelType.Kind() != reflect.Struct {
-		panic("T must be a struct")
-	}
+func NewBuilder(generateId func(context.Context, interface{}) (int, error), modelType reflect.Type, opts ...string) *Builder {
 	var createdByName, createdAtName, updatedByName, updatedAtName, key, authorization string
 	if len(opts) > 0 {
 		createdByName = opts[0]
@@ -81,7 +76,7 @@ func NewBuilder[T any](generateId func(context.Context, *T) (int, error), opts .
 	updatedByIndex := findFieldIndex(modelType, updatedByName)
 	updatedAtIndex := findFieldIndex(modelType, updatedAtName)
 
-	return &Builder[T]{
+	return &Builder{
 		GenerateId:     generateId,
 		Authorization:  authorization,
 		Key:            key,
@@ -97,7 +92,7 @@ func NewBuilder[T any](generateId func(context.Context, *T) (int, error), opts .
 	}
 }
 
-func (c *Builder[T]) Create(ctx context.Context, obj *T) error {
+func (c *Builder) Create(ctx context.Context, obj interface{}) error {
 	if c.GenerateId != nil {
 		_, er0 := c.GenerateId(ctx, obj)
 		if er0 != nil {
@@ -188,7 +183,7 @@ func (c *Builder[T]) Create(ctx context.Context, obj *T) error {
 	return nil
 }
 
-func (c *Builder[T]) Update(ctx context.Context, obj *T) error {
+func (c *Builder) Update(ctx context.Context, obj interface{}) error {
 	v := reflect.Indirect(reflect.ValueOf(obj))
 	if v.Kind() == reflect.Ptr {
 		v = reflect.Indirect(v)
@@ -238,6 +233,13 @@ func (c *Builder[T]) Update(ctx context.Context, obj *T) error {
 	return nil
 }
 
+func (c *Builder) Patch(ctx context.Context, obj interface{}) error {
+	return c.Update(ctx, obj)
+}
+
+func (c *Builder) Save(ctx context.Context, obj interface{}) error {
+	return c.Update(ctx, obj)
+}
 func fromContext(ctx context.Context, key string, authorization string) string {
 	if len(authorization) > 0 {
 		token := ctx.Value(authorization)

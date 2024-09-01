@@ -14,25 +14,29 @@ type MaskLogger struct {
 	RequestKey   string
 	MaskRequest  func(map[string]interface{})
 	MaskResponse func(map[string]interface{})
-	StringFormat bool
+	JsonFormat   bool
 }
 
-func NewMaskLogger(requestKey string, maskRequest func(map[string]interface{}), maskResponse func(map[string]interface{}), stringFormat bool) *MaskLogger {
-	return &MaskLogger{RequestKey: requestKey, MaskRequest: maskRequest, MaskResponse: maskResponse, StringFormat: stringFormat}
+func NewMaskLogger(requestKey string, maskRequest func(map[string]interface{}), maskResponse func(map[string]interface{}), opts ...bool) *MaskLogger {
+	jsonFormat := false
+	if len(opts) > 0 {
+		jsonFormat = opts[0]
+	}
+	return &MaskLogger{RequestKey: requestKey, MaskRequest: maskRequest, MaskResponse: maskResponse, JsonFormat: jsonFormat}
 }
-func NewMaskLoggerWithSending(requestKey string, maskRequest func(map[string]interface{}), maskResponse func(map[string]interface{}), stringFormat bool, send func(context.Context, []byte, map[string]string) error, options ...map[string]string) *MaskLogger {
+func NewMaskLoggerWithSending(requestKey string, maskRequest func(map[string]interface{}), maskResponse func(map[string]interface{}), jsonFormat bool, send func(context.Context, []byte, map[string]string) error, options ...map[string]string) *MaskLogger {
 	var keyMap map[string]string
 	if len(options) >= 1 {
 		keyMap = options[0]
 	}
-	return &MaskLogger{RequestKey: requestKey, MaskRequest: maskRequest, MaskResponse: maskResponse, StringFormat: stringFormat, send: send, KeyMap: keyMap}
+	return &MaskLogger{RequestKey: requestKey, MaskRequest: maskRequest, MaskResponse: maskResponse, JsonFormat: jsonFormat, send: send, KeyMap: keyMap}
 }
 func (l *MaskLogger) LogResponse(log func(context.Context, string, map[string]interface{}), r *http.Request, ww WrapResponseWriter,
 	c LogConfig, t1 time.Time, response string, fields map[string]interface{}, includeRequest bool) {
 	if includeRequest && len(c.Request) > 0 {
-		MaskRequest(c.Request, fields, l.MaskRequest, l.StringFormat)
+		MaskRequest(c.Request, fields, l.MaskRequest, l.JsonFormat)
 	}
-	MaskResponse(ww, c, t1, response, fields, l.MaskResponse, l.StringFormat)
+	MaskResponse(ww, c, t1, response, fields, l.MaskResponse, l.JsonFormat)
 	msg := r.Method + " " + r.RequestURI
 	log(r.Context(), msg, fields)
 	if l.send != nil {
@@ -40,7 +44,7 @@ func (l *MaskLogger) LogResponse(log func(context.Context, string, map[string]in
 	}
 }
 func (l *MaskLogger) LogRequest(log func(context.Context, string, map[string]interface{}), r *http.Request, fields map[string]interface{}) {
-	MaskRequest(l.RequestKey, fields, l.MaskRequest, l.StringFormat)
+	MaskRequest(l.RequestKey, fields, l.MaskRequest, l.JsonFormat)
 	msg := "Request " + r.Method + " " + r.RequestURI
 	log(r.Context(), msg, fields)
 	if l.send != nil {
@@ -48,7 +52,7 @@ func (l *MaskLogger) LogRequest(log func(context.Context, string, map[string]int
 	}
 }
 
-func MaskResponse(ww WrapResponseWriter, c LogConfig, t1 time.Time, response string, fields map[string]interface{}, mask func(map[string]interface{}), isStringFormat bool) {
+func MaskResponse(ww WrapResponseWriter, c LogConfig, t1 time.Time, response string, fields map[string]interface{}, mask func(map[string]interface{}), isJsonFormat bool) {
 	if len(c.Response) > 0 {
 		fields[c.Response] = response
 		responseBody := response
@@ -56,15 +60,15 @@ func MaskResponse(ww WrapResponseWriter, c LogConfig, t1 time.Time, response str
 		json.Unmarshal([]byte(responseBody), &responseMap)
 		if len(responseMap) > 0 {
 			mask(responseMap)
-			if isStringFormat {
+			if isJsonFormat {
+				fields[c.Response] = responseMap
+			} else {
 				responseString, err := json.Marshal(responseMap)
 				if err != nil {
 					fmt.Printf("Error: %s", err.Error())
 				} else {
 					fields[c.Response] = string(responseString)
 				}
-			} else {
-				fields[c.Response] = responseMap
 			}
 		}
 	}
@@ -80,7 +84,7 @@ func MaskResponse(ww WrapResponseWriter, c LogConfig, t1 time.Time, response str
 		fields[c.Size] = ww.BytesWritten()
 	}
 }
-func MaskRequest(request string, fields map[string]interface{}, mask func(map[string]interface{}), isStringFormat bool) {
+func MaskRequest(request string, fields map[string]interface{}, mask func(map[string]interface{}), isJsonFormat bool) {
 	if len(request) > 0 {
 		req, ok := fields[request]
 		if ok {
@@ -90,15 +94,15 @@ func MaskRequest(request string, fields map[string]interface{}, mask func(map[st
 				json.Unmarshal([]byte(requestBody), &requestMap)
 				if len(requestMap) > 0 {
 					mask(requestMap)
-					if isStringFormat {
+					if isJsonFormat {
+						fields[request] = requestMap
+					} else {
 						requestString, err := json.Marshal(requestMap)
 						if err != nil {
 							fmt.Printf("Error: %s", err.Error())
 						} else {
 							fields[request] = string(requestString)
 						}
-					} else {
-						fields[request] = requestMap
 					}
 				}
 			}

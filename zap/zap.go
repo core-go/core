@@ -462,14 +462,20 @@ func BuildLogFields(m map[string]interface{}) []zap.Field {
 					f3 := zap.Int64(k, i3)
 					fields = append(fields, f3)
 				} else {
-					i4, ok4 := v.(float64)
+					i4, ok4 := v.(map[string]interface{})
 					if ok4 {
-						f4 := zap.Float64(k, i4)
+						f4 := zap.Reflect(k, i4)
 						fields = append(fields, f4)
 					} else {
-						msg := fmt.Sprintf("%v", v)
-						f5 := zap.String(k, msg)
-						fields = append(fields, f5)
+						i5, ok5 := v.(float64)
+						if ok5 {
+							f5 := zap.Float64(k, i5)
+							fields = append(fields, f5)
+						} else {
+							msg := fmt.Sprintf("%v", v)
+							f6 := zap.String(k, msg)
+							fields = append(fields, f6)
+						}
 					}
 				}
 			}

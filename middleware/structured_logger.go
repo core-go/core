@@ -14,10 +14,10 @@ type Formatter interface {
 	LogResponse(log func(context.Context, string, map[string]interface{}), r *http.Request, ww WrapResponseWriter, c LogConfig, startTime time.Time, response string, fields map[string]interface{}, includeRequest bool)
 }
 type StructuredLogger struct {
-	send         func(context.Context, []byte, map[string]string) error
-	KeyMap       map[string]string
-	RequestKey   string
-	StringFormat bool
+	send       func(context.Context, []byte, map[string]string) error
+	KeyMap     map[string]string
+	RequestKey string
+	JsonFormat bool
 }
 
 var fieldConfig FieldConfig
@@ -25,20 +25,20 @@ var fieldConfig FieldConfig
 func NewLogger() *StructuredLogger {
 	return &StructuredLogger{}
 }
-func NewLoggerWithStringFormat(requestKey string, stringFormat bool) *StructuredLogger {
-	return &StructuredLogger{RequestKey: requestKey, StringFormat: stringFormat}
+func NewLoggerWithJsonFormat(requestKey string, jsonFormat bool) *StructuredLogger {
+	return &StructuredLogger{RequestKey: requestKey, JsonFormat: jsonFormat}
 }
-func NewLoggerWithSending(requestKey string, stringFormat bool, send func(context.Context, []byte, map[string]string) error, options ...map[string]string) *StructuredLogger {
+func NewLoggerWithSending(requestKey string, jsonFormat bool, send func(context.Context, []byte, map[string]string) error, options ...map[string]string) *StructuredLogger {
 	var keyMap map[string]string
 	if len(options) >= 1 {
 		keyMap = options[0]
 	}
-	return &StructuredLogger{RequestKey: requestKey, StringFormat: stringFormat, send: send, KeyMap: keyMap}
+	return &StructuredLogger{RequestKey: requestKey, JsonFormat: jsonFormat, send: send, KeyMap: keyMap}
 }
 
 func (l *StructuredLogger) LogResponse(log func(context.Context, string, map[string]interface{}), r *http.Request, ww WrapResponseWriter,
 	c LogConfig, t1 time.Time, response string, fields map[string]interface{}, includeRequest bool) {
-	BuildResponseBody(ww, c, t1, response, fields, l.StringFormat)
+	BuildResponseBody(ww, c, t1, response, fields, l.JsonFormat)
 	msg := r.Method + " " + r.RequestURI
 	log(r.Context(), msg, fields)
 	if l.send != nil {
@@ -47,7 +47,7 @@ func (l *StructuredLogger) LogResponse(log func(context.Context, string, map[str
 }
 func (l *StructuredLogger) LogRequest(log func(context.Context, string, map[string]interface{}), r *http.Request, fields map[string]interface{}) {
 	msg := "Request " + r.Method + " " + r.RequestURI
-	if !l.StringFormat && len(l.RequestKey) > 0 {
+	if l.JsonFormat && len(l.RequestKey) > 0 {
 		req, ok := fields[l.RequestKey]
 		if ok {
 			requestBody, ok2 := req.(string)
@@ -66,11 +66,9 @@ func (l *StructuredLogger) LogRequest(log func(context.Context, string, map[stri
 	}
 }
 
-func BuildResponseBody(ww WrapResponseWriter, c LogConfig, t1 time.Time, response string, fields map[string]interface{}, isStringFormat bool) {
+func BuildResponseBody(ww WrapResponseWriter, c LogConfig, t1 time.Time, response string, fields map[string]interface{}, isJsonFormat bool) {
 	if len(c.Response) > 0 {
-		if isStringFormat {
-			fields[c.Response] = response
-		} else {
+		if isJsonFormat {
 			responseBody := response
 			responseMap := map[string]interface{}{}
 			json.Unmarshal([]byte(responseBody), &responseMap)
@@ -79,9 +77,11 @@ func BuildResponseBody(ww WrapResponseWriter, c LogConfig, t1 time.Time, respons
 			} else {
 				fields[c.Response] = response
 			}
+		} else {
+			fields[c.Response] = response
 		}
 	}
-	if !isStringFormat && len(c.Request) > 0 {
+	if isJsonFormat && len(c.Request) > 0 {
 		req, ok := fields[c.Request]
 		if ok {
 			requestBody, ok2 := req.(string)
