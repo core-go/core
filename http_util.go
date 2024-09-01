@@ -1,55 +1,14 @@
 package core
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"reflect"
 	"strconv"
 	"strings"
 )
 
-func GetJsonPrimaryKeys(modelType reflect.Type) []string {
-	numField := modelType.NumField()
-	var idFields []string
-	for i := 0; i < numField; i++ {
-		field := modelType.Field(i)
-		ormTag := field.Tag.Get("gorm")
-		tags := strings.Split(ormTag, ";")
-		for _, tag := range tags {
-			if strings.Compare(strings.TrimSpace(tag), "primary_key") == 0 {
-				jsonTag := field.Tag.Get("json")
-				tags1 := strings.Split(jsonTag, ",")
-				if len(tags1) > 0 && tags1[0] != "-" {
-					idFields = append(idFields, tags1[0])
-				}
-			}
-		}
-	}
-	return idFields
-}
-func IsTheSameType(modelType reflect.Type, obj interface{}) bool {
-	typeOf := reflect.TypeOf(obj)
-	if typeOf == modelType || (typeOf.Kind() == reflect.Ptr && reflect.Indirect(reflect.ValueOf(obj)).Type() == modelType) {
-		return true
-	}
-	return false
-}
-
-// NewModel Return the struct, not pointer
-func NewModel(modelType reflect.Type, body io.ReadCloser) (out interface{}, err error) {
-	if body != nil {
-		req := reflect.New(modelType).Interface()
-		err := json.NewDecoder(body).Decode(&req)
-		if err != nil {
-			return nil, err
-		}
-		return req, nil
-	}
-	return nil, nil
-}
 func BuildResourceName(s string) string {
 	s2 := strings.ToLower(s)
 	s3 := ""
@@ -258,63 +217,6 @@ func BuildId(r *http.Request, modelType reflect.Type, idNames []string, indexes 
 	} else {
 		return nil, errors.New("invalid model type: no id of this model type")
 	}
-}
-func BuildIds(r *http.Request, modelType reflect.Type, idNames []string) (interface{}, error) {
-	if len(idNames) > 1 {
-		return NewModels(r.Body, modelType)
-	} else if len(idNames) == 1 {
-		modelTypeKey := GetFieldType(modelType, idNames[0])
-		if modelTypeKey != nil {
-			return NewModels(r.Body, modelTypeKey)
-		}
-	}
-	return nil, errors.New("invalid model type: no id of this model type")
-}
-func GetFieldType(modelType reflect.Type, jsonName string) reflect.Type {
-	numField := modelType.NumField()
-	for i := 0; i < numField; i++ {
-		field := modelType.Field(i)
-		if tag, ok := field.Tag.Lookup("json"); ok {
-			if strings.Split(tag, ",")[0] == jsonName {
-				return field.Type
-			}
-		}
-	}
-	return nil
-}
-func NewModels(body interface{}, modelType reflect.Type) (out interface{}, err error) {
-	req := reflect.New(reflect.SliceOf(modelType)).Interface()
-	if body != nil {
-		switch dec := body.(type) {
-		case io.Reader:
-			err := json.NewDecoder(dec).Decode(&req)
-			if err != nil {
-				return nil, err
-			}
-			return req, nil
-		}
-	}
-	return nil, nil
-}
-func GetKeyIndexes(modelType reflect.Type) map[string]int {
-	numField := modelType.NumField()
-	mapJsonNameIndex := make(map[string]int, 0)
-	for i := 0; i < numField; i++ {
-		field := modelType.Field(i)
-
-		ormTag := field.Tag.Get("gorm")
-		tags := strings.Split(ormTag, ";")
-		for _, tag := range tags {
-			if strings.Compare(strings.TrimSpace(tag), "primary_key") == 0 {
-				jsonTag := field.Tag.Get("json")
-				tags1 := strings.Split(jsonTag, ",")
-				if len(tags1) > 0 && tags1[0] != "-" {
-					mapJsonNameIndex[tags1[0]] = i
-				}
-			}
-		}
-	}
-	return mapJsonNameIndex
 }
 func GetParamIds(r *http.Request, idNames []string, options ...int) (interface{}, map[string]string, error) {
 	offset := 0

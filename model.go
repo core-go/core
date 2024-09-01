@@ -11,8 +11,8 @@ type Validate func(ctx context.Context, model interface{}) ([]ErrorMessage, erro
 type ErrorMessage struct {
 	Field   string `yaml:"field" mapstructure:"field" json:"field,omitempty" gorm:"column:field" bson:"field,omitempty" dynamodbav:"field,omitempty" firestore:"field,omitempty"`
 	Code    string `yaml:"code" mapstructure:"code" json:"code,omitempty" gorm:"column:code" bson:"code,omitempty" dynamodbav:"code,omitempty" firestore:"code,omitempty"`
-	Param   string `yaml:"param" mapstructure:"param" json:"param,omitempty" gorm:"column:param" bson:"param,omitempty" dynamodbav:"param,omitempty" firestore:"param,omitempty"`
 	Message string `yaml:"message" mapstructure:"message" json:"message,omitempty" gorm:"column:message" bson:"message,omitempty" dynamodbav:"message,omitempty" firestore:"message,omitempty"`
+	Param   string `yaml:"param" mapstructure:"param" json:"param,omitempty" gorm:"column:param" bson:"param,omitempty" dynamodbav:"param,omitempty" firestore:"param,omitempty"`
 }
 type ErrorDetail struct {
 	ErrorField string `yaml:"error_field" mapstructure:"error_field" json:"errorField,omitempty" gorm:"column:error_field" bson:"errorField,omitempty" dynamodbav:"errorField,omitempty" firestore:"errorField,omitempty"`
