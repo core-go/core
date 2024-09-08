@@ -83,10 +83,13 @@ type Parameters struct {
 	CSVIndex    map[string]int
 }
 
-func CreateParameters(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), action *ActionConfig, paramIndex map[string]int, filterIndex int, csvIndex map[string]int, options ...func(context.Context, string, string, bool, string) error) *Parameters {
+func MakeParameters(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), action *ActionConfig, opts ...func(context.Context, string, string, bool, string) error) *Parameters {
+	return CreateParameters(modelType, logError, action, nil, -1, nil, opts...)
+}
+func CreateParameters(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), action *ActionConfig, paramIndex map[string]int, filterIndex int, csvIndex map[string]int, opts ...func(context.Context, string, string, bool, string) error) *Parameters {
 	var writeLog func(context.Context, string, string, bool, string) error
-	if len(options) > 0 {
-		writeLog = options[0]
+	if len(opts) > 0 {
+		writeLog = opts[0]
 	}
 	a := InitAction(action)
 	resource := BuildResourceName(modelType.Name())
