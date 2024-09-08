@@ -1,11 +1,14 @@
-package query
+package url
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/gin-gonic/gin"
 )
 
 func QueryString(v url.Values, name string, opts ...string) string {
@@ -95,17 +98,17 @@ func QueryInt(v url.Values, name string, opts ...int64) *int {
 	}
 	return nil
 }
-func QueryRequiredString(w http.ResponseWriter, v url.Values, name string) string {
-	s := QueryString(v, name)
+func QueryRequiredString(c *gin.Context, name string) string {
+	s := QueryString(c.Request.URL.Query(), name)
 	if len(s) == 0 {
-		http.Error(w, fmt.Sprintf("%s is required", name), http.StatusBadRequest)
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s is required", name))
 	}
 	return s
 }
-func QueryRequiredStrings(w http.ResponseWriter, v url.Values, name string, opts ...string) []string {
-	s := QueryString(v, name)
+func QueryRequiredStrings(c *gin.Context, name string, opts ...string) []string {
+	s := QueryString(c.Request.URL.Query(), name)
 	if len(s) == 0 {
-		http.Error(w, fmt.Sprintf("%s is required", name), http.StatusBadRequest)
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s is required", name))
 		return nil
 	} else {
 		if len(opts) > 0 && len(opts[0]) > 0 {
@@ -115,27 +118,45 @@ func QueryRequiredStrings(w http.ResponseWriter, v url.Values, name string, opts
 		}
 	}
 }
-func QueryRequiredInt64(w http.ResponseWriter, s url.Values, name string) *int64 {
-	v := QueryInt64(s, name)
-	if v == nil {
-		http.Error(w, fmt.Sprintf("%s is a required integer", name), http.StatusBadRequest)
-		return nil
+func QueryRequiredInt64(c *gin.Context, name string) (int64, error) {
+	s := QueryString(c.Request.URL.Query(), name)
+	if len(s) > 0 {
+		i, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			c.String(http.StatusBadRequest, err.Error())
+			return 0, err
+		}
+		return i, nil
 	}
-	return v
+	se := fmt.Sprintf("%s is a required integer", name)
+	c.String(http.StatusBadRequest, se)
+	return 0, errors.New(se)
 }
-func QueryRequiredInt32(w http.ResponseWriter, s url.Values, name string) *int32 {
-	v := QueryInt32(s, name)
-	if v == nil {
-		http.Error(w, fmt.Sprintf("%s is a required integer", name), http.StatusBadRequest)
-		return nil
+func QueryRequiredInt32(c *gin.Context, name string) (int32, error) {
+	s := QueryString(c.Request.URL.Query(), name)
+	if len(s) > 0 {
+		i, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			c.String(http.StatusBadRequest, err.Error())
+			return 0, err
+		}
+		return int32(i), nil
 	}
-	return v
+	se := fmt.Sprintf("%s is a required integer", name)
+	c.String(http.StatusBadRequest, se)
+	return 0, errors.New(se)
 }
-func QueryRequiredInt(w http.ResponseWriter, s url.Values, name string) *int {
-	v := QueryInt(s, name)
-	if v == nil {
-		http.Error(w, fmt.Sprintf("%s is a required integer", name), http.StatusBadRequest)
-		return nil
+func QueryRequiredInt(c *gin.Context, name string) (int, error) {
+	s := QueryString(c.Request.URL.Query(), name)
+	if len(s) > 0 {
+		i, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			c.String(http.StatusBadRequest, err.Error())
+			return 0, err
+		}
+		return int(i), nil
 	}
-	return v
+	se := fmt.Sprintf("%s is a required integer", name)
+	c.String(http.StatusBadRequest, se)
+	return 0, errors.New(se)
 }

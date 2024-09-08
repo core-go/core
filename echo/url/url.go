@@ -1,4 +1,4 @@
-package parameter
+package url
 
 import (
 	"errors"
@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/labstack/echo/v4"
 )
 
 func QueryString(v url.Values, name string, opts ...string) string {
@@ -96,66 +98,69 @@ func QueryInt(v url.Values, name string, opts ...int64) *int {
 	}
 	return nil
 }
-func QueryRequiredString(w http.ResponseWriter, v url.Values, name string) string {
-	s := QueryString(v, name)
+func QueryRequiredString(c echo.Context, name string) (string, error) {
+	s := QueryString(c.Request().URL.Query(), name)
 	if len(s) == 0 {
-		http.Error(w, fmt.Sprintf("%s is required", name), http.StatusBadRequest)
+		se := fmt.Sprintf("%s is required", name)
+		c.String(http.StatusBadRequest, se)
+		return s, errors.New(se)
 	}
-	return s
+	return s, nil
 }
-func QueryRequiredStrings(w http.ResponseWriter, v url.Values, name string, opts ...string) []string {
-	s := QueryString(v, name)
+func QueryRequiredStrings(c echo.Context, name string, opts ...string) ([]string, error) {
+	s := QueryString(c.Request().URL.Query(), name)
 	if len(s) == 0 {
-		http.Error(w, fmt.Sprintf("%s is required", name), http.StatusBadRequest)
-		return nil
+		se := fmt.Sprintf("%s is required", name)
+		c.String(http.StatusBadRequest, se)
+		return nil, errors.New(se)
 	} else {
 		if len(opts) > 0 && len(opts[0]) > 0 {
-			return strings.Split(s, opts[0])
+			return strings.Split(s, opts[0]), nil
 		} else {
-			return strings.Split(s, ",")
+			return strings.Split(s, ","), nil
 		}
 	}
 }
-func QueryRequiredInt64(w http.ResponseWriter, v url.Values, name string) (int64, error) {
-	s := QueryString(v, name)
+
+func QueryRequiredInt64(c echo.Context, name string) (int64, error) {
+	s := QueryString(c.Request().URL.Query(), name)
 	if len(s) > 0 {
 		i, err := strconv.ParseInt(s, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			c.String(http.StatusBadRequest, err.Error())
 			return 0, err
 		}
 		return i, nil
 	}
 	se := fmt.Sprintf("%s is a required integer", name)
-	http.Error(w, se, http.StatusBadRequest)
+	c.String(http.StatusBadRequest, se)
 	return 0, errors.New(se)
 }
-func QueryRequiredInt32(w http.ResponseWriter, v url.Values, name string) (int32, error) {
-	s := QueryString(v, name)
+func QueryRequiredInt32(c echo.Context, name string) (int32, error) {
+	s := QueryString(c.Request().URL.Query(), name)
 	if len(s) > 0 {
 		i, err := strconv.ParseInt(s, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			c.String(http.StatusBadRequest, err.Error())
 			return 0, err
 		}
 		return int32(i), nil
 	}
 	se := fmt.Sprintf("%s is a required integer", name)
-	http.Error(w, se, http.StatusBadRequest)
+	c.String(http.StatusBadRequest, se)
 	return 0, errors.New(se)
-
 }
-func QueryRequiredInt(w http.ResponseWriter, v url.Values, name string) (int, error) {
-	s := QueryString(v, name)
+func QueryRequiredInt(c echo.Context, name string) (int, error) {
+	s := QueryString(c.Request().URL.Query(), name)
 	if len(s) > 0 {
 		i, err := strconv.ParseInt(s, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			c.String(http.StatusBadRequest, err.Error())
 			return 0, err
 		}
 		return int(i), nil
 	}
 	se := fmt.Sprintf("%s is a required integer", name)
-	http.Error(w, se, http.StatusBadRequest)
+	c.String(http.StatusBadRequest, se)
 	return 0, errors.New(se)
 }
