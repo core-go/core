@@ -15,9 +15,7 @@ type Delimiter struct {
 	Handle   func(f reflect.Value, line string, format string, scale int) error
 }
 
-func NewDelimiterTransformer[T any](options ...string) (*DelimiterTransformer[T], error) {
-	var t T
-	modelType := reflect.TypeOf(t)
+func NewDelimiterTransformer(modelType reflect.Type, options ...string) (*DelimiterTransformer, error) {
 	formatCols, err := GetIndexesByTag(modelType, "format")
 	if err != nil {
 		return nil, err
@@ -28,19 +26,19 @@ func NewDelimiterTransformer[T any](options ...string) (*DelimiterTransformer[T]
 	} else {
 		separator = "|"
 	}
-	return &DelimiterTransformer[T]{formatCols: formatCols, separator: separator}, nil
+	return &DelimiterTransformer{modelType: modelType, formatCols: formatCols, separator: separator}, nil
 }
 
-type DelimiterTransformer[T any] struct {
+type DelimiterTransformer struct {
+	modelType  reflect.Type
 	formatCols map[int]Delimiter
 	separator  string
 }
 
-func (f DelimiterTransformer[T]) Transform(ctx context.Context, lineStr string) (T, error) {
+func (f DelimiterTransformer) Transform(ctx context.Context, lineStr string, res interface{}) error {
 	lines := strings.Split(lineStr, f.separator)
-	var res T
-	err := ScanLine(lines, &res, f.formatCols)
-	return res, err
+	err := ScanLine(lines, res, f.formatCols)
+	return err
 }
 
 func GetIndexesByTag(modelType reflect.Type, tagName string) (map[int]Delimiter, error) {
