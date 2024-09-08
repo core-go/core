@@ -3,6 +3,7 @@ package firestore
 import (
 	"cloud.google.com/go/firestore"
 	"context"
+	"errors"
 	"google.golang.org/api/option"
 	"google.golang.org/api/transport"
 )
@@ -21,7 +22,7 @@ func NewFirestoreHealthChecker(name string, projectId string, opts ...option.Cli
 func NewHealthCheckerWithProjectId(projectId string, opts ...option.ClientOption) *HealthChecker {
 	return NewFirestoreHealthChecker("firestore", projectId, opts...)
 }
-func NewHealthChecker(ctx context.Context, credentials []byte, options ...string) *HealthChecker {
+func NewHealthChecker(ctx context.Context, credentials []byte, projectId string, options ...string) (*HealthChecker, error) {
 	var name string
 	if len(options) > 0 && len(options[0]) > 0 {
 		name = options[0]
@@ -31,12 +32,12 @@ func NewHealthChecker(ctx context.Context, credentials []byte, options ...string
 	opts := option.WithCredentialsJSON(credentials)
 	creds, er2 := transport.Creds(ctx, opts)
 	if er2 != nil {
-		panic("Credentials Error: " + er2.Error())
+		return nil, er2
 	}
 	if creds == nil {
-		panic("Error: creds is nil")
+		return nil, errors.New("error: credentials is nil")
 	}
-	return NewFirestoreHealthChecker(name, creds.ProjectID, opts)
+	return NewFirestoreHealthChecker(name, projectId, opts), nil
 }
 func (s HealthChecker) Name() string {
 	return s.name

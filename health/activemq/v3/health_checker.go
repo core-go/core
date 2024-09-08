@@ -1,8 +1,9 @@
-package amq
+package activemq
 
 import (
 	"context"
-	"github.com/go-stomp/stomp"
+	
+	"github.com/go-stomp/stomp/v3"
 )
 
 type HealthChecker struct {
