@@ -1,55 +1,22 @@
 package echo
 
 import (
-	"errors"
-	"github.com/labstack/echo/v4"
-	"net/http"
-	"strconv"
-
 	"github.com/core-go/core"
+	"github.com/labstack/echo/v4"
 )
 
-func GetRequiredParam(c echo.Context, opts ...int) string {
-	p := core.GetParam(c.Request(), opts...)
-	if len(p) == 0 {
-		c.String(http.StatusBadRequest, "parameter is required")
-		return ""
-	}
-	return p
-}
-func GetRequiredInt(c echo.Context, opts ...int) (int, error) {
-	p := core.GetParam(c.Request(), opts...)
-	if len(p) == 0 {
-		c.String(http.StatusBadRequest, "parameter is required")
-		return 0, errors.New("parameter is required")
-	}
-	i, err := strconv.Atoi(p)
-	if err != nil {
-		c.String(http.StatusBadRequest, "parameter must be an integer")
-	}
-	return i, err
+func GetRequiredParam(c echo.Context, opts ...int) (string, error) {
+	return core.GetRequiredParam(c.Response().Writer, c.Request(), opts...)
 }
 func GetRequiredInt64(c echo.Context, opts ...int) (int64, error) {
-	p := core.GetParam(c.Request(), opts...)
-	if len(p) == 0 {
-		c.String(http.StatusBadRequest, "parameter is required")
-		return 0, errors.New("parameter is required")
-	}
-	i, err := strconv.ParseInt(p, 10, 64)
-	if err != nil {
-		c.String(http.StatusBadRequest, "parameter must be an integer")
-	}
-	return i, err
+	return core.GetRequiredInt64(c.Response().Writer, c.Request(), opts...)
+}
+func GetRequiredUint64(c echo.Context, opts ...int) (uint64, error) {
+	return core.GetRequiredUint64(c.Response().Writer, c.Request(), opts...)
+}
+func GetRequiredInt(c echo.Context, opts ...int) (int, error) {
+	return core.GetRequiredInt(c.Response().Writer, c.Request(), opts...)
 }
 func GetRequiredInt32(c echo.Context, opts ...int) (int32, error) {
-	p := core.GetParam(c.Request(), opts...)
-	if len(p) == 0 {
-		c.String(http.StatusBadRequest, "parameter is required")
-		return 0, errors.New("parameter is required")
-	}
-	i, err := strconv.ParseInt(p, 10, 64)
-	if err != nil {
-		c.String(http.StatusBadRequest, "parameter must be an integer")
-	}
-	return int32(i), err
+	return core.GetRequiredInt32(c.Response().Writer, c.Request(), opts...)
 }
