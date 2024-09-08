@@ -2,12 +2,12 @@ package core
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"unicode"
 )
 
 type Validate func(ctx context.Context, model interface{}) ([]ErrorMessage, error)
+
 type ErrorMessage struct {
 	Field   string `yaml:"field" mapstructure:"field" json:"field,omitempty" gorm:"column:field" bson:"field,omitempty" dynamodbav:"field,omitempty" firestore:"field,omitempty"`
 	Code    string `yaml:"code" mapstructure:"code" json:"code,omitempty" gorm:"column:code" bson:"code,omitempty" dynamodbav:"code,omitempty" firestore:"code,omitempty"`
@@ -65,17 +65,7 @@ func lcFirstChar(s string) string {
 	}
 	return s
 }
-func Marshal(v interface{}) ([]byte, error) {
-	b, ok1 := v.([]byte)
-	if ok1 {
-		return b, nil
-	}
-	s, ok2 := v.(string)
-	if ok2 {
-		return []byte(s), nil
-	}
-	return json.Marshal(v)
-}
+
 func Map(errors []ErrorMessage, mp map[string]string) []ErrorMessage {
 	if mp != nil && len(mp) > 0 {
 		l := len(errors)

@@ -27,14 +27,8 @@ type Handler interface {
 	Patch(w http.ResponseWriter, r *http.Request)
 	Delete(w http.ResponseWriter, r *http.Request)
 }
+
 type ActionConfig struct {
-	Load   *string `yaml:"load" mapstructure:"load" json:"load,omitempty" gorm:"column:load" bson:"load,omitempty" dynamodbav:"load,omitempty" firestore:"load,omitempty"`
-	Create string  `yaml:"create" mapstructure:"create" json:"create,omitempty" gorm:"column:create" bson:"create,omitempty" dynamodbav:"create,omitempty" firestore:"create,omitempty"`
-	Update string  `yaml:"update" mapstructure:"update" json:"update,omitempty" gorm:"column:update" bson:"update,omitempty" dynamodbav:"update,omitempty" firestore:"update,omitempty"`
-	Patch  string  `yaml:"patch" mapstructure:"patch" json:"patch,omitempty" gorm:"column:patch" bson:"patch,omitempty" dynamodbav:"patch,omitempty" firestore:"patch,omitempty"`
-	Delete string  `yaml:"delete" mapstructure:"delete" json:"delete,omitempty" gorm:"column:delete" bson:"delete,omitempty" dynamodbav:"delete,omitempty" firestore:"delete,omitempty"`
-}
-type ActionConf struct {
 	Search *string `yaml:"search" mapstructure:"search" json:"search,omitempty" gorm:"column:search" bson:"search,omitempty" dynamodbav:"search,omitempty" firestore:"search,omitempty"`
 	Load   *string `yaml:"load" mapstructure:"load" json:"load,omitempty" gorm:"column:load" bson:"load,omitempty" dynamodbav:"load,omitempty" firestore:"load,omitempty"`
 	Create string  `yaml:"create" mapstructure:"create" json:"create,omitempty" gorm:"column:create" bson:"create,omitempty" dynamodbav:"create,omitempty" firestore:"create,omitempty"`
@@ -43,8 +37,8 @@ type ActionConf struct {
 	Delete string  `yaml:"delete" mapstructure:"delete" json:"delete,omitempty" gorm:"column:delete" bson:"delete,omitempty" dynamodbav:"delete,omitempty" firestore:"delete,omitempty"`
 }
 
-func InitAction(conf *ActionConf) ActionConf {
-	var c ActionConf
+func InitAction(conf *ActionConfig) ActionConfig {
+	var c ActionConfig
 	if conf != nil {
 		c.Search = conf.Search
 		c.Load = conf.Load
@@ -75,40 +69,13 @@ func InitAction(conf *ActionConf) ActionConf {
 	}
 	return c
 }
-func InitializeAction(conf *ActionConfig) ActionConfig {
-	var c ActionConfig
-	if conf != nil {
-		c.Load = conf.Load
-		c.Create = conf.Create
-		c.Update = conf.Update
-		c.Patch = conf.Patch
-		c.Delete = conf.Delete
-	}
-	if c.Load == nil {
-		x := "load"
-		c.Load = &x
-	}
-	if len(c.Create) == 0 {
-		c.Create = "create"
-	}
-	if len(c.Update) == 0 {
-		c.Update = "update"
-	}
-	if len(c.Patch) == 0 {
-		c.Patch = "patch"
-	}
-	if len(c.Delete) == 0 {
-		c.Delete = "delete"
-	}
-	return c
-}
 
 type Parameters struct {
 	Keys        []string
 	Indexes     map[string]int
 	ModelType   reflect.Type
 	Resource    string
-	Action      ActionConf
+	Action      ActionConfig
 	Error       func(context.Context, string, ...map[string]interface{})
 	Log         func(context.Context, string, string, bool, string) error
 	ParamIndex  map[string]int
@@ -116,7 +83,7 @@ type Parameters struct {
 	CSVIndex    map[string]int
 }
 
-func CreateParameters(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), action *ActionConf, paramIndex map[string]int, filterIndex int, csvIndex map[string]int, options ...func(context.Context, string, string, bool, string) error) *Parameters {
+func CreateParameters(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), action *ActionConfig, paramIndex map[string]int, filterIndex int, csvIndex map[string]int, options ...func(context.Context, string, string, bool, string) error) *Parameters {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(options) > 0 {
 		writeLog = options[0]
@@ -125,33 +92,6 @@ func CreateParameters(modelType reflect.Type, logError func(context.Context, str
 	resource := BuildResourceName(modelType.Name())
 	keys, indexes, _ := BuildMapField(modelType)
 	return &Parameters{Keys: keys, Indexes: indexes, ModelType: modelType, Resource: resource, Action: a, Error: logError, Log: writeLog, ParamIndex: paramIndex, FilterIndex: filterIndex, CSVIndex: csvIndex}
-}
-
-type Params struct {
-	Keys      []string
-	Indexes   map[string]int
-	ModelType reflect.Type
-	Resource  string
-	Action    ActionConfig
-	Error     func(context.Context, string, ...map[string]interface{})
-	Log       func(context.Context, string, string, bool, string) error
-}
-
-func MakeParams(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), action *ActionConfig, options ...func(context.Context, string, string, bool, string) error) *Params {
-	return CreateParams(modelType, logError, action, options...)
-}
-func InitParams(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{})) *Params {
-	return CreateParams(modelType, logError, nil)
-}
-func CreateParams(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), action *ActionConfig, options ...func(context.Context, string, string, bool, string) error) *Params {
-	var writeLog func(context.Context, string, string, bool, string) error
-	if len(options) > 0 {
-		writeLog = options[0]
-	}
-	a := InitializeAction(action)
-	resource := BuildResourceName(modelType.Name())
-	keys, indexes, _ := BuildMapField(modelType)
-	return &Params{Keys: keys, Indexes: indexes, ModelType: modelType, Resource: resource, Action: a, Error: logError, Log: writeLog}
 }
 
 func CheckId(w http.ResponseWriter, r *http.Request, body interface{}, keysJson []string, mapIndex map[string]int, options ...func(context.Context, interface{}) error) error {

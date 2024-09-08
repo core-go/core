@@ -20,7 +20,7 @@ func NewSearchHandlerWithLog[T any, K any](
 	service Service[T, K],
 	logError func(context.Context, string, ...map[string]interface{}),
 	validate func(context.Context, *T) ([]core.ErrorMessage, error),
-	action *core.ActionConf,
+	action *core.ActionConfig,
 	writeLog func(context.Context, string, string, bool, string) error,
 	opts ...Builder[T],
 ) *SearchHandler[T, K] {

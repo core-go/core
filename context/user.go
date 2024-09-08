@@ -1,4 +1,4 @@
-package core
+package context
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 var Id = "id"
 var UserID = "userID"
 var UserId = "userId"
+
 func ApplyUserId(str string) {
 	UserId = str
 }
@@ -16,7 +17,7 @@ func Now() *time.Time {
 	n := time.Now()
 	return &n
 }
-func GetUser(ctx context.Context, opt...string) (string, bool) {
+func GetUser(ctx context.Context, opt ...string) (string, bool) {
 	user := UserId
 	if len(opt) > 0 && len(opt[0]) > 0 {
 		user = opt[0]
@@ -40,7 +41,7 @@ func GetString(ctx context.Context, key string) (string, bool) {
 	}
 	return "", false
 }
-func RequireUser(ctx context.Context, w http.ResponseWriter, opt...string) (string, bool) {
+func RequireUser(ctx context.Context, w http.ResponseWriter, opt ...string) (string, bool) {
 	userId, ok := GetUser(ctx, opt...)
 	if ok {
 		return userId, ok

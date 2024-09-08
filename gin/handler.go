@@ -98,7 +98,7 @@ type Handler[T any, K any] struct {
 	Indexes   map[string]int
 	Resource  string
 	ModelType reflect.Type
-	Action    core.ActionConf
+	Action    core.ActionConfig
 	WriteLog  func(context.Context, string, string, bool, string) error
 	IdMap     bool
 	Builder   Builder[T]
@@ -142,7 +142,7 @@ func NewhandlerWithLog[T any, K any](
 	service Service[T, K],
 	logError func(context.Context, string, ...map[string]interface{}),
 	validate func(context.Context, *T) ([]core.ErrorMessage, error),
-	action *core.ActionConf,
+	action *core.ActionConfig,
 	writeLog func(context.Context, string, string, bool, string) error,
 	opts ...Builder[T],
 ) *Handler[T, K] {
