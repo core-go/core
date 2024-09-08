@@ -17,20 +17,24 @@ type FixedLength struct {
 	Length int
 }
 
-func NewFixedLengthTransformer(modelType reflect.Type) (*FixedLengthTransformer, error) {
+type FixedLengthTransformer[T any] struct {
+	formatCols map[int]*FixedLength
+}
+
+func NewFixedLengthTransformer[T any]() (*FixedLengthTransformer[T], error) {
+	var t T
+	modelType := reflect.TypeOf(t)
 	formatCols, err := GetIndexes(modelType, "format")
 	if err != nil {
 		return nil, err
 	}
-	return &FixedLengthTransformer{modelType: modelType, formatCols: formatCols}, nil
+	return &FixedLengthTransformer[T]{formatCols: formatCols}, nil
 }
 
-type FixedLengthTransformer struct {
-	modelType  reflect.Type
-	formatCols map[int]*FixedLength
+func NewFixedLengthFormatter[T any]() (*FixedLengthTransformer[T], error) {
+	return NewFixedLengthTransformer[T]()
 }
-
-func (f *FixedLengthTransformer) Transform(ctx context.Context, model interface{}) string {
+func (f *FixedLengthTransformer[T]) Transform(ctx context.Context, model *T) string {
 	return ToFixedLength(model, f.formatCols)
 }
 
