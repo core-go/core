@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -52,53 +53,70 @@ func GetParam(r *http.Request, opts ...int) string {
 		return ""
 	}
 }
-func GetRequiredParam(w http.ResponseWriter, r *http.Request, opts ...int) string {
+func GetRequiredParam(w http.ResponseWriter, r *http.Request, opts ...int) (string, error) {
 	p := GetParam(r, opts...)
 	if len(p) == 0 {
-		http.Error(w, "parameter is required", http.StatusBadRequest)
-		return ""
+		se := "parameter is required"
+		http.Error(w, se, http.StatusBadRequest)
+		return p, errors.New(se)
 	}
-	return p
+	return p, nil
 }
-func GetRequiredInt(w http.ResponseWriter, r *http.Request, opts ...int) *int {
+func GetRequiredInt(w http.ResponseWriter, r *http.Request, opts ...int) (int, error) {
 	p := GetParam(r, opts...)
 	if len(p) == 0 {
-		http.Error(w, "parameter is required", http.StatusBadRequest)
-		return nil
+		se := "parameter is required"
+		http.Error(w, se, http.StatusBadRequest)
+		return 0, errors.New(se)
 	}
 	i, err := strconv.Atoi(p)
 	if err != nil {
 		http.Error(w, "parameter must be an integer", http.StatusBadRequest)
-		return nil
+		return 0, err
 	}
-	return &i
+	return i, nil
 }
-func GetRequiredInt64(w http.ResponseWriter, r *http.Request, opts ...int) *int64 {
+func GetRequiredInt64(w http.ResponseWriter, r *http.Request, opts ...int) (int64, error) {
 	p := GetParam(r, opts...)
 	if len(p) == 0 {
-		http.Error(w, "parameter is required", http.StatusBadRequest)
-		return nil
+		se := "parameter is required"
+		http.Error(w, se, http.StatusBadRequest)
+		return 0, errors.New(se)
 	}
 	i, err := strconv.ParseInt(p, 10, 64)
 	if err != nil {
 		http.Error(w, "parameter must be an integer", http.StatusBadRequest)
-		return nil
+		return 0, err
 	}
-	return &i
+	return i, nil
 }
-func GetRequiredInt32(w http.ResponseWriter, r *http.Request, opts ...int) *int32 {
+func GetRequiredUint64(w http.ResponseWriter, r *http.Request, opts ...int) (uint64, error) {
 	p := GetParam(r, opts...)
 	if len(p) == 0 {
-		http.Error(w, "parameter is required", http.StatusBadRequest)
-		return nil
+		se := "parameter is required"
+		http.Error(w, se, http.StatusBadRequest)
+		return 0, errors.New(se)
+	}
+	i, err := strconv.ParseUint(p, 10, 64)
+	if err != nil {
+		http.Error(w, "parameter must be an unsigned integer", http.StatusBadRequest)
+		return 0, err
+	}
+	return i, nil
+}
+func GetRequiredInt32(w http.ResponseWriter, r *http.Request, opts ...int) (int32, error) {
+	p := GetParam(r, opts...)
+	if len(p) == 0 {
+		se := "parameter is required"
+		http.Error(w, se, http.StatusBadRequest)
+		return 0, errors.New(se)
 	}
 	i, err := strconv.ParseInt(p, 10, 64)
 	if err != nil {
 		http.Error(w, "parameter must be an integer", http.StatusBadRequest)
-		return nil
+		return 0, err
 	}
-	j := int32(i)
-	return &j
+	return int32(i), nil
 }
 func GetRequiredParams(w http.ResponseWriter, r *http.Request, opts ...int) []string {
 	p := GetParam(r, opts...)

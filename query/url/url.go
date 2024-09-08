@@ -121,7 +121,21 @@ func QueryRequiredInt64(w http.ResponseWriter, v url.Values, name string) (int64
 	if len(s) > 0 {
 		i, err := strconv.ParseInt(s, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, "parameter must be an integer", http.StatusBadRequest)
+			return 0, err
+		}
+		return i, nil
+	}
+	se := fmt.Sprintf("%s is a required integer", name)
+	http.Error(w, se, http.StatusBadRequest)
+	return 0, errors.New(se)
+}
+func QueryRequiredUint64(w http.ResponseWriter, v url.Values, name string) (uint64, error) {
+	s := QueryString(v, name)
+	if len(s) > 0 {
+		i, err := strconv.ParseUint(s, 10, 64)
+		if err != nil {
+			http.Error(w, "parameter must be an unsigned integer", http.StatusBadRequest)
 			return 0, err
 		}
 		return i, nil
@@ -135,7 +149,7 @@ func QueryRequiredInt32(w http.ResponseWriter, v url.Values, name string) (int32
 	if len(s) > 0 {
 		i, err := strconv.ParseInt(s, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, "parameter must be an integer", http.StatusBadRequest)
 			return 0, err
 		}
 		return int32(i), nil
@@ -150,7 +164,7 @@ func QueryRequiredInt(w http.ResponseWriter, v url.Values, name string) (int, er
 	if len(s) > 0 {
 		i, err := strconv.ParseInt(s, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, "parameter must be an integer", http.StatusBadRequest)
 			return 0, err
 		}
 		return int(i), nil
