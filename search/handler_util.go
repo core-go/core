@@ -189,10 +189,10 @@ type Parameters struct {
 }
 
 func CreateParameters(filterType reflect.Type, modelType reflect.Type) *Parameters {
-	paramIndex, filterIndex, firstLayerIndexes, _ := CreateParams(filterType, modelType)
+	paramIndex, filterIndex, firstLayerIndexes, _ := CreateAttributes(filterType, modelType)
 	return &Parameters{ParamIndex: paramIndex, FilterIndex: filterIndex, CSVIndex: firstLayerIndexes}
 }
-func CreateParams(filterType reflect.Type, modelType reflect.Type, opts ...string) (map[string]int, int, map[string]int, map[string]int) {
+func CreateAttributes(filterType reflect.Type, modelType reflect.Type, opts ...string) (map[string]int, int, map[string]int, map[string]int) {
 	embedField := ""
 	if len(opts) > 0 {
 		embedField = opts[0]
@@ -204,7 +204,7 @@ func CreateParams(filterType reflect.Type, modelType reflect.Type, opts ...strin
 	firstLayerIndexes, secondLayerIndexes := BuildJsonMap(model, fields, embedField)
 	return paramIndex, filterIndex, firstLayerIndexes, secondLayerIndexes
 }
-func BuildParams(filterType reflect.Type) (map[string]int, int) {
+func BuildAttributes(filterType reflect.Type) (map[string]int, int) {
 	paramIndex := BuildParamIndex(filterType)
 	filterIndex := FindFilterIndex(filterType)
 	return paramIndex, filterIndex

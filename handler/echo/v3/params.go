@@ -5,8 +5,8 @@ import (
 	"github.com/labstack/echo"
 )
 
-func GetRequiredParam(c echo.Context, opts ...int) (string, error) {
-	return core.GetRequiredParam(c.Response().Writer, c.Request(), opts...)
+func GetRequiredString(c echo.Context, opts ...int) (string, error) {
+	return core.GetRequiredString(c.Response().Writer, c.Request(), opts...)
 }
 func GetRequiredInt64(c echo.Context, opts ...int) (int64, error) {
 	return core.GetRequiredInt64(c.Response().Writer, c.Request(), opts...)

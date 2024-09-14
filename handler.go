@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -70,10 +71,29 @@ func InitAction(conf *ActionConfig) ActionConfig {
 	return c
 }
 
+type Attributes struct {
+	Keys     []string
+	Indexes  map[string]int
+	Resource string
+	Action   ActionConfig
+	Error    func(context.Context, string, ...map[string]interface{})
+	Log      func(context.Context, string, string, bool, string) error
+}
+
+func CreateAttributes(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), action *ActionConfig, opts ...func(context.Context, string, string, bool, string) error) *Attributes {
+	var writeLog func(context.Context, string, string, bool, string) error
+	if len(opts) > 0 {
+		writeLog = opts[0]
+	}
+	a := InitAction(action)
+	resource := BuildResourceName(modelType.Name())
+	keys, indexes, _ := BuildMapField(modelType)
+	return &Attributes{Keys: keys, Indexes: indexes, Resource: resource, Action: a, Error: logError, Log: writeLog}
+}
+
 type Parameters struct {
 	Keys        []string
 	Indexes     map[string]int
-	ModelType   reflect.Type
 	Resource    string
 	Action      ActionConfig
 	Error       func(context.Context, string, ...map[string]interface{})
@@ -83,9 +103,6 @@ type Parameters struct {
 	CSVIndex    map[string]int
 }
 
-func MakeParameters(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), action *ActionConfig, opts ...func(context.Context, string, string, bool, string) error) *Parameters {
-	return CreateParameters(modelType, logError, action, nil, -1, nil, opts...)
-}
 func CreateParameters(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), action *ActionConfig, paramIndex map[string]int, filterIndex int, csvIndex map[string]int, opts ...func(context.Context, string, string, bool, string) error) *Parameters {
 	var writeLog func(context.Context, string, string, bool, string) error
 	if len(opts) > 0 {
@@ -94,7 +111,7 @@ func CreateParameters(modelType reflect.Type, logError func(context.Context, str
 	a := InitAction(action)
 	resource := BuildResourceName(modelType.Name())
 	keys, indexes, _ := BuildMapField(modelType)
-	return &Parameters{Keys: keys, Indexes: indexes, ModelType: modelType, Resource: resource, Action: a, Error: logError, Log: writeLog, ParamIndex: paramIndex, FilterIndex: filterIndex, CSVIndex: csvIndex}
+	return &Parameters{Keys: keys, Indexes: indexes, Resource: resource, Action: a, Error: logError, Log: writeLog, ParamIndex: paramIndex, FilterIndex: filterIndex, CSVIndex: csvIndex}
 }
 
 func CheckId(w http.ResponseWriter, r *http.Request, body interface{}, keysJson []string, mapIndex map[string]int, options ...func(context.Context, interface{}) error) error {
@@ -105,6 +122,22 @@ func CheckId(w http.ResponseWriter, r *http.Request, body interface{}, keysJson 
 	}
 	if len(options) > 0 && options[0] != nil {
 		er2 := options[0](r.Context(), body)
+		if er2 != nil {
+			http.Error(w, er2.Error(), http.StatusInternalServerError)
+		}
+		return er2
+	}
+	return nil
+}
+func Decode(w http.ResponseWriter, r *http.Request, obj interface{}, options ...func(context.Context, interface{}) error) error {
+	er1 := json.NewDecoder(r.Body).Decode(obj)
+	defer r.Body.Close()
+	if er1 != nil {
+		http.Error(w, er1.Error(), http.StatusBadRequest)
+		return er1
+	}
+	if len(options) > 0 && options[0] != nil {
+		er2 := options[0](r.Context(), obj)
 		if er2 != nil {
 			http.Error(w, er2.Error(), http.StatusInternalServerError)
 		}

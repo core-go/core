@@ -179,7 +179,7 @@ func MakeId(r *http.Request, modelType reflect.Type, idNames []string, indexes m
 	}
 	return mapKey, nil
 }
-func BuildId(r *http.Request, modelType reflect.Type, idNames []string, indexes map[string]int, options ...int) (interface{}, error) {
+func CreateId(r *http.Request, modelType reflect.Type, idNames []string, indexes map[string]int, options ...int) (interface{}, error) {
 	if len(idNames) > 1 {
 		return MakeId(r, modelType, idNames, indexes, options...)
 	} else if len(idNames) == 1 {

@@ -1,8 +1,6 @@
 package core
 
 import (
-	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -23,23 +21,7 @@ const (
 	l3 = len(t3)
 )
 
-func Decode(w http.ResponseWriter, r *http.Request, obj interface{}, options ...func(context.Context, interface{}) error) error {
-	er1 := json.NewDecoder(r.Body).Decode(obj)
-	defer r.Body.Close()
-	if er1 != nil {
-		http.Error(w, er1.Error(), http.StatusBadRequest)
-		return er1
-	}
-	if len(options) > 0 && options[0] != nil {
-		er2 := options[0](r.Context(), obj)
-		if er2 != nil {
-			http.Error(w, er2.Error(), http.StatusInternalServerError)
-		}
-		return er2
-	}
-	return nil
-}
-func GetParam(r *http.Request, opts ...int) string {
+func GetString(r *http.Request, opts ...int) string {
 	offset := 0
 	if len(opts) > 0 && opts[0] > 0 {
 		offset = opts[0]
@@ -53,8 +35,8 @@ func GetParam(r *http.Request, opts ...int) string {
 		return ""
 	}
 }
-func GetRequiredParam(w http.ResponseWriter, r *http.Request, opts ...int) (string, error) {
-	p := GetParam(r, opts...)
+func GetRequiredString(w http.ResponseWriter, r *http.Request, opts ...int) (string, error) {
+	p := GetString(r, opts...)
 	if len(p) == 0 {
 		se := "parameter is required"
 		http.Error(w, se, http.StatusBadRequest)
@@ -63,7 +45,7 @@ func GetRequiredParam(w http.ResponseWriter, r *http.Request, opts ...int) (stri
 	return p, nil
 }
 func GetRequiredInt(w http.ResponseWriter, r *http.Request, opts ...int) (int, error) {
-	p := GetParam(r, opts...)
+	p := GetString(r, opts...)
 	if len(p) == 0 {
 		se := "parameter is required"
 		http.Error(w, se, http.StatusBadRequest)
@@ -77,7 +59,7 @@ func GetRequiredInt(w http.ResponseWriter, r *http.Request, opts ...int) (int, e
 	return i, nil
 }
 func GetRequiredInt64(w http.ResponseWriter, r *http.Request, opts ...int) (int64, error) {
-	p := GetParam(r, opts...)
+	p := GetString(r, opts...)
 	if len(p) == 0 {
 		se := "parameter is required"
 		http.Error(w, se, http.StatusBadRequest)
@@ -91,7 +73,7 @@ func GetRequiredInt64(w http.ResponseWriter, r *http.Request, opts ...int) (int6
 	return i, nil
 }
 func GetRequiredUint64(w http.ResponseWriter, r *http.Request, opts ...int) (uint64, error) {
-	p := GetParam(r, opts...)
+	p := GetString(r, opts...)
 	if len(p) == 0 {
 		se := "parameter is required"
 		http.Error(w, se, http.StatusBadRequest)
@@ -105,7 +87,7 @@ func GetRequiredUint64(w http.ResponseWriter, r *http.Request, opts ...int) (uin
 	return i, nil
 }
 func GetRequiredInt32(w http.ResponseWriter, r *http.Request, opts ...int) (int32, error) {
-	p := GetParam(r, opts...)
+	p := GetString(r, opts...)
 	if len(p) == 0 {
 		se := "parameter is required"
 		http.Error(w, se, http.StatusBadRequest)
@@ -119,7 +101,7 @@ func GetRequiredInt32(w http.ResponseWriter, r *http.Request, opts ...int) (int3
 	return int32(i), nil
 }
 func GetRequiredParams(w http.ResponseWriter, r *http.Request, opts ...int) []string {
-	p := GetParam(r, opts...)
+	p := GetString(r, opts...)
 	if len(p) == 0 {
 		http.Error(w, "parameters are required", http.StatusBadRequest)
 		return nil
@@ -127,11 +109,11 @@ func GetRequiredParams(w http.ResponseWriter, r *http.Request, opts ...int) []st
 	return strings.Split(p, ",")
 }
 func GetParams(r *http.Request, opts ...int) []string {
-	p := GetParam(r, opts...)
+	p := GetString(r, opts...)
 	return strings.Split(p, ",")
 }
 func GetInt(r *http.Request, opts ...int) (int, bool) {
-	s := GetParam(r, opts...)
+	s := GetString(r, opts...)
 	if len(s) == 0 {
 		return 0, false
 	}
@@ -142,7 +124,7 @@ func GetInt(r *http.Request, opts ...int) (int, bool) {
 	return i, true
 }
 func GetInt64(r *http.Request, opts ...int) (int64, bool) {
-	s := GetParam(r, opts...)
+	s := GetString(r, opts...)
 	if len(s) == 0 {
 		return 0, false
 	}
@@ -153,7 +135,7 @@ func GetInt64(r *http.Request, opts ...int) (int64, bool) {
 	return i, true
 }
 func GetInt32(r *http.Request, opts ...int) (int32, bool) {
-	s := GetParam(r, opts...)
+	s := GetString(r, opts...)
 	if len(s) == 0 {
 		return 0, false
 	}
@@ -164,7 +146,7 @@ func GetInt32(r *http.Request, opts ...int) (int32, bool) {
 	return int32(i), true
 }
 func GetTime(r *http.Request, opts ...int) *time.Time {
-	s := GetParam(r, opts...)
+	s := GetString(r, opts...)
 	return CreateTime(s)
 }
 func CreateTime(s string) *time.Time {

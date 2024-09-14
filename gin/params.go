@@ -5,8 +5,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func GetRequiredParam(c *gin.Context, opts ...int) (string, error) {
-	return core.GetRequiredParam(c.Writer, c.Request, opts...)
+func GetRequiredString(c *gin.Context, opts ...int) (string, error) {
+	return core.GetRequiredString(c.Writer, c.Request, opts...)
 }
 func GetRequiredInt64(c *gin.Context, opts ...int) (int64, error) {
 	return core.GetRequiredInt64(c.Writer, c.Request, opts...)

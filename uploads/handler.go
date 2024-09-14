@@ -50,7 +50,7 @@ type Handler struct {
 }
 
 func (u *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
-	id := GetRequiredParam(w, r, u.idIndex)
+	id := GetRequiredString(w, r, u.idIndex)
 	if len(id) > 0 {
 		// Parse our multipart form, 10 << 20 specifies a maximum upload of 20 MB files.
 		err := r.ParseMultipartForm(u.maxSizeMemory)
@@ -144,7 +144,7 @@ func (u *Handler) validateExtension(filename string, allowedExtensions string) (
 
 func (u *Handler) DeleteFile(w http.ResponseWriter, r *http.Request) {
 	url := r.URL.Query().Get("url")
-	id := GetRequiredParam(w, r, u.idIndex)
+	id := GetRequiredString(w, r, u.idIndex)
 	if len(id) > 0 {
 		result, err4 := u.Service.Delete(r.Context(), id, url)
 		if err4 != nil {
@@ -166,8 +166,8 @@ func respond(w http.ResponseWriter, code int, result interface{}) {
 	w.WriteHeader(code)
 	w.Write(res)
 }
-func GetRequiredParam(w http.ResponseWriter, r *http.Request, options ...int) string {
-	p := GetParam(r, options...)
+func GetRequiredString(w http.ResponseWriter, r *http.Request, options ...int) string {
+	p := GetString(r, options...)
 	if len(p) == 0 {
 		http.Error(w, "parameter is required", http.StatusBadRequest)
 		return ""
@@ -175,7 +175,7 @@ func GetRequiredParam(w http.ResponseWriter, r *http.Request, options ...int) st
 	return p
 }
 
-func GetParam(r *http.Request, options ...int) string {
+func GetString(r *http.Request, options ...int) string {
 	offset := 0
 	if len(options) > 0 && options[0] > 0 {
 		offset = options[0]

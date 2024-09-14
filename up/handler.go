@@ -25,6 +25,7 @@ func NewHandler(service UploadService, logError func(context.Context, string, ..
 		KeyFile: keyFile, generateId: generate, idIndex: idIndex,
 	}
 }
+
 type Handler struct {
 	Service    UploadService
 	LogError   func(context.Context, string, ...map[string]interface{})
@@ -34,7 +35,7 @@ type Handler struct {
 }
 
 func (u *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
-	id := GetRequiredParam(w, r, u.idIndex)
+	id := GetRequiredString(w, r, u.idIndex)
 	if len(id) > 0 {
 		err := r.ParseMultipartForm(200000)
 		if err != nil {
@@ -100,7 +101,7 @@ func (u *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (u *Handler) UploadGallery(w http.ResponseWriter, r *http.Request) {
-	id := GetRequiredParam(w, r, u.idIndex)
+	id := GetRequiredString(w, r, u.idIndex)
 	if len(id) > 0 {
 		err1 := r.ParseMultipartForm(32 << 20)
 		if err1 != nil {
@@ -152,7 +153,7 @@ func (u *Handler) UploadGallery(w http.ResponseWriter, r *http.Request) {
 }
 
 func (u *Handler) UploadCover(w http.ResponseWriter, r *http.Request) {
-	id := GetRequiredParam(w, r, u.idIndex)
+	id := GetRequiredString(w, r, u.idIndex)
 	if len(id) > 0 {
 		err := r.ParseMultipartForm(200000)
 		if err != nil {
@@ -210,7 +211,7 @@ func (u *Handler) UploadCover(w http.ResponseWriter, r *http.Request) {
 
 func (u *Handler) DeleteGalleryFile(w http.ResponseWriter, r *http.Request) {
 	url := r.URL.Query().Get("url")
-	id := GetRequiredParam(w, r, u.idIndex)
+	id := GetRequiredString(w, r, u.idIndex)
 	if len(id) > 0 {
 		result, err4 := u.Service.DeleteGalleryFile(id, url, r)
 		if err4 != nil {
@@ -227,7 +228,7 @@ func (u *Handler) DeleteGalleryFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (u *Handler) GetGallery(w http.ResponseWriter, r *http.Request) {
-	id := GetRequiredParam(w, r, u.idIndex)
+	id := GetRequiredString(w, r, u.idIndex)
 	if len(id) > 0 {
 		result, err := u.Service.GetGallery(id, r)
 		if err != nil {
@@ -244,7 +245,7 @@ func (u *Handler) GetGallery(w http.ResponseWriter, r *http.Request) {
 }
 
 func (u *Handler) UpdateGallery(w http.ResponseWriter, r *http.Request) {
-	id := GetRequiredParam(w, r, u.idIndex)
+	id := GetRequiredString(w, r, u.idIndex)
 	if len(id) > 0 {
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(r.Body)
@@ -272,22 +273,22 @@ func respond(w http.ResponseWriter, code int, result interface{}) {
 	w.WriteHeader(code)
 	w.Write(res)
 }
-func GetRequiredParam(w http.ResponseWriter, r *http.Request, options ...int) string {
-	p := GetParam(r, options...)
+func GetRequiredString(w http.ResponseWriter, r *http.Request, options ...int) string {
+	p := GetString(r, options...)
 	if len(p) == 0 {
 		http.Error(w, "parameter is required", http.StatusBadRequest)
 		return ""
 	}
 	return p
 }
-func GetParam(r *http.Request, options... int) string {
+func GetString(r *http.Request, options ...int) string {
 	offset := 0
 	if len(options) > 0 && options[0] > 0 {
 		offset = options[0]
 	}
 	s := r.URL.Path
 	params := strings.Split(s, "/")
-	i := len(params)-1-offset
+	i := len(params) - 1 - offset
 	if i >= 0 {
 		return params[i]
 	} else {

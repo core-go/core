@@ -10,17 +10,17 @@ import (
 )
 
 type Handler struct {
-	Service  NotificationsPort
-	LogError func(context.Context, string, ...map[string]interface{})
-	UserId   string
-	Read     string
-	Limit    string
+	Service       NotificationsPort
+	LogError      func(context.Context, string, ...map[string]interface{})
+	UserId        string
+	Read          string
+	Limit         string
 	NextPageToken string
-	List     string
-	Next     string
+	List          string
+	Next          string
 }
 
-func NewNotificationsHandler(service NotificationsPort, logError func(context.Context, string, ...map[string]interface{}), opts...string) *Handler {
+func NewNotificationsHandler(service NotificationsPort, logError func(context.Context, string, ...map[string]interface{}), opts ...string) *Handler {
 	var userId, read, list, next, limit, nextPageToken string
 	if len(opts) > 1 {
 		userId = opts[1]
@@ -83,7 +83,7 @@ func (h *Handler) GetNotifications(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func (h *Handler) SetRead(w http.ResponseWriter, r *http.Request) {
-	id := GetRequiredParam(w, r)
+	id := GetRequiredString(w, r)
 	if len(id) > 0 {
 		res, err := h.Service.SetRead(r.Context(), id, true)
 		if err != nil {
@@ -108,11 +108,13 @@ func JSON(w http.ResponseWriter, code int, result interface{}) error {
 	err := json.NewEncoder(w).Encode(result)
 	return err
 }
+
 var UserId = "userId"
+
 func ApplyUserId(str string) {
 	UserId = str
 }
-func GetUser(ctx context.Context, opt...string) (string, bool) {
+func GetUser(ctx context.Context, opt ...string) (string, bool) {
 	user := UserId
 	if len(opt) > 0 && len(opt[0]) > 0 {
 		user = opt[0]
@@ -126,7 +128,7 @@ func GetUser(ctx context.Context, opt...string) (string, bool) {
 	}
 	return "", false
 }
-func RequireUser(ctx context.Context, w http.ResponseWriter, opt...string) (string, bool) {
+func RequireUser(ctx context.Context, w http.ResponseWriter, opt ...string) (string, bool) {
 	userId, ok := GetUser(ctx, opt...)
 	if ok {
 		return userId, ok
@@ -135,22 +137,22 @@ func RequireUser(ctx context.Context, w http.ResponseWriter, opt...string) (stri
 		return "", false
 	}
 }
-func GetParam(r *http.Request, options... int) string {
+func GetString(r *http.Request, options ...int) string {
 	offset := 0
 	if len(options) > 0 && options[0] > 0 {
 		offset = options[0]
 	}
 	s := r.URL.Path
 	params := strings.Split(s, "/")
-	i := len(params)-1-offset
+	i := len(params) - 1 - offset
 	if i >= 0 {
 		return params[i]
 	} else {
 		return ""
 	}
 }
-func GetRequiredParam(w http.ResponseWriter,r *http.Request, options ...int) string {
-	p := GetParam(r, options...)
+func GetRequiredString(w http.ResponseWriter, r *http.Request, options ...int) string {
+	p := GetString(r, options...)
 	if len(p) == 0 {
 		http.Error(w, "parameter is required", http.StatusBadRequest)
 		return ""

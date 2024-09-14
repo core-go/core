@@ -90,7 +90,7 @@ func mapToStruct(obj interface{}, des interface{}) error {
 
 func BuildId[K any](r *http.Request, modelType reflect.Type, idNames []string, indexes map[string]int, isMap bool, opts ...int) (K, bool, error) {
 	var k K
-	id, er1 := core.BuildId(r, modelType, idNames, indexes, opts...)
+	id, er1 := core.CreateId(r, modelType, idNames, indexes, opts...)
 	if er1 != nil {
 		return k, false, er1
 	}

@@ -13,7 +13,8 @@ type ApprService interface {
 	Approve(ctx context.Context, id string, userId string, note string) (int64, error)
 	Reject(ctx context.Context, id string, userId string, note string) (int64, error)
 }
-func NewApprService(service ApprService, resource string, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, index int, opts...string) *ApprHandler {
+
+func NewApprService(service ApprService, resource string, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, index int, opts ...string) *ApprHandler {
 	var user, action1, action2 string
 	if len(opts) > 0 {
 		user = opts[0]
@@ -30,9 +31,11 @@ func NewApprService(service ApprService, resource string, logError func(context.
 	} else {
 		action2 = "reject"
 	}
-	return &ApprHandler{ApprService: service, Resource: resource, Index: index, User: user, ActionApprove: action1, ActionReject:  action2, LogError: logError, WriteLog: writeLog}
+	return &ApprHandler{ApprService: service, Resource: resource, Index: index, User: user, ActionApprove: action1, ActionReject: action2, LogError: logError, WriteLog: writeLog}
 }
+
 var internalServerError = "Internal Server Error"
+
 type ApprHandler struct {
 	ApprService   ApprService
 	Resource      string
@@ -58,8 +61,8 @@ func (h *ApprHandler) Reject(w http.ResponseWriter, r *http.Request) {
 		response.HandleResult(w, r, id, res, err, h.Resource, h.ActionReject, h.LogError, h.WriteLog)
 	}
 }
-func GetParams(w http.ResponseWriter, r *http.Request, index int, opts...string) (string, string, string, int32, bool) {
-	id := GetRequiredParam(w, r, index)
+func GetParams(w http.ResponseWriter, r *http.Request, index int, opts ...string) (string, string, string, int32, bool) {
+	id := GetRequiredString(w, r, index)
 	if len(id) > 0 {
 		var userId = UserId
 		if len(opts) > 0 {
@@ -75,8 +78,8 @@ func GetParams(w http.ResponseWriter, r *http.Request, index int, opts...string)
 	}
 	return id, "", "", 0, false
 }
-func GetParameters(w http.ResponseWriter, r *http.Request, index int, opts...string) (string, string, string, bool) {
-	id := GetRequiredParam(w, r, index)
+func GetParameters(w http.ResponseWriter, r *http.Request, index int, opts ...string) (string, string, string, bool) {
+	id := GetRequiredString(w, r, index)
 	if len(id) > 0 {
 		var userId = UserId
 		if len(opts) > 0 {
@@ -158,33 +161,35 @@ func GetBodyWithVersion(w http.ResponseWriter, r *http.Request) (string, int32, 
 		}
 	}
 }
-func GetParam(r *http.Request, options... int) string {
+func GetString(r *http.Request, options ...int) string {
 	offset := 0
 	if len(options) > 0 && options[0] > 0 {
 		offset = options[0]
 	}
 	s := r.URL.Path
 	params := strings.Split(s, "/")
-	i := len(params)-1-offset
+	i := len(params) - 1 - offset
 	if i >= 0 {
 		return params[i]
 	} else {
 		return ""
 	}
 }
-func GetRequiredParam(w http.ResponseWriter,r *http.Request, options ...int) string {
-	p := GetParam(r, options...)
+func GetRequiredString(w http.ResponseWriter, r *http.Request, options ...int) string {
+	p := GetString(r, options...)
 	if len(p) == 0 {
 		http.Error(w, "parameter is required", http.StatusBadRequest)
 		return ""
 	}
 	return p
 }
+
 var UserId = "userId"
+
 func ApplyUserId(str string) {
 	UserId = str
 }
-func GetUser(ctx context.Context, opt...string) (string, bool) {
+func GetUser(ctx context.Context, opt ...string) (string, bool) {
 	user := UserId
 	if len(opt) > 0 && len(opt[0]) > 0 {
 		user = opt[0]
@@ -198,7 +203,7 @@ func GetUser(ctx context.Context, opt...string) (string, bool) {
 	}
 	return "", false
 }
-func RequireUser(ctx context.Context, w http.ResponseWriter, opt...string) (string, bool) {
+func RequireUser(ctx context.Context, w http.ResponseWriter, opt ...string) (string, bool) {
 	userId, ok := GetUser(ctx, opt...)
 	if ok {
 		return userId, ok
