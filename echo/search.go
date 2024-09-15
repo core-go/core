@@ -17,22 +17,22 @@ type SearchHandler[T any, K any] struct {
 
 func NewSearchHandlerWithLog[T any, K any](
 	searchHandler ISearchHandler,
-	service Service[T, K],
+	service core.Service[T, K],
 	logError func(context.Context, string, ...map[string]interface{}),
 	validate func(context.Context, *T) ([]core.ErrorMessage, error),
 	action *core.ActionConfig,
 	writeLog func(context.Context, string, string, bool, string) error,
-	opts ...Builder[T],
+	opts ...core.Builder[T],
 ) *SearchHandler[T, K] {
 	hdl := NewhandlerWithLog[T, K](service, logError, validate, action, writeLog, opts...)
 	return &SearchHandler[T, K]{hdl, searchHandler}
 }
 func NewSearchHandler[T any, K any](
 	searchHandler ISearchHandler,
-	service Service[T, K],
+	service core.Service[T, K],
 	logError func(context.Context, string, ...map[string]interface{}),
 	validate func(context.Context, *T) ([]core.ErrorMessage, error),
-	opts ...Builder[T],
+	opts ...core.Builder[T],
 ) *SearchHandler[T, K] {
 	hdl := NewhandlerWithLog[T, K](service, logError, validate, nil, nil, opts...)
 	return &SearchHandler[T, K]{hdl, searchHandler}

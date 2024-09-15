@@ -240,17 +240,6 @@ func CheckId[T any](w http.ResponseWriter, r *http.Request, body *T, keysJson []
 	}
 	return nil
 }
-func BuildMapAndCheckId[T any](w http.ResponseWriter, r *http.Request, keysJson []string, mapIndex map[string]int, opts ...func(context.Context, *T) error) (*http.Request, T, map[string]interface{}, error) {
-	r2, obj, body, er0 := BuildFieldMapAndCheckId[T](w, r, keysJson, mapIndex, false, opts...)
-	if er0 != nil {
-		return r2, obj, body, er0
-	}
-	json, er1 := core.BodyToJsonMap(r, &obj, body, keysJson, mapIndex)
-	if er1 != nil {
-		http.Error(w, er1.Error(), http.StatusBadRequest)
-	}
-	return r2, obj, json, er1
-}
 
 func BuildFieldMapAndCheckId[T any](w http.ResponseWriter, r *http.Request, keysJson []string, mapIndex map[string]int, ignorePatch bool, opts ...func(context.Context, *T) error) (*http.Request, T, map[string]interface{}, error) {
 	var obj T
@@ -263,4 +252,16 @@ func BuildFieldMapAndCheckId[T any](w http.ResponseWriter, r *http.Request, keys
 	}
 	er1 := CheckId[T](w, r, &obj, keysJson, mapIndex, opts...)
 	return r, obj, body, er1
+}
+
+func BuildMapAndCheckId[T any](w http.ResponseWriter, r *http.Request, keysJson []string, mapIndex map[string]int, opts ...func(context.Context, *T) error) (*http.Request, T, map[string]interface{}, error) {
+	r2, obj, body, er0 := BuildFieldMapAndCheckId[T](w, r, keysJson, mapIndex, false, opts...)
+	if er0 != nil {
+		return r2, obj, body, er0
+	}
+	json, er1 := core.BodyToJsonMap(r, &obj, body, keysJson, mapIndex)
+	if er1 != nil {
+		http.Error(w, er1.Error(), http.StatusBadRequest)
+	}
+	return r2, obj, json, er1
 }

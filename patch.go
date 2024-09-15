@@ -17,12 +17,6 @@ func IsPatch(ctx context.Context) bool {
 	return false
 }
 
-type Builder interface {
-	Create(ctx context.Context, model interface{}) error
-	Update(ctx context.Context, model interface{}) error
-	Patch(ctx context.Context, model interface{}) error
-}
-
 func BuildMapAndStruct(r *http.Request, interfaceBody interface{}, options ...http.ResponseWriter) (map[string]interface{}, error) {
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(r.Body)

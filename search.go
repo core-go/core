@@ -1,13 +1,12 @@
-package gin
+package core
 
 import (
 	"context"
-	"github.com/core-go/core"
-	"github.com/gin-gonic/gin"
+	"net/http"
 )
 
 type ISearchHandler interface {
-	Search(c *gin.Context)
+	Search(w http.ResponseWriter, r *http.Request)
 }
 
 type SearchHandler[T any, K any] struct {
@@ -17,22 +16,22 @@ type SearchHandler[T any, K any] struct {
 
 func NewSearchHandlerWithLog[T any, K any](
 	searchHandler ISearchHandler,
-	service core.Service[T, K],
+	service Service[T, K],
 	logError func(context.Context, string, ...map[string]interface{}),
-	validate func(context.Context, *T) ([]core.ErrorMessage, error),
-	action *core.ActionConfig,
+	validate func(context.Context, *T) ([]ErrorMessage, error),
+	action *ActionConfig,
 	writeLog func(context.Context, string, string, bool, string) error,
-	opts ...core.Builder[T],
+	opts ...Builder[T],
 ) *SearchHandler[T, K] {
 	hdl := NewhandlerWithLog[T, K](service, logError, validate, action, writeLog, opts...)
 	return &SearchHandler[T, K]{hdl, searchHandler}
 }
 func NewSearchHandler[T any, K any](
 	searchHandler ISearchHandler,
-	service core.Service[T, K],
+	service Service[T, K],
 	logError func(context.Context, string, ...map[string]interface{}),
-	validate func(context.Context, *T) ([]core.ErrorMessage, error),
-	opts ...core.Builder[T],
+	validate func(context.Context, *T) ([]ErrorMessage, error),
+	opts ...Builder[T],
 ) *SearchHandler[T, K] {
 	hdl := NewhandlerWithLog[T, K](service, logError, validate, nil, nil, opts...)
 	return &SearchHandler[T, K]{hdl, searchHandler}

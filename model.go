@@ -6,7 +6,7 @@ import (
 	"unicode"
 )
 
-type Validate func(ctx context.Context, model interface{}) ([]ErrorMessage, error)
+type Validate[T any] func(ctx context.Context, model T) ([]ErrorMessage, error)
 
 type ErrorMessage struct {
 	Field   string `yaml:"field" mapstructure:"field" json:"field,omitempty" gorm:"column:field" bson:"field,omitempty" dynamodbav:"field,omitempty" firestore:"field,omitempty"`

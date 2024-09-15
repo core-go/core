@@ -18,22 +18,24 @@ type FixedLength struct {
 	Handle   func(f reflect.Value, line string, format string, scale int) error
 }
 
-func NewFixedLengthTransformer(modelType reflect.Type) (*FixedLengthTransformer, error) {
+func NewFixedLengthTransformer[T any]() (*FixedLengthTransformer[T], error) {
+	var t T
+	modelType := reflect.TypeOf(t)
 	formatCols, err := GetIndexes(modelType, "format")
 	if err != nil {
 		return nil, err
 	}
-	return &FixedLengthTransformer{modelType: modelType, formatCols: formatCols}, nil
+	return &FixedLengthTransformer[T]{formatCols: formatCols}, nil
 }
 
-type FixedLengthTransformer struct {
-	modelType  reflect.Type
+type FixedLengthTransformer[T any] struct {
 	formatCols map[int]*FixedLength
 }
 
-func (f FixedLengthTransformer) Transform(ctx context.Context, line string, res interface{}) error {
-	err := ScanLineFixLength(line, res, f.formatCols)
-	return err
+func (f FixedLengthTransformer[T]) Transform(ctx context.Context, line string) (T, error) {
+	var res T
+	err := ScanLineFixLength(line, &res, f.formatCols)
+	return res, err
 }
 
 func GetIndexes(modelType reflect.Type, tagName string) (map[int]*FixedLength, error) {
