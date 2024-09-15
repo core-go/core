@@ -6,8 +6,6 @@ import (
 	v "github.com/core-go/core/v10"
 )
 
-type Validate[T any] func(ctx context.Context, model T) ([]s.ErrorMessage, error)
-
 type Validator[T any] struct {
 	validator *v.Validator
 }
