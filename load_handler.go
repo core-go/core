@@ -30,11 +30,11 @@ func ReturnWithLog(w http.ResponseWriter, r *http.Request, model interface{}, er
 			writeLog(r.Context(), resource, action, false, "GET "+r.URL.Path+" with error: "+err.Error())
 		}
 		if logError == nil && writeLog == nil {
-			return JSON(w, http.StatusInternalServerError, err.Error())
+			JSON(w, http.StatusInternalServerError, err.Error())
 		} else {
-			return JSON(w, http.StatusInternalServerError, InternalServerError)
+			JSON(w, http.StatusInternalServerError, InternalServerError)
 		}
-
+		return err
 	} else {
 		if IsNil(model) {
 			if writeLog != nil {
@@ -53,10 +53,11 @@ func Return(w http.ResponseWriter, r *http.Request, model interface{}, err error
 	if err != nil {
 		if logError != nil {
 			logError(r.Context(), "GET "+r.URL.Path+" with error: "+err.Error())
-			return JSON(w, http.StatusInternalServerError, InternalServerError)
+			JSON(w, http.StatusInternalServerError, InternalServerError)
 		} else {
-			return JSON(w, http.StatusInternalServerError, err.Error())
+			JSON(w, http.StatusInternalServerError, err.Error())
 		}
+		return err
 	} else {
 		if IsNil(model) {
 			return JSON(w, http.StatusNotFound, nil)

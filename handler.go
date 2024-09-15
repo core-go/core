@@ -228,10 +228,11 @@ func AfterDeletedWithLog(w http.ResponseWriter, r *http.Request, count int64, er
 			writeLog(r.Context(), resource, action, false, "DELETE "+r.URL.Path+" with error "+err.Error())
 		}
 		if logError == nil && writeLog == nil {
-			return JSON(w, http.StatusInternalServerError, err.Error())
+			JSON(w, http.StatusInternalServerError, err.Error())
 		} else {
-			return JSON(w, http.StatusInternalServerError, InternalServerError)
+			JSON(w, http.StatusInternalServerError, InternalServerError)
 		}
+		return err
 	}
 	if count > 0 {
 		if writeLog != nil {
@@ -256,10 +257,11 @@ func AfterDeleted(w http.ResponseWriter, r *http.Request, count int64, err error
 			logError(r.Context(), "DELETE "+r.URL.Path+" with error "+err.Error())
 		}
 		if logError == nil {
-			return JSON(w, http.StatusInternalServerError, err.Error())
+			JSON(w, http.StatusInternalServerError, err.Error())
 		} else {
-			return JSON(w, http.StatusInternalServerError, InternalServerError)
+			JSON(w, http.StatusInternalServerError, InternalServerError)
 		}
+		return err
 	}
 	if count > 0 {
 		return JSON(w, http.StatusOK, count)
@@ -289,10 +291,11 @@ func AfterSavedWithLog(w http.ResponseWriter, r *http.Request, body interface{},
 			writeLog(r.Context(), resource, action, false, err.Error())
 		}
 		if logError == nil && writeLog == nil {
-			return JSON(w, http.StatusInternalServerError, err.Error())
+			JSON(w, http.StatusInternalServerError, err.Error())
 		} else {
-			return JSON(w, http.StatusInternalServerError, InternalServerError)
+			JSON(w, http.StatusInternalServerError, InternalServerError)
 		}
+		return err
 	}
 	if count > 0 {
 		if writeLog != nil {
@@ -329,10 +332,11 @@ func AfterSaved(w http.ResponseWriter, r *http.Request, body interface{}, count 
 			}
 		}
 		if logError == nil {
-			return JSON(w, http.StatusInternalServerError, err.Error())
+			JSON(w, http.StatusInternalServerError, err.Error())
 		} else {
-			return JSON(w, http.StatusInternalServerError, InternalServerError)
+			JSON(w, http.StatusInternalServerError, InternalServerError)
 		}
+		return err
 	}
 	if count > 0 {
 		if IsNil(body) {
@@ -366,10 +370,11 @@ func AfterCreatedWithLog(w http.ResponseWriter, r *http.Request, body interface{
 			writeLog(r.Context(), resource, action, false, err.Error())
 		}
 		if logError == nil && writeLog == nil {
-			return JSON(w, http.StatusInternalServerError, err.Error())
+			JSON(w, http.StatusInternalServerError, err.Error())
 		} else {
-			return JSON(w, http.StatusInternalServerError, InternalServerError)
+			JSON(w, http.StatusInternalServerError, InternalServerError)
 		}
+		return err
 	}
 	if count > 0 {
 		if writeLog != nil {
@@ -401,10 +406,11 @@ func AfterCreated(w http.ResponseWriter, r *http.Request, body interface{}, coun
 			}
 		}
 		if logError == nil {
-			return JSON(w, http.StatusInternalServerError, err.Error())
+			JSON(w, http.StatusInternalServerError, err.Error())
 		} else {
-			return JSON(w, http.StatusInternalServerError, InternalServerError)
+			JSON(w, http.StatusInternalServerError, InternalServerError)
 		}
+		return err
 	}
 	if count > 0 {
 		if IsNil(body) {
