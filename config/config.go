@@ -123,7 +123,7 @@ func BindEnvs(conf interface{}, parts ...string) error {
 	for i := 0; i < num; i++ {
 		v := ifv.Field(i)
 		t := ift.Field(i)
-		tv, ok := t.Tag.Lookup("yaml")
+		tv, ok := t.Tag.Lookup("mapstructure")
 		if !ok {
 			continue
 		}
