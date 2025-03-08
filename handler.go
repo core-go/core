@@ -497,8 +497,8 @@ func NewhandlerWithLog[T any, K any](
 	service Service[T, K],
 	logError func(context.Context, string, ...map[string]interface{}),
 	validate func(context.Context, *T) ([]ErrorMessage, error),
-	action *ActionConfig,
 	writeLog func(context.Context, string, string, bool, string) error,
+	action *ActionConfig,
 	opts ...Builder[T],
 ) *Handler[T, K] {
 	var b Builder[T]

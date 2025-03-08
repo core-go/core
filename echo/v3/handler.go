@@ -90,8 +90,8 @@ func NewhandlerWithLog[T any, K any](
 	service core.Service[T, K],
 	logError func(context.Context, string, ...map[string]interface{}),
 	validate func(context.Context, *T) ([]core.ErrorMessage, error),
-	action *core.ActionConfig,
 	writeLog func(context.Context, string, string, bool, string) error,
+	action *core.ActionConfig,
 	opts ...core.Builder[T],
 ) *Handler[T, K] {
 	var b core.Builder[T]
