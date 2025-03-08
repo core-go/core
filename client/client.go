@@ -255,7 +255,22 @@ func GetTLSClientConfig(clientCert tls.Certificate, options ...string) (*tls.Con
 	}
 	return c, nil
 }
-
+func DoRequest(ctx context.Context, client *http.Client, method string, url string, body []byte, headers map[string]string) (*http.Response, error) {
+	if body != nil {
+		b := body
+		req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewBuffer(b))
+		if err != nil {
+			return nil, err
+		}
+		return AddHeaderAndDo(client, req, headers)
+	} else {
+		req, err := http.NewRequestWithContext(ctx, method, url, nil)
+		if err != nil {
+			return nil, err
+		}
+		return AddHeaderAndDo(client, req, headers)
+	}
+}
 func DoJSON(ctx context.Context, client *http.Client, method string, url string, body []byte, headers map[string]string) (*http.Response, error) {
 	if body != nil {
 		b := body
