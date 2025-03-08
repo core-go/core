@@ -80,10 +80,10 @@ type Attributes struct {
 	Log      func(context.Context, string, string, bool, string) error
 }
 
-func CreateAttributes(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), action *ActionConfig, opts ...func(context.Context, string, string, bool, string) error) *Attributes {
-	var writeLog func(context.Context, string, string, bool, string) error
-	if len(opts) > 0 {
-		writeLog = opts[0]
+func CreateAttributes(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{}), writeLog func(context.Context, string, string, bool, string) error, opts ...*ActionConfig) *Attributes {
+	var action *ActionConfig
+	if len(opts) > 0 && opts[0] != nil {
+		action = opts[0]
 	}
 	a := InitAction(action)
 	resource := BuildResourceName(modelType.Name())
