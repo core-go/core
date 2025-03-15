@@ -23,7 +23,7 @@ func NewSearchHandlerWithLog[T any, K any](
 	writeLog func(context.Context, string, string, bool, string) error,
 	opts ...Builder[T],
 ) *SearchHandler[T, K] {
-	hdl := NewhandlerWithLog[T, K](service, logError, validate, action, writeLog, opts...)
+	hdl := NewhandlerWithLog[T, K](service, logError, validate, writeLog, action, opts...)
 	return &SearchHandler[T, K]{hdl, searchHandler}
 }
 func NewSearchHandler[T any, K any](
