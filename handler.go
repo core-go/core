@@ -71,6 +71,11 @@ func InitAction(conf *ActionConfig) ActionConfig {
 	return c
 }
 
+type Attrs struct {
+	Keys    []string
+	Indexes map[string]int
+	Error   func(context.Context, string, ...map[string]interface{})
+}
 type Attributes struct {
 	Keys     []string
 	Indexes  map[string]int
@@ -89,6 +94,10 @@ func CreateAttributes(modelType reflect.Type, logError func(context.Context, str
 	resource := BuildResourceName(modelType.Name())
 	keys, indexes, _ := BuildMapField(modelType)
 	return &Attributes{Keys: keys, Indexes: indexes, Resource: resource, Action: a, Error: logError, Log: writeLog}
+}
+func CreateAttrs(modelType reflect.Type, logError func(context.Context, string, ...map[string]interface{})) *Attrs {
+	keys, indexes, _ := BuildMapField(modelType)
+	return &Attrs{Keys: keys, Indexes: indexes, Error: logError}
 }
 
 type Parameters struct {
